@@ -8,6 +8,7 @@ import EventRegistration from './pages/EventRegistration'
 import EventFeedback from './pages/EventFeedback'
 import EventDashboard from './pages/EventDashboard'
 import SpeakerDatabase from './pages/SpeakerDatabase'
+import BannerStudio from './pages/BannerStudio'
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
         <Route path="/quote-studio" element={<QuoteCardStudio />} />
         <Route path="/flyer-studio" element={<EventFlyerStudio />} />
         <Route path="/thumb-studio" element={<VideoThumbnailStudio />} />
+        <Route path="/banner-studio" element={<BannerStudio />} />
         <Route path="/form-builder" element={<FormBuilder />} />
         <Route path="/register" element={<EventRegistration />} />
         <Route path="/feedback" element={<EventFeedback />} />

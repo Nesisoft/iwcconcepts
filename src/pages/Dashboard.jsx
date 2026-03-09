@@ -62,6 +62,16 @@ const tools = [
     available: true,
   },
   {
+    id: 'banner-studio',
+    path: '/banner-studio',
+    icon: '🖼️',
+    title: 'Banner Studio',
+    desc: 'Design professional channel banners and profile headers for YouTube, Twitter/X, Facebook, LinkedIn, and Twitch.',
+    tags: ['YouTube', 'Social', 'Branding', 'Export'],
+    accent: '#2ECC71',
+    available: true,
+  },
+  {
     id: 'coming-soon-1',
     path: null,
     icon: '📈',
