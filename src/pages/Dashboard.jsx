@@ -32,13 +32,43 @@ const tools = [
     available: true,
   },
   {
-    id: 'coming-soon-2',
-    path: null,
+    id: 'form-builder',
+    path: '/form-builder',
+    icon: '📋',
+    title: 'Form Builder',
+    desc: 'Build branded registration and feedback forms with countdown timers, speaker previews, email confirmations, and shareable links.',
+    tags: ['Registration', 'Feedback', 'Email', 'Shareable'],
+    accent: '#2ECC71',
+    available: true,
+  },
+  {
+    id: 'event-dashboard',
+    path: '/event-dashboard',
     icon: '📊',
+    title: 'Event Dashboard',
+    desc: 'Manage event submissions in real-time, track registrations, manage speaker lineups, checklists, and generate email reminders.',
+    tags: ['Analytics', 'Speakers', 'Checklist', 'Reminders'],
+    accent: '#9B59B6',
+    available: true,
+  },
+  {
+    id: 'speakers',
+    path: '/speakers',
+    icon: '🎙️',
+    title: 'Speaker Database',
+    desc: 'A private directory of all past and future Catch Up speakers — bios, topics, contacts, social handles, ratings, and tags.',
+    tags: ['Speakers', 'Database', 'Search', 'Directory'],
+    accent: '#E4600A',
+    available: true,
+  },
+  {
+    id: 'coming-soon-1',
+    path: null,
+    icon: '📈',
     title: 'Infographic Builder',
     desc: 'Build data-driven infographics and stats cards for presentations and social media.',
     tags: ['Data', 'Charts', 'Coming Soon'],
-    accent: '#2ECC71',
+    accent: '#3498DB',
     available: false,
   },
 ]
@@ -106,8 +136,8 @@ export default function Dashboard() {
         }}>
           Your Visual Content<br />Command Centre
         </h1>
-        <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.55)', maxWidth: 520, margin: '0 auto', lineHeight: 1.7 }}>
-          Design stunning quote cards, event flyers, and branded graphics — all in one place, built for IWC Concepts.
+        <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.55)', maxWidth: 560, margin: '0 auto', lineHeight: 1.7 }}>
+          Design stunning graphics, manage event registrations, and run your Catch Up events end-to-end — all in one place, built for IWC Concepts.
         </p>
       </div>
 
