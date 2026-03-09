@@ -525,6 +525,289 @@ const THUMB_TEMPLATES = [
       ctx.restore()
     },
   },
+
+  // ── 4: Episode Panel – Dual ──────────────────────────────────────────────
+  // Two hosts flanking a center episode badge + title. Matches Image 1 style.
+  {
+    id: 4, name: 'Episode Panel – Dual',
+    render(ctx, w, h, s) {
+      ctx.save()
+
+      // Dark teal gradient background
+      const bg = ctx.createLinearGradient(0, 0, w, 0)
+      bg.addColorStop(0, '#083040'); bg.addColorStop(0.5, '#0d3a4a'); bg.addColorStop(1, '#083040')
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h)
+
+      // Polka dot grid
+      const dSpc = w * 0.038, dR = dSpc * 0.13
+      ctx.fillStyle = hexToRgba('#00c8d8', 0.2)
+      for (let dx = 0; dx <= w + dSpc; dx += dSpc)
+        for (let dy = 0; dy <= h + dSpc; dy += dSpc) {
+          ctx.beginPath(); ctx.arc(dx, dy, dR, 0, Math.PI * 2); ctx.fill()
+        }
+
+      // Helper: draw a person photo in a rectangular zone with edge fade
+      const drawPersonRect = (startX, panelW, image, zoom, pX, pY, fadeDir) => {
+        ctx.save()
+        ctx.beginPath(); ctx.rect(startX, 0, panelW, h); ctx.clip()
+        if (image) {
+          const iw = image.naturalWidth, ih = image.naturalHeight
+          const sc = Math.max(panelW / iw, h / ih) * ((zoom || 100) / 100)
+          ctx.drawImage(image,
+            startX + panelW / 2 - iw * sc / 2 + (pX || 0),
+            h / 2 - ih * sc / 2 + (pY || 0),
+            iw * sc, ih * sc)
+        } else {
+          ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(startX, 0, panelW, h)
+          ctx.font = `${h * 0.28}px sans-serif`; ctx.textAlign = 'center'
+          ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillText('👤', startX + panelW / 2, h * 0.58)
+        }
+        const fg = fadeDir === 'right'
+          ? (() => { const g = ctx.createLinearGradient(startX + panelW * 0.38, 0, startX + panelW, 0); g.addColorStop(0, 'transparent'); g.addColorStop(1, '#0d3a4a'); return g })()
+          : (() => { const g = ctx.createLinearGradient(startX, 0, startX + panelW * 0.62, 0); g.addColorStop(0, '#0d3a4a'); g.addColorStop(1, 'transparent'); return g })()
+        ctx.fillStyle = fg; ctx.fillRect(startX, 0, panelW, h)
+        ctx.restore()
+      }
+
+      const leftW = w * 0.38 * (s.pfpSize / 340)
+      const rightW = w * 0.38 * (s.pfp2Size / 340)
+      if (s.showProfile) drawPersonRect(0, leftW, s.pfpImage, s.pfpImgZoom, s.pfpImgX, s.pfpImgY, 'right')
+      if (s.showGuest)   drawPersonRect(w - rightW, rightW, s.pfp2Image, s.pfp2ImgZoom, s.pfp2ImgX, s.pfp2ImgY, 'left')
+
+      // Decorative dot clusters (corner accents)
+      const cluster = (cx, cy, clr) => {
+        const g = w * 0.027
+        for (let r = 0; r < 3; r++) for (let c2 = 0; c2 < 3; c2++) {
+          ctx.fillStyle = clr; ctx.beginPath()
+          ctx.arc(cx + c2 * g, cy + r * g, w * 0.0075, 0, Math.PI * 2); ctx.fill()
+        }
+      }
+      cluster(w * 0.68, h * 0.07, hexToRgba(s.accentColor, 0.85))
+      cluster(w * 0.73, h * 0.17, hexToRgba(s.accentColor2, 0.65))
+      cluster(w * 0.07, h * 0.72, hexToRgba(s.accentColor2, 0.65))
+      cluster(w * 0.12, h * 0.82, hexToRgba(s.accentColor, 0.65))
+
+      const cX = w / 2
+
+      // Episode badge — filled rounded rect, slightly tilted
+      if (s.showEpisode) {
+        const bW = w * 0.22, bH = h * 0.1, bY = s.episodeY / 100 * h
+        ctx.save()
+        ctx.translate(cX, bY + bH / 2)
+        ctx.rotate(-0.055)
+        ctx.fillStyle = s.accentColor2
+        roundRect(ctx, -bW / 2, -bH / 2, bW, bH, bH * 0.2); ctx.fill()
+        ctx.fillStyle = '#ffffff'
+        ctx.font = `800 ${bH * 0.45}px 'Montserrat', Arial`
+        ctx.textAlign = 'center'
+        ctx.fillText(`EPISODE ${s.episodeNum}`, 0, bH * 0.18)
+        ctx.restore()
+      }
+
+      // Title — large, center-aligned
+      const tfs = w * 0.13 * (s.titleFontSize / 100)
+      ctx.font = `900 ${tfs}px '${s.titleFont}', Arial`
+      ctx.fillStyle = s.titleColor; ctx.textAlign = 'center'
+      ctx.fillText(s.title, cX, s.titleY / 100 * h)
+
+      // Subtitle — italic, center-aligned
+      if (s.showSubtitle) {
+        const sfs = w * 0.028 * (s.subtitleFontSize / 100)
+        ctx.font = `italic 500 ${sfs}px '${s.subtitleFont}', Arial`
+        ctx.fillStyle = s.subtitleColor; ctx.textAlign = 'center'
+        ctx.fillText(s.subtitle, cX, s.subtitleY / 100 * h)
+      }
+
+      ctx.restore()
+    },
+  },
+
+  // ── 5: Episode Panel – Solo ──────────────────────────────────────────────
+  // One host on right side with episode badge and title on left.
+  {
+    id: 5, name: 'Episode Panel – Solo',
+    render(ctx, w, h, s) {
+      ctx.save()
+
+      // Same teal background + dots
+      const bg = ctx.createLinearGradient(0, 0, w, 0)
+      bg.addColorStop(0, '#083040'); bg.addColorStop(1, '#0d3a4a')
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h)
+
+      const dSpc = w * 0.038, dR = dSpc * 0.13
+      ctx.fillStyle = hexToRgba('#00c8d8', 0.2)
+      for (let dx = 0; dx <= w + dSpc; dx += dSpc)
+        for (let dy = 0; dy <= h + dSpc; dy += dSpc) {
+          ctx.beginPath(); ctx.arc(dx, dy, dR, 0, Math.PI * 2); ctx.fill()
+        }
+
+      // Person photo on right (rectangular, fade at left inner edge)
+      const rightW = w * 0.52 * (s.pfpSize / 340)
+      const rightStart = w - rightW
+      if (s.showProfile) {
+        ctx.save()
+        ctx.beginPath(); ctx.rect(rightStart, 0, rightW, h); ctx.clip()
+        if (s.pfpImage) {
+          const iw = s.pfpImage.naturalWidth, ih = s.pfpImage.naturalHeight
+          const sc = Math.max(rightW / iw, h / ih) * (s.pfpImgZoom / 100)
+          ctx.drawImage(s.pfpImage,
+            rightStart + rightW / 2 - iw * sc / 2 + s.pfpImgX,
+            h / 2 - ih * sc / 2 + s.pfpImgY,
+            iw * sc, ih * sc)
+        } else {
+          ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(rightStart, 0, rightW, h)
+          ctx.font = `${h * 0.28}px sans-serif`; ctx.textAlign = 'center'
+          ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillText('👤', rightStart + rightW / 2, h * 0.58)
+        }
+        const fg = ctx.createLinearGradient(rightStart, 0, rightStart + rightW * 0.5, 0)
+        fg.addColorStop(0, '#0d3a4a'); fg.addColorStop(1, 'transparent')
+        ctx.fillStyle = fg; ctx.fillRect(rightStart, 0, rightW * 0.56, h)
+        ctx.restore()
+      }
+
+      // Dot clusters
+      const cluster = (cx, cy, clr) => {
+        const g = w * 0.027
+        for (let r = 0; r < 3; r++) for (let c2 = 0; c2 < 3; c2++) {
+          ctx.fillStyle = clr; ctx.beginPath()
+          ctx.arc(cx + c2 * g, cy + r * g, w * 0.0075, 0, Math.PI * 2); ctx.fill()
+        }
+      }
+      cluster(w * 0.66, h * 0.06, hexToRgba(s.accentColor, 0.85))
+      cluster(w * 0.06, h * 0.74, hexToRgba(s.accentColor2, 0.65))
+
+      const textLeft = w * 0.06
+      const textMaxW = rightStart * 0.84
+
+      // Episode badge (left-aligned, tilted)
+      if (s.showEpisode) {
+        const bW = Math.min(textMaxW * 0.58, w * 0.2), bH = h * 0.095
+        const bY = s.episodeY / 100 * h
+        ctx.save()
+        ctx.translate(textLeft + bW / 2, bY + bH / 2)
+        ctx.rotate(-0.055)
+        ctx.fillStyle = s.accentColor2
+        roundRect(ctx, -bW / 2, -bH / 2, bW, bH, bH * 0.2); ctx.fill()
+        ctx.fillStyle = '#ffffff'
+        ctx.font = `800 ${bH * 0.44}px 'Montserrat', Arial`
+        ctx.textAlign = 'center'
+        ctx.fillText(`EPISODE ${s.episodeNum}`, 0, bH * 0.18)
+        ctx.restore()
+      }
+
+      // Title (left-aligned)
+      const tfs = (textMaxW * 0.3) * (s.titleFontSize / 100)
+      ctx.font = `900 ${tfs}px '${s.titleFont}', Arial`
+      ctx.fillStyle = s.titleColor; ctx.textAlign = 'left'
+      wrapText(ctx, s.title, textLeft, s.titleY / 100 * h, textMaxW, tfs * 1.1)
+
+      // Subtitle (italic, left-aligned)
+      if (s.showSubtitle) {
+        const sfs = w * 0.026 * (s.subtitleFontSize / 100)
+        ctx.font = `italic 500 ${sfs}px '${s.subtitleFont}', Arial`
+        ctx.fillStyle = s.subtitleColor; ctx.textAlign = 'left'
+        ctx.fillText(s.subtitle, textLeft, s.subtitleY / 100 * h)
+      }
+
+      // Brand tag
+      if (s.showBrand) {
+        ctx.font = `700 ${w * 0.018}px 'Montserrat', Arial`
+        drawBrandTag(ctx, s.brandX / 100 * w, s.brandY / 100 * h, s.channelName, 'rgba(255,255,255,0.8)', w, h)
+      }
+
+      ctx.restore()
+    },
+  },
+
+  // ── 6: Daily Solo ────────────────────────────────────────────────────────
+  // Dark teal background. Person photo fills right side. Left side has:
+  // - channelName in large italic script ("Daily")
+  // - title in massive bold ("PODCAST")
+  // - subtitle with first word in accent color, rest white ("OLIVIA WILSON")
+  {
+    id: 6, name: 'Daily Solo',
+    render(ctx, w, h, s) {
+      ctx.save()
+
+      // Very dark teal base
+      const bg = ctx.createLinearGradient(0, 0, w, 0)
+      bg.addColorStop(0, '#071c1c'); bg.addColorStop(0.7, '#0c2828'); bg.addColorStop(1, '#0e2e2e')
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h)
+
+      // Optional bg overlay image (very subtle)
+      if (s.bgImage) drawBg(ctx, w, h, s.bgImage, s.bgX, s.bgY, s.bgZoom, s.bgOpacity * 0.28)
+
+      // Person photo occupies right portion (pfpX% is left edge of panel)
+      const personStart = (s.pfpX / 100) * w
+      const personW = w - personStart
+      if (s.showProfile) {
+        ctx.save()
+        ctx.beginPath(); ctx.rect(personStart, 0, personW, h); ctx.clip()
+        if (s.pfpImage) {
+          const iw = s.pfpImage.naturalWidth, ih = s.pfpImage.naturalHeight
+          const sc = Math.max(personW / iw, h / ih) * (s.pfpImgZoom / 100)
+          ctx.drawImage(s.pfpImage,
+            personStart + personW / 2 - iw * sc / 2 + s.pfpImgX,
+            h / 2 - ih * sc / 2 + s.pfpImgY,
+            iw * sc, ih * sc)
+        } else {
+          ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(personStart, 0, personW, h)
+          ctx.font = `${h * 0.32}px sans-serif`; ctx.textAlign = 'center'
+          ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillText('👤', personStart + personW / 2, h * 0.6)
+        }
+        // Fade left edge of person into background
+        const fade = ctx.createLinearGradient(personStart, 0, personStart + personW * 0.42, 0)
+        fade.addColorStop(0, '#0c2828'); fade.addColorStop(1, 'transparent')
+        ctx.fillStyle = fade; ctx.fillRect(personStart, 0, personW * 0.48, h)
+        ctx.restore()
+      }
+
+      // Left readability gradient
+      const lGrad = ctx.createLinearGradient(0, 0, w * 0.54, 0)
+      lGrad.addColorStop(0, 'rgba(7,28,28,0.78)'); lGrad.addColorStop(1, 'transparent')
+      ctx.fillStyle = lGrad; ctx.fillRect(0, 0, w * 0.56, h)
+
+      const textLeft = w * 0.06
+
+      // "Daily" — large italic script (channelName)
+      if (s.showBrand) {
+        const cfs = w * 0.09 * (s.titleFontSize / 100)
+        ctx.font = `italic 800 ${cfs}px '${s.titleFont}', Georgia, serif`
+        ctx.fillStyle = hexToRgba('#ffffff', 0.9); ctx.textAlign = 'left'
+        ctx.fillText(s.channelName, textLeft, s.titleY / 100 * h)
+      }
+
+      // "PODCAST" — massive bold (title)
+      const tfs = w * 0.16 * (s.titleFontSize / 100)
+      ctx.font = `900 ${tfs}px '${s.titleFont}', Arial`
+      ctx.fillStyle = s.titleColor; ctx.textAlign = 'left'
+      const podY = (s.titleY / 100 * h) + tfs * 1.08
+      ctx.fillText(s.title, textLeft, podY)
+
+      // Name — first word in accent colour, rest in subtitleColor
+      if (s.showSubtitle) {
+        const nfs = w * 0.04 * (s.subtitleFontSize / 100)
+        const parts = (s.subtitle || '').split(' ')
+        let nx = textLeft
+        const nameY = podY + nfs * 1.6
+        parts.forEach((part, idx) => {
+          ctx.font = `900 ${nfs}px '${s.subtitleFont || 'Montserrat'}', Arial`
+          ctx.fillStyle = idx === 0 ? s.accentColor : s.subtitleColor
+          ctx.textAlign = 'left'
+          ctx.fillText(part, nx, nameY)
+          nx += ctx.measureText(part + ' ').width
+        })
+      }
+
+      // Optional episode badge
+      if (s.showEpisode) {
+        ctx.font = `800 ${w * 0.021}px 'Montserrat', Arial`
+        drawEpisodeBadge(ctx, s.episodeX / 100 * w, s.episodeY / 100 * h, `EP. ${s.episodeNum}`, s.accentColor, w, h)
+      }
+
+      ctx.restore()
+    },
+  },
 ]
 
 // ── DEFAULT STATE ──────────────────────────────────────────────────────────
@@ -556,6 +839,12 @@ const DEFAULT_STATE = {
   pfpX: 55, pfpY: 5,
   pfpBorderW: 8,
   pfpImgX: 0, pfpImgY: 0, pfpImgZoom: 100,
+
+  // 2nd person / guest photo (Episode Panel Dual)
+  pfp2Image: null, pfp2Preview: null,
+  pfp2Size: 340,
+  pfp2ImgX: 0, pfp2ImgY: 0, pfp2ImgZoom: 100,
+  showGuest: true,
 
   // Title typography
   titleFont: 'Montserrat',
@@ -598,10 +887,15 @@ export default function VideoThumbnailStudio() {
   // Template picker thumbnails
   useEffect(() => {
     const t = setTimeout(() => {
+      const PER_TEMPLATE = {
+        4: { title: 'PODCAST', subtitle: 'WITH OLIVIA WILSON', titleY: 54, subtitleY: 70, episodeY: 32, accentColor2: '#F5B800' },
+        5: { title: 'PODCAST', subtitle: 'WITH OLIVIA WILSON', titleY: 56, subtitleY: 70, episodeY: 30 },
+        6: { title: 'PODCAST', subtitle: 'OLIVIA WILSON', channelName: 'Daily', titleY: 28, pfpX: 44 },
+      }
       THUMB_TEMPLATES.forEach((_, i) => {
         const c = thumbRefs.current[i]; if (!c) return
         c.width = 240; c.height = 135
-        const ts = { ...DEFAULT_STATE, templateId: i, canvasW: 240, canvasH: 135 }
+        const ts = { ...DEFAULT_STATE, ...(PER_TEMPLATE[i] || {}), templateId: i, canvasW: 240, canvasH: 135 }
         try { THUMB_TEMPLATES[i].render(c.getContext('2d'), 240, 135, ts) } catch (_) {}
       })
     }, 120)
@@ -625,6 +919,17 @@ export default function VideoThumbnailStudio() {
     reader.onload = ev => {
       const img = new Image()
       img.onload = () => setState(prev => ({ ...prev, pfpImage: img, pfpPreview: ev.target.result }))
+      img.src = ev.target.result
+    }
+    reader.readAsDataURL(file)
+  }
+
+  function handlePfp2Upload(e) {
+    const file = e.target.files[0]; if (!file) return
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const img = new Image()
+      img.onload = () => setState(prev => ({ ...prev, pfp2Image: img, pfp2Preview: ev.target.result }))
       img.src = ev.target.result
     }
     reader.readAsDataURL(file)
@@ -734,6 +1039,9 @@ export default function VideoThumbnailStudio() {
             <Toggle label="Host / Profile Photo" checked={state.showProfile} onChange={e => set('showProfile', e.target.checked)} />
             <Toggle label="Channel Name Tag" checked={state.showBrand} onChange={e => set('showBrand', e.target.checked)} />
             <Toggle label="Subtitle Line" checked={state.showSubtitle} onChange={e => set('showSubtitle', e.target.checked)} />
+            {state.templateId === 4 && (
+              <Toggle label="Guest Photo (2nd Person)" checked={state.showGuest} onChange={e => set('showGuest', e.target.checked)} />
+            )}
           </div>
 
           <div style={divider} />
@@ -860,6 +1168,36 @@ export default function VideoThumbnailStudio() {
 
           <div style={divider} />
 
+          {/* 2nd Person / Guest Photo — Episode Panel Dual only */}
+          {state.templateId === 4 && (
+            <div style={{ marginBottom: 16 }}>
+              <SecTitle>Guest Photo (2nd Person)</SecTitle>
+              {state.pfp2Preview ? (
+                <div style={{ position: 'relative', marginBottom: 10 }}>
+                  <img src={state.pfp2Preview} alt="" style={{ width: 72, height: 72, borderRadius: '50%', display: 'block', objectFit: 'cover', border: `3px solid ${state.accentColor}` }} />
+                  <button onClick={() => setState(prev => ({ ...prev, pfp2Image: null, pfp2Preview: null }))} style={{ position: 'absolute', top: 0, left: 62, background: 'rgba(0,0,0,0.8)', border: 'none', borderRadius: '50%', color: 'white', cursor: 'pointer', width: 18, height: 18, fontSize: 10, lineHeight: '18px', textAlign: 'center' }}>✕</button>
+                </div>
+              ) : (
+                <label style={{ display: 'block', border: '2px dashed rgba(52,152,219,0.35)', borderRadius: 9, padding: 14, textAlign: 'center', cursor: 'pointer', background: 'rgba(52,152,219,0.04)', marginBottom: 10 }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#3498DB'; e.currentTarget.style.background = 'rgba(52,152,219,0.08)' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(52,152,219,0.35)'; e.currentTarget.style.background = 'rgba(52,152,219,0.04)' }}
+                >
+                  <input type="file" accept="image/*" onChange={handlePfp2Upload} style={{ display: 'none' }} />
+                  <div style={{ fontSize: 20, marginBottom: 4 }}>👤</div>
+                  <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.45)' }}><strong style={{ color: '#3498DB' }}>Upload</strong> guest / 2nd speaker photo</p>
+                </label>
+              )}
+              <Slider label="Panel Width" value={state.pfp2Size} min={80} max={700} small onChange={e => set('pfp2Size', +e.target.value)} />
+              <Slider label="Image Zoom %" value={state.pfp2ImgZoom} min={50} max={250} small onChange={e => set('pfp2ImgZoom', +e.target.value)} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                <Slider label="Image X (px)" value={state.pfp2ImgX} min={-300} max={300} small onChange={e => set('pfp2ImgX', +e.target.value)} />
+                <Slider label="Image Y (px)" value={state.pfp2ImgY} min={-300} max={300} small onChange={e => set('pfp2ImgY', +e.target.value)} />
+              </div>
+            </div>
+          )}
+
+          {state.templateId === 4 && <div style={divider} />}
+
           {/* Colors */}
           <div style={{ marginBottom: 16 }}>
             <SecTitle>Colours</SecTitle>
@@ -875,12 +1213,17 @@ export default function VideoThumbnailStudio() {
           <div style={{ marginBottom: 16 }}>
             <SecTitle>Element Positions</SecTitle>
             <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', marginBottom: 10, lineHeight: 1.5 }}>
-              Episode Badge, Brand Tag, and Podcast Cover photo positions. Title &amp; Subtitle positions are in the left panel.
+              Episode Badge, Brand Tag, and photo positions. Title &amp; Subtitle positions are in the left panel.
+              {(state.templateId === 5 || state.templateId === 4) && ' For Episode Panel, Photo controls panel width/position.'}
+              {state.templateId === 6 && ' For Daily Solo, Photo X = person panel left edge %.'}
             </div>
             {[
               { heading: 'Episode Badge', keys: [['X %', 'episodeX', 0, 90], ['Y %', 'episodeY', 0, 90]] },
               { heading: 'Brand / Channel Tag', keys: [['X %', 'brandX', 0, 90], ['Y %', 'brandY', 0, 90]] },
-              { heading: 'Podcast Cover Photo', keys: [['Center X %', 'pfpX', 5, 95], ['Center Y %', 'pfpY', 5, 95]] },
+              {
+                heading: state.templateId === 6 ? 'Person Panel (Daily Solo)' : state.templateId === 4 || state.templateId === 5 ? 'Person Photo (Episode Panel)' : 'Podcast Cover Photo',
+                keys: [['X %', 'pfpX', 0, 95], ['Y %', 'pfpY', 0, 95]],
+              },
             ].map(({ heading, keys }) => (
               <div key={heading} style={{ marginBottom: 12 }}>
                 <div style={{ fontSize: 8, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 }}>{heading}</div>
