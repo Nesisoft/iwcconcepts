@@ -285,6 +285,11 @@ export default function FormBuilder() {
   async function generateShortLink(type) {
     const url = getShareUrl(type)
     if (!url) return
+    const host = window.location.hostname
+    if (host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.') || host.startsWith('10.')) {
+      setShortLinks(l => ({ ...l, [type]: '__localhost__' }))
+      return
+    }
     setShortLoading(l => ({ ...l, [type]: true }))
     try {
       const res = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(url)}`)
@@ -614,7 +619,12 @@ export default function FormBuilder() {
                           >
                             {shortLoading[type] ? '⏳ Generating…' : '🔗 Generate Short Link'}
                           </button>
-                          {shortLinks[type] && (
+                          {shortLinks[type] === '__localhost__' && (
+                            <div style={{ marginTop: 8, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 8, padding: '8px 12px', fontSize: 10, color: '#fbbf24', lineHeight: 1.5 }}>
+                              Short links only work with a publicly accessible URL. Deploy your app and try again.
+                            </div>
+                          )}
+                          {shortLinks[type] && shortLinks[type] !== '__localhost__' && (
                             <div style={{ marginTop: 8, background: 'rgba(52,152,219,0.1)', border: '1px solid rgba(52,152,219,0.25)', borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                               <span style={{ fontSize: 12, color: '#74b9e8', fontWeight: 700 }}>{shortLinks[type]}</span>
                               <button onClick={() => navigator.clipboard.writeText(shortLinks[type])} style={{ background: 'rgba(52,152,219,0.25)', border: 'none', borderRadius: 6, color: '#74b9e8', fontSize: 10, fontWeight: 700, padding: '4px 10px', cursor: 'pointer', flexShrink: 0 }}>Copy</button>
@@ -644,7 +654,12 @@ export default function FormBuilder() {
                           {shortLoading['feedback'] ? '⏳ Generating…' : '🔗 Short Link'}
                         </button>
                       </div>
-                      {shortLinks['feedback'] && (
+                      {shortLinks['feedback'] === '__localhost__' && (
+                        <div style={{ marginTop: 8, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 8, padding: '8px 12px', fontSize: 10, color: '#fbbf24', lineHeight: 1.5 }}>
+                          Short links only work with a publicly accessible URL. Deploy your app and try again.
+                        </div>
+                      )}
+                      {shortLinks['feedback'] && shortLinks['feedback'] !== '__localhost__' && (
                         <div style={{ marginTop: 8, background: 'rgba(52,152,219,0.1)', border: '1px solid rgba(52,152,219,0.25)', borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                           <span style={{ fontSize: 12, color: '#74b9e8', fontWeight: 700 }}>{shortLinks['feedback']}</span>
                           <button onClick={() => navigator.clipboard.writeText(shortLinks['feedback'])} style={{ background: 'rgba(52,152,219,0.25)', border: 'none', borderRadius: 6, color: '#74b9e8', fontSize: 10, fontWeight: 700, padding: '4px 10px', cursor: 'pointer', flexShrink: 0 }}>Copy</button>

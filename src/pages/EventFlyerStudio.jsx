@@ -90,7 +90,9 @@ function drawSpeakerCircle(ctx, speaker, cx, cy, r, borderColor) {
   if (speaker.image) {
     const iw = speaker.image.naturalWidth, ih = speaker.image.naturalHeight
     const sc = Math.max(r * 2 / iw, r * 2 / ih)
-    ctx.drawImage(speaker.image, cx - iw * sc / 2, cy - ih * sc / 2, iw * sc, ih * sc)
+    const ox = (speaker.imgOffsetX || 0) / 100 * r * 2
+    const oy = (speaker.imgOffsetY || 0) / 100 * r * 2
+    ctx.drawImage(speaker.image, cx - iw * sc / 2 + ox, cy - ih * sc / 2 + oy, iw * sc, ih * sc)
   } else {
     const g = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r)
     g.addColorStop(0, '#c8c8c8'); g.addColorStop(1, '#e8e8e8')
@@ -189,7 +191,9 @@ const FLYER_TEMPLATES = [
         const img = s.speakers[0].image
         const iw = img.naturalWidth, ih = img.naturalHeight
         const sc = Math.max(photoR * 2 / iw, photoR * 2 / ih)
-        ctx.drawImage(img, photoCX - iw * sc / 2, photoCY - ih * sc / 2, iw * sc, ih * sc)
+        const ox = (s.speakers[0].imgOffsetX || 0) / 100 * photoR * 2
+        const oy = (s.speakers[0].imgOffsetY || 0) / 100 * photoR * 2
+        ctx.drawImage(img, photoCX - iw * sc / 2 + ox, photoCY - ih * sc / 2 + oy, iw * sc, ih * sc)
       } else {
         const g = ctx.createLinearGradient(photoCX - photoR, photoCY - photoR, photoCX + photoR, photoCY + photoR)
         g.addColorStop(0, '#e0c0a0'); g.addColorStop(1, '#c09070')
@@ -224,15 +228,16 @@ const FLYER_TEMPLATES = [
       ctx.font = `800 ${w * 0.028}px 'Montserrat', Arial`; ctx.fillStyle = s.accentColor
       ctx.textAlign = 'center'; ctx.fillText(s.date, dx + badgeW / 2, dy + badgeH * 0.68); ctx.textAlign = 'left'
 
-      // Platform icon + label
+      // Platform icon + label — uses platformX/platformY independently
       if (s.meetingPlatform !== 'none') {
         const platImg = getPlatformImage(s.meetingPlatform)
         if (platImg) {
-          const platY = dy + badgeH + h * 0.04
+          const platX = s.platformX / 100 * w
+          const platY = s.platformY / 100 * h
           const ps = w * 0.068
-          ctx.save(); ctx.globalAlpha = 0.9; ctx.drawImage(platImg, dx, platY, ps, ps); ctx.restore()
+          ctx.save(); ctx.globalAlpha = 0.9; ctx.drawImage(platImg, platX, platY, ps, ps); ctx.restore()
           ctx.font = `800 ${w * 0.032}px 'Montserrat', Arial`; ctx.fillStyle = '#1a1a2e'
-          ctx.fillText(s.meetingPlatform.charAt(0).toUpperCase() + s.meetingPlatform.slice(1), dx + ps + 10, platY + ps * 0.65)
+          ctx.fillText(s.meetingPlatform.charAt(0).toUpperCase() + s.meetingPlatform.slice(1), platX + ps + 10, platY + ps * 0.65)
         }
       }
 
@@ -240,9 +245,10 @@ const FLYER_TEMPLATES = [
       if (s.showDay) {
         const dayX = s.dayX / 100 * w, dayY = s.dayY / 100 * h
         const dbW = w * 0.18
-        ctx.fillStyle = s.accentColor
+        ctx.fillStyle = s.dayBadgeColor || s.accentColor
         roundRect(ctx, dayX, dayY, dbW, h * 0.058, 8); ctx.fill()
-        ctx.font = `900 ${w * 0.03}px 'Montserrat', Arial`; ctx.fillStyle = '#fff'
+        ctx.font = `900 ${w * 0.03 * (s.dayBadgeFontSize / 100)}px 'Montserrat', Arial`
+        ctx.fillStyle = s.dayTextColor || '#fff'
         ctx.textAlign = 'center'; ctx.fillText(`DAY ${s.dayNumber}`, dayX + dbW / 2, dayY + h * 0.038); ctx.textAlign = 'left'
       }
 
@@ -384,10 +390,11 @@ const FLYER_TEMPLATES = [
       // Day badge on card
       if (s.showDay) {
         const dayX = s.dayX / 100 * w, dayY2 = s.dayY / 100 * h
-        ctx.fillStyle = s.accentColor
+        ctx.fillStyle = s.dayBadgeColor || s.accentColor
         const dbW = w * 0.18
         roundRect(ctx, dayX, dayY2, dbW, h * 0.055, 6); ctx.fill()
-        ctx.font = `900 ${w * 0.026}px 'Montserrat', Arial`; ctx.fillStyle = 'white'
+        ctx.font = `900 ${w * 0.026 * (s.dayBadgeFontSize / 100)}px 'Montserrat', Arial`
+        ctx.fillStyle = s.dayTextColor || 'white'
         ctx.textAlign = 'center'; ctx.fillText(`DAY ${s.dayNumber}`, dayX + dbW / 2, dayY2 + h * 0.037); ctx.textAlign = 'left'
       }
 
@@ -431,9 +438,10 @@ const FLYER_TEMPLATES = [
       if (s.showDay) {
         const dayX = s.dayX / 100 * w, dayY2 = s.dayY / 100 * h
         const dbW = w * 0.24, dbH = h * 0.072
-        ctx.fillStyle = s.accentColor
+        ctx.fillStyle = s.dayBadgeColor || s.accentColor
         roundRect(ctx, dayX, dayY2, dbW, dbH, 12); ctx.fill()
-        ctx.font = `900 ${w * 0.034}px 'Montserrat', Arial`; ctx.fillStyle = 'white'
+        ctx.font = `900 ${w * 0.034 * (s.dayBadgeFontSize / 100)}px 'Montserrat', Arial`
+        ctx.fillStyle = s.dayTextColor || 'white'
         ctx.textAlign = 'center'; ctx.fillText(`DAY ${s.dayNumber}`, dayX + dbW / 2, dayY2 + dbH * 0.68); ctx.textAlign = 'left'
       }
 
@@ -505,6 +513,8 @@ const DEFAULT_STATE = {
   meetingPlatform: 'zoom',
   meetingId: '843 6787 5281', passcode: 'GOHIGHER',
   dayNumber: 1, showDay: true,
+  dayBadgeColor: '#E4600A', dayTextColor: '#ffffff', dayBadgeFontSize: 100,
+  platformX: 5, platformY: 75,
   canvasW: 1080, canvasH: 1080,
 
   // ── Title Part 1 — Main heading (e.g. "Catch Up") ────────────────────────
@@ -538,10 +548,10 @@ const DEFAULT_STATE = {
   detailsLineSpacing: 250,  // divided by 100 = spacing multiplier (2.5x)
 
   speakers: [
-    { name: 'Lady Adel', title: 'Host', image: null, previewSrc: null },
-    { name: 'Juliet Adu Gyamfi', title: 'Legal Advocate & Social Impact Leader', image: null, previewSrc: null },
-    { name: 'Dr. Isabella Ntredu', title: 'Obstetrician Gynaecologist', image: null, previewSrc: null },
-    { name: 'Derrick Agyare', title: 'PR Strategist/ Advisor', image: null, previewSrc: null },
+    { name: 'Lady Adel', title: 'Host', image: null, previewSrc: null, imgOffsetX: 0, imgOffsetY: 0 },
+    { name: 'Juliet Adu Gyamfi', title: 'Legal Advocate & Social Impact Leader', image: null, previewSrc: null, imgOffsetX: 0, imgOffsetY: 0 },
+    { name: 'Dr. Isabella Ntredu', title: 'Obstetrician Gynaecologist', image: null, previewSrc: null, imgOffsetX: 0, imgOffsetY: 0 },
+    { name: 'Derrick Agyare', title: 'PR Strategist/ Advisor', image: null, previewSrc: null, imgOffsetX: 0, imgOffsetY: 0 },
   ],
   qrCode: null, qrPreview: null,
   customTextLayers: [],
@@ -787,11 +797,16 @@ export default function EventFlyerStudio() {
             <SecTitle>Day Settings</SecTitle>
             <Toggle label="Show Day Number" checked={state.showDay} onChange={e => set('showDay', e.target.checked)} />
             <label style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: 6 }}>Day Number</label>
-            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 10 }}>
               {[1, 2, 3, 4, 5, 6, 7].map(d => (
                 <button key={d} onClick={() => set('dayNumber', d)} style={{ width: 30, height: 30, borderRadius: 6, background: state.dayNumber === d ? '#E4600A' : 'rgba(255,255,255,0.06)', border: `1px solid ${state.dayNumber === d ? '#E4600A' : 'rgba(255,255,255,0.12)'}`, color: 'white', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{d}</button>
               ))}
             </div>
+            <label style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: 5 }}>Badge Color</label>
+            <SwatchRow colors={EVENT_COLORS} value={state.dayBadgeColor} onChange={c => set('dayBadgeColor', c)} />
+            <label style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.6)', display: 'block', margin: '8px 0 5px' }}>Badge Text Color</label>
+            <SwatchRow colors={EVENT_COLORS} value={state.dayTextColor} onChange={c => set('dayTextColor', c)} />
+            <Slider label="Badge Font Size %" value={state.dayBadgeFontSize} min={30} max={200} small onChange={e => set('dayBadgeFontSize', +e.target.value)} />
           </div>
 
           <div style={divider} />
@@ -822,6 +837,12 @@ export default function EventFlyerStudio() {
                     <input type="text" placeholder="Title / Role" value={sp.title} onChange={e => updateSpeakerField(i, 'title', e.target.value)} style={{ ...inp, fontSize: 10, padding: '4px 8px' }} />
                   </div>
                 </div>
+                {sp.previewSrc && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                    <Slider label="Face X" value={sp.imgOffsetX || 0} min={-50} max={50} small onChange={e => updateSpeakerField(i, 'imgOffsetX', +e.target.value)} />
+                    <Slider label="Face Y" value={sp.imgOffsetY || 0} min={-50} max={50} small onChange={e => updateSpeakerField(i, 'imgOffsetY', +e.target.value)} />
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -998,6 +1019,10 @@ export default function EventFlyerStudio() {
               {
                 heading: 'Day Badge',
                 keys: [['Day X %', 'dayX', 0, 90], ['Day Y %', 'dayY', 0, 90]],
+              },
+              {
+                heading: 'Platform Icon (Promo)',
+                keys: [['Platform X %', 'platformX', 0, 90], ['Platform Y %', 'platformY', 0, 90]],
               },
               {
                 heading: 'Speaker Row (Grid & Day Card)',
