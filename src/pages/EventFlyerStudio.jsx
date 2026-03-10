@@ -89,7 +89,8 @@ function drawSpeakerCircle(ctx, speaker, cx, cy, r, borderColor) {
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip()
   if (speaker.image) {
     const iw = speaker.image.naturalWidth, ih = speaker.image.naturalHeight
-    const sc = Math.max(r * 2 / iw, r * 2 / ih)
+    const zoom = (speaker.imgZoom || 100) / 100
+    const sc = Math.max(r * 2 / iw, r * 2 / ih) * zoom
     const ox = (speaker.imgOffsetX || 0) / 100 * r * 2
     const oy = (speaker.imgOffsetY || 0) / 100 * r * 2
     ctx.drawImage(speaker.image, cx - iw * sc / 2 + ox, cy - ih * sc / 2 + oy, iw * sc, ih * sc)
@@ -190,10 +191,11 @@ const FLYER_TEMPLATES = [
       if (s.speakers[0] && s.speakers[0].image) {
         const img = s.speakers[0].image
         const iw = img.naturalWidth, ih = img.naturalHeight
-        const sc = Math.max(photoR * 2 / iw, photoR * 2 / ih)
+        const zoom0 = (s.speakers[0].imgZoom || 100) / 100
+        const sc0 = Math.max(photoR * 2 / iw, photoR * 2 / ih) * zoom0
         const ox = (s.speakers[0].imgOffsetX || 0) / 100 * photoR * 2
         const oy = (s.speakers[0].imgOffsetY || 0) / 100 * photoR * 2
-        ctx.drawImage(img, photoCX - iw * sc / 2 + ox, photoCY - ih * sc / 2 + oy, iw * sc, ih * sc)
+        ctx.drawImage(img, photoCX - iw * sc0 / 2 + ox, photoCY - ih * sc0 / 2 + oy, iw * sc0, ih * sc0)
       } else {
         const g = ctx.createLinearGradient(photoCX - photoR, photoCY - photoR, photoCX + photoR, photoCY + photoR)
         g.addColorStop(0, '#e0c0a0'); g.addColorStop(1, '#c09070')
@@ -279,7 +281,7 @@ const FLYER_TEMPLATES = [
         ctx.fillStyle = i % 2 === 0 ? s.accentColor2 : s.accentColor
         roundRect(ctx, cx2 + spR * 0.55, spCY - spR * 0.35, sq * 0.9, sq * 0.9, 4); ctx.fill()
 
-        drawSpeakerCircle(ctx, sp, cx2, spCY, spR, sp.name ? s.accentColor : '#ccc')
+        drawSpeakerCircle(ctx, sp, cx2, spCY, spR * ((sp.circleSize || 100) / 100), sp.name ? s.accentColor : '#ccc')
 
         if (sp.name) {
           const scale = w / 1080
@@ -466,7 +468,7 @@ const FLYER_TEMPLATES = [
         const sp = s.speakers[i]
         if (!sp || (!sp.name && !sp.image)) continue
         const scx = spStartX + i * spGap2
-        drawSpeakerCircle(ctx, sp, scx, spCY, spR2, sp.name ? s.accentColor : '#555')
+        drawSpeakerCircle(ctx, sp, scx, spCY, spR2 * ((sp.circleSize || 100) / 100), sp.name ? s.accentColor : '#555')
         if (sp.name) {
           const scale = w / 1080
           ctx.font = `700 ${w * 0.019}px 'Montserrat', Arial`; ctx.fillStyle = 'white'
@@ -847,16 +849,14 @@ export default function EventFlyerStudio() {
                 </div>
                 {sp.previewSrc && (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
-                    <Slider label="Face X" value={sp.imgOffsetX || 0} min={-50} max={50} small onChange={e => updateSpeakerField(i, 'imgOffsetX', +e.target.value)} />
-                    <Slider label="Face Y" value={sp.imgOffsetY || 0} min={-50} max={50} small onChange={e => updateSpeakerField(i, 'imgOffsetY', +e.target.value)} />
+                    <Slider label="Image X" value={sp.imgOffsetX || 0} min={-50} max={50} small onChange={e => updateSpeakerField(i, 'imgOffsetX', +e.target.value)} />
+                    <Slider label="Image Y" value={sp.imgOffsetY || 0} min={-50} max={50} small onChange={e => updateSpeakerField(i, 'imgOffsetY', +e.target.value)} />
+                    <Slider label="Image Zoom %" value={sp.imgZoom || 100} min={50} max={300} small onChange={e => updateSpeakerField(i, 'imgZoom', +e.target.value)} />
+                    <Slider label="Circle Size %" value={sp.circleSize || 100} min={30} max={200} small onChange={e => updateSpeakerField(i, 'circleSize', +e.target.value)} />
                   </div>
                 )}
               </div>
             ))}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginTop: 4 }}>
-              <Slider label="Circle Size %" value={state.speakerSize} min={30} max={200} small onChange={e => set('speakerSize', +e.target.value)} />
-              <Slider label="Host Photo Size %" value={state.hostPhotoSize} min={30} max={200} small onChange={e => set('hostPhotoSize', +e.target.value)} />
-            </div>
           </div>
 
           <div style={divider} />
