@@ -90,7 +90,9 @@ function drawSpeakerCircle(ctx, speaker, cx, cy, r, borderColor) {
   if (speaker.image) {
     const iw = speaker.image.naturalWidth, ih = speaker.image.naturalHeight
     const sc = Math.max(r * 2 / iw, r * 2 / ih)
-    ctx.drawImage(speaker.image, cx - iw * sc / 2, cy - ih * sc / 2, iw * sc, ih * sc)
+    const ox = (speaker.imgOffsetX || 0) / 100 * r * 2
+    const oy = (speaker.imgOffsetY || 0) / 100 * r * 2
+    ctx.drawImage(speaker.image, cx - iw * sc / 2 + ox, cy - ih * sc / 2 + oy, iw * sc, ih * sc)
   } else {
     const g = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r)
     g.addColorStop(0, '#c8c8c8'); g.addColorStop(1, '#e8e8e8')
@@ -189,7 +191,9 @@ const FLYER_TEMPLATES = [
         const img = s.speakers[0].image
         const iw = img.naturalWidth, ih = img.naturalHeight
         const sc = Math.max(photoR * 2 / iw, photoR * 2 / ih)
-        ctx.drawImage(img, photoCX - iw * sc / 2, photoCY - ih * sc / 2, iw * sc, ih * sc)
+        const ox = (s.speakers[0].imgOffsetX || 0) / 100 * photoR * 2
+        const oy = (s.speakers[0].imgOffsetY || 0) / 100 * photoR * 2
+        ctx.drawImage(img, photoCX - iw * sc / 2 + ox, photoCY - ih * sc / 2 + oy, iw * sc, ih * sc)
       } else {
         const g = ctx.createLinearGradient(photoCX - photoR, photoCY - photoR, photoCX + photoR, photoCY + photoR)
         g.addColorStop(0, '#e0c0a0'); g.addColorStop(1, '#c09070')
@@ -221,18 +225,19 @@ const FLYER_TEMPLATES = [
       const badgeW = w * 0.26, badgeH = h * 0.065
       ctx.fillStyle = '#1a1a2e'
       roundRect(ctx, dx, dy, badgeW, badgeH, badgeH / 2); ctx.fill()
-      ctx.font = `800 ${w * 0.028}px 'Montserrat', Arial`; ctx.fillStyle = s.accentColor
+      ctx.font = `800 ${w * 0.028}px 'Montserrat', Arial`; ctx.fillStyle = s.dateTextColor || s.accentColor
       ctx.textAlign = 'center'; ctx.fillText(s.date, dx + badgeW / 2, dy + badgeH * 0.68); ctx.textAlign = 'left'
 
-      // Platform icon + label
+      // Platform icon + label — uses platformX/platformY independently
       if (s.meetingPlatform !== 'none') {
         const platImg = getPlatformImage(s.meetingPlatform)
         if (platImg) {
-          const platY = dy + badgeH + h * 0.04
+          const platX = s.platformX / 100 * w
+          const platY = s.platformY / 100 * h
           const ps = w * 0.068
-          ctx.save(); ctx.globalAlpha = 0.9; ctx.drawImage(platImg, dx, platY, ps, ps); ctx.restore()
+          ctx.save(); ctx.globalAlpha = 0.9; ctx.drawImage(platImg, platX, platY, ps, ps); ctx.restore()
           ctx.font = `800 ${w * 0.032}px 'Montserrat', Arial`; ctx.fillStyle = '#1a1a2e'
-          ctx.fillText(s.meetingPlatform.charAt(0).toUpperCase() + s.meetingPlatform.slice(1), dx + ps + 10, platY + ps * 0.65)
+          ctx.fillText(s.meetingPlatform.charAt(0).toUpperCase() + s.meetingPlatform.slice(1), platX + ps + 10, platY + ps * 0.65)
         }
       }
 
@@ -240,10 +245,11 @@ const FLYER_TEMPLATES = [
       if (s.showDay) {
         const dayX = s.dayX / 100 * w, dayY = s.dayY / 100 * h
         const dbW = w * 0.18
-        ctx.fillStyle = s.accentColor
+        ctx.fillStyle = s.dayBadgeColor || s.accentColor
         roundRect(ctx, dayX, dayY, dbW, h * 0.058, 8); ctx.fill()
-        ctx.font = `900 ${w * 0.03}px 'Montserrat', Arial`; ctx.fillStyle = '#fff'
-        ctx.textAlign = 'center'; ctx.fillText(`DAY ${s.dayNumber}`, dayX + dbW / 2, dayY + h * 0.038); ctx.textAlign = 'left'
+        ctx.font = `900 ${w * 0.03 * (s.dayBadgeFontSize / 100)}px 'Montserrat', Arial`
+        ctx.fillStyle = s.dayTextColor || '#fff'
+        ctx.textAlign = 'center'; ctx.fillText(`${s.dayLabel || 'DAY'} ${s.dayNumber}`, dayX + dbW / 2, dayY + h * 0.038); ctx.textAlign = 'left'
       }
 
       ctx.restore()
@@ -366,7 +372,8 @@ const FLYER_TEMPLATES = [
         const iy = detY2 + idx * lH * spacingMult
         ctx.font = `${qrSz * 0.11}px serif`; ctx.fillStyle = ic
         ctx.fillText(item.emoji, detX, iy + lH * 0.55)
-        ctx.font = `600 ${qrSz * 0.09}px 'Montserrat', Arial`; ctx.fillStyle = 'white'
+        ctx.font = `600 ${qrSz * 0.09}px 'Montserrat', Arial`
+        ctx.fillStyle = idx === 0 ? (s.dateTextColor || 'white') : 'white'
         if (item.label) {
           ctx.fillText(item.label, detX + qrSz * 0.18, iy + lH * 0.4)
           ctx.font = `400 ${qrSz * 0.08}px 'Montserrat', Arial`
@@ -384,11 +391,12 @@ const FLYER_TEMPLATES = [
       // Day badge on card
       if (s.showDay) {
         const dayX = s.dayX / 100 * w, dayY2 = s.dayY / 100 * h
-        ctx.fillStyle = s.accentColor
+        ctx.fillStyle = s.dayBadgeColor || s.accentColor
         const dbW = w * 0.18
         roundRect(ctx, dayX, dayY2, dbW, h * 0.055, 6); ctx.fill()
-        ctx.font = `900 ${w * 0.026}px 'Montserrat', Arial`; ctx.fillStyle = 'white'
-        ctx.textAlign = 'center'; ctx.fillText(`DAY ${s.dayNumber}`, dayX + dbW / 2, dayY2 + h * 0.037); ctx.textAlign = 'left'
+        ctx.font = `900 ${w * 0.026 * (s.dayBadgeFontSize / 100)}px 'Montserrat', Arial`
+        ctx.fillStyle = s.dayTextColor || 'white'
+        ctx.textAlign = 'center'; ctx.fillText(`${s.dayLabel || 'DAY'} ${s.dayNumber}`, dayX + dbW / 2, dayY2 + h * 0.037); ctx.textAlign = 'left'
       }
 
       ctx.restore()
@@ -416,7 +424,7 @@ const FLYER_TEMPLATES = [
       if (s.showDay) {
         ctx.font = `900 ${w * 0.28}px 'Montserrat', Arial`
         ctx.fillStyle = hexToRgba('#ffffff', 0.04)
-        ctx.textAlign = 'center'; ctx.fillText(`DAY ${s.dayNumber}`, w / 2, h * 0.55); ctx.textAlign = 'left'
+        ctx.textAlign = 'center'; ctx.fillText(`${s.dayLabel || 'DAY'} ${s.dayNumber}`, w / 2, h * 0.55); ctx.textAlign = 'left'
       }
 
       // Brand tag — uses brandX/brandY independently
@@ -431,10 +439,11 @@ const FLYER_TEMPLATES = [
       if (s.showDay) {
         const dayX = s.dayX / 100 * w, dayY2 = s.dayY / 100 * h
         const dbW = w * 0.24, dbH = h * 0.072
-        ctx.fillStyle = s.accentColor
+        ctx.fillStyle = s.dayBadgeColor || s.accentColor
         roundRect(ctx, dayX, dayY2, dbW, dbH, 12); ctx.fill()
-        ctx.font = `900 ${w * 0.034}px 'Montserrat', Arial`; ctx.fillStyle = 'white'
-        ctx.textAlign = 'center'; ctx.fillText(`DAY ${s.dayNumber}`, dayX + dbW / 2, dayY2 + dbH * 0.68); ctx.textAlign = 'left'
+        ctx.font = `900 ${w * 0.034 * (s.dayBadgeFontSize / 100)}px 'Montserrat', Arial`
+        ctx.fillStyle = s.dayTextColor || 'white'
+        ctx.textAlign = 'center'; ctx.fillText(`${s.dayLabel || 'DAY'} ${s.dayNumber}`, dayX + dbW / 2, dayY2 + dbH * 0.68); ctx.textAlign = 'left'
       }
 
       // 3-part title — each part fully independent
@@ -474,7 +483,7 @@ const FLYER_TEMPLATES = [
       ctx.strokeStyle = s.accentColor; ctx.lineWidth = 2
       ctx.beginPath(); ctx.moveTo(0, stripY); ctx.lineTo(w, stripY); ctx.stroke()
 
-      ctx.font = `600 ${w * 0.021}px 'Montserrat', Arial`; ctx.fillStyle = 'white'
+      ctx.font = `600 ${w * 0.021}px 'Montserrat', Arial`; ctx.fillStyle = s.dateTextColor || 'white'
       ctx.fillText(s.date, w * 0.05, stripY + (h - stripY) * 0.6)
       if (s.time) {
         ctx.fillStyle = s.accentColor
@@ -504,7 +513,10 @@ const DEFAULT_STATE = {
   time: '6:00pm - 7:30pm GMT0',
   meetingPlatform: 'zoom',
   meetingId: '843 6787 5281', passcode: 'GOHIGHER',
-  dayNumber: 1, showDay: true,
+  dayNumber: '1', dayLabel: 'DAY', showDay: true,
+  dayBadgeColor: '#E4600A', dayTextColor: '#ffffff', dayBadgeFontSize: 100,
+  dateTextColor: '#E4600A',
+  platformX: 5, platformY: 75,
   canvasW: 1080, canvasH: 1080,
 
   // ── Title Part 1 — Main heading (e.g. "Catch Up") ────────────────────────
@@ -538,12 +550,13 @@ const DEFAULT_STATE = {
   detailsLineSpacing: 250,  // divided by 100 = spacing multiplier (2.5x)
 
   speakers: [
-    { name: 'Lady Adel', title: 'Host', image: null, previewSrc: null },
-    { name: 'Juliet Adu Gyamfi', title: 'Legal Advocate & Social Impact Leader', image: null, previewSrc: null },
-    { name: 'Dr. Isabella Ntredu', title: 'Obstetrician Gynaecologist', image: null, previewSrc: null },
-    { name: 'Derrick Agyare', title: 'PR Strategist/ Advisor', image: null, previewSrc: null },
+    { name: 'Lady Adel', title: 'Host', image: null, previewSrc: null, imgOffsetX: 0, imgOffsetY: 0 },
+    { name: 'Juliet Adu Gyamfi', title: 'Legal Advocate & Social Impact Leader', image: null, previewSrc: null, imgOffsetX: 0, imgOffsetY: 0 },
+    { name: 'Dr. Isabella Ntredu', title: 'Obstetrician Gynaecologist', image: null, previewSrc: null, imgOffsetX: 0, imgOffsetY: 0 },
+    { name: 'Derrick Agyare', title: 'PR Strategist/ Advisor', image: null, previewSrc: null, imgOffsetX: 0, imgOffsetY: 0 },
   ],
   qrCode: null, qrPreview: null,
+  customTextLayers: [],
 }
 
 // ── COMPONENT ──────────────────────────────────────────────────────────────
@@ -561,10 +574,35 @@ export default function EventFlyerStudio() {
 
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return
-    canvas.width = state.canvasW; canvas.height = state.canvasH
+    const w = state.canvasW, h = state.canvasH
+    canvas.width = w; canvas.height = h
     const ctx = canvas.getContext('2d')
-    try { FLYER_TEMPLATES[state.templateId].render(ctx, state.canvasW, state.canvasH, state) }
+    try { FLYER_TEMPLATES[state.templateId].render(ctx, w, h, state) }
     catch (e) { console.error('FlyerStudio render error (template ' + state.templateId + '):', e) }
+    // Draw custom text layers on top of the template
+    for (const layer of state.customTextLayers || []) {
+      if (!layer.text) continue
+      const fs = layer.fontSize * w / 1080
+      const weight = layer.bold ? '900' : '400'
+      ctx.font = `${weight} ${fs}px '${layer.font}', Arial`
+      ctx.fillStyle = layer.color
+      ctx.textAlign = layer.align || 'left'
+      const px = (layer.x / 100) * w
+      const py = (layer.y / 100) * h
+      // Optional text shadow for readability
+      if (layer.shadow) {
+        ctx.shadowColor = 'rgba(0,0,0,0.7)'
+        ctx.shadowBlur = fs * 0.15
+        ctx.shadowOffsetX = 2
+        ctx.shadowOffsetY = 2
+      }
+      ctx.fillText(layer.text, px, py)
+      ctx.shadowColor = 'transparent'
+      ctx.shadowBlur = 0
+      ctx.shadowOffsetX = 0
+      ctx.shadowOffsetY = 0
+      ctx.textAlign = 'left'
+    }
   }, [state, iconsLoaded])
 
   useEffect(() => {
@@ -759,13 +797,22 @@ export default function EventFlyerStudio() {
           {/* Day Settings */}
           <div style={{ marginBottom: 16 }}>
             <SecTitle>Day Settings</SecTitle>
-            <Toggle label="Show Day Number" checked={state.showDay} onChange={e => set('showDay', e.target.checked)} />
-            <label style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: 6 }}>Day Number</label>
-            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-              {[1, 2, 3, 4, 5, 6, 7].map(d => (
-                <button key={d} onClick={() => set('dayNumber', d)} style={{ width: 30, height: 30, borderRadius: 6, background: state.dayNumber === d ? '#E4600A' : 'rgba(255,255,255,0.06)', border: `1px solid ${state.dayNumber === d ? '#E4600A' : 'rgba(255,255,255,0.12)'}`, color: 'white', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{d}</button>
-              ))}
+            <Toggle label="Show Day Badge" checked={state.showDay} onChange={e => set('showDay', e.target.checked)} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 10 }}>
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: 4 }}>Label (e.g. DAY)</label>
+                <input type="text" value={state.dayLabel} onChange={e => set('dayLabel', e.target.value)} style={{ ...inp, fontSize: 11, padding: '5px 8px' }} placeholder="DAY" />
+              </div>
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: 4 }}>Number / Text</label>
+                <input type="text" value={state.dayNumber} onChange={e => set('dayNumber', e.target.value)} style={{ ...inp, fontSize: 11, padding: '5px 8px' }} placeholder="1" />
+              </div>
             </div>
+            <label style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: 5 }}>Badge Color</label>
+            <SwatchRow colors={EVENT_COLORS} value={state.dayBadgeColor} onChange={c => set('dayBadgeColor', c)} />
+            <label style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.6)', display: 'block', margin: '8px 0 5px' }}>Badge Text Color</label>
+            <SwatchRow colors={EVENT_COLORS} value={state.dayTextColor} onChange={c => set('dayTextColor', c)} />
+            <Slider label="Badge Font Size %" value={state.dayBadgeFontSize} min={30} max={200} small onChange={e => set('dayBadgeFontSize', +e.target.value)} />
           </div>
 
           <div style={divider} />
@@ -777,6 +824,8 @@ export default function EventFlyerStudio() {
             <SwatchRow colors={EVENT_COLORS} value={state.accentColor} onChange={c => set('accentColor', c)} />
             <label style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.6)', display: 'block', margin: '8px 0 5px' }}>Secondary Accent</label>
             <SwatchRow colors={EVENT_COLORS} value={state.accentColor2} onChange={c => set('accentColor2', c)} />
+            <label style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.6)', display: 'block', margin: '8px 0 5px' }}>Date Text Color</label>
+            <SwatchRow colors={EVENT_COLORS} value={state.dateTextColor} onChange={c => set('dateTextColor', c)} />
           </div>
 
           <div style={divider} />
@@ -795,6 +844,94 @@ export default function EventFlyerStudio() {
                     <input type="text" placeholder={`Speaker ${i + 1} name`} value={sp.name} onChange={e => updateSpeakerField(i, 'name', e.target.value)} style={{ ...inp, fontSize: 11, padding: '4px 8px' }} />
                     <input type="text" placeholder="Title / Role" value={sp.title} onChange={e => updateSpeakerField(i, 'title', e.target.value)} style={{ ...inp, fontSize: 10, padding: '4px 8px' }} />
                   </div>
+                </div>
+                {sp.previewSrc && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                    <Slider label="Face X" value={sp.imgOffsetX || 0} min={-50} max={50} small onChange={e => updateSpeakerField(i, 'imgOffsetX', +e.target.value)} />
+                    <Slider label="Face Y" value={sp.imgOffsetY || 0} min={-50} max={50} small onChange={e => updateSpeakerField(i, 'imgOffsetY', +e.target.value)} />
+                  </div>
+                )}
+              </div>
+            ))}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginTop: 4 }}>
+              <Slider label="Circle Size %" value={state.speakerSize} min={30} max={200} small onChange={e => set('speakerSize', +e.target.value)} />
+              <Slider label="Host Photo Size %" value={state.hostPhotoSize} min={30} max={200} small onChange={e => set('hostPhotoSize', +e.target.value)} />
+            </div>
+          </div>
+
+          <div style={divider} />
+
+          {/* ── Custom Text Layers ── */}
+          <div style={{ marginBottom: 16 }}>
+            <SecTitle>Custom Text</SecTitle>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.38)', marginBottom: 10, lineHeight: 1.5 }}>
+              Add your own text to the flyer — control font, size, color, and position independently.
+            </div>
+            <button
+              onClick={() => {
+                const id = 'ct_' + Math.random().toString(36).slice(2, 7)
+                set('customTextLayers', [...(state.customTextLayers || []), {
+                  id, text: 'Your text here', x: 10, y: 85, fontSize: 48,
+                  color: '#ffffff', font: 'Montserrat', bold: false, align: 'left', shadow: true,
+                }])
+              }}
+              style={{ width: '100%', background: 'rgba(228,96,10,0.12)', border: '1px dashed rgba(228,96,10,0.5)', borderRadius: 8, color: '#E4600A', fontSize: 11, fontWeight: 700, padding: '9px', cursor: 'pointer', marginBottom: 10 }}
+            >+ Add Text Layer</button>
+
+            {(state.customTextLayers || []).map((layer, idx) => (
+              <div key={layer.id} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(228,96,10,0.25)', borderRadius: 9, padding: 10, marginBottom: 8 }}>
+                {/* Header row */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
+                  <span style={{ fontSize: 9, fontWeight: 800, color: '#E4600A', letterSpacing: 1, textTransform: 'uppercase' }}>Text {idx + 1}</span>
+                  <button onClick={() => set('customTextLayers', state.customTextLayers.filter(l => l.id !== layer.id))} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: 5, color: '#f87171', padding: '2px 7px', fontSize: 10, cursor: 'pointer', fontWeight: 700 }}>✕ Remove</button>
+                </div>
+                {/* Text input */}
+                <div style={{ marginBottom: 6 }}>
+                  <label style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', display: 'block', marginBottom: 2 }}>Text</label>
+                  <input type="text" value={layer.text}
+                    onChange={e => set('customTextLayers', state.customTextLayers.map(l => l.id === layer.id ? { ...l, text: e.target.value } : l))}
+                    style={{ ...inp, fontSize: 11, padding: '5px 8px' }} placeholder="Enter text…" />
+                </div>
+                {/* Font */}
+                <label style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', display: 'block', marginBottom: 2 }}>Font Family</label>
+                <FontSelect value={layer.font} onChange={v => set('customTextLayers', state.customTextLayers.map(l => l.id === layer.id ? { ...l, font: v } : l))} />
+                {/* Color */}
+                <label style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', display: 'block', marginBottom: 4 }}>Color</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
+                  <input type="color" value={layer.color}
+                    onChange={e => set('customTextLayers', state.customTextLayers.map(l => l.id === layer.id ? { ...l, color: e.target.value } : l))}
+                    style={{ width: 34, height: 26, border: 'none', borderRadius: 5, cursor: 'pointer', background: 'transparent' }} />
+                  <SwatchRow colors={EVENT_COLORS} value={layer.color}
+                    onChange={c => set('customTextLayers', state.customTextLayers.map(l => l.id === layer.id ? { ...l, color: c } : l))} />
+                </div>
+                {/* Size */}
+                <Slider label="Font Size (px @ 1080w)" value={layer.fontSize} min={12} max={220} small
+                  onChange={e => set('customTextLayers', state.customTextLayers.map(l => l.id === layer.id ? { ...l, fontSize: +e.target.value } : l))} />
+                {/* X / Y */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                  <Slider label="X %" value={layer.x} min={0} max={95} small
+                    onChange={e => set('customTextLayers', state.customTextLayers.map(l => l.id === layer.id ? { ...l, x: +e.target.value } : l))} />
+                  <Slider label="Y %" value={layer.y} min={2} max={99} small
+                    onChange={e => set('customTextLayers', state.customTextLayers.map(l => l.id === layer.id ? { ...l, y: +e.target.value } : l))} />
+                </div>
+                {/* Alignment */}
+                <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
+                  {['left', 'center', 'right'].map(a => (
+                    <button key={a} onClick={() => set('customTextLayers', state.customTextLayers.map(l => l.id === layer.id ? { ...l, align: a } : l))}
+                      style={{ flex: 1, background: layer.align === a ? 'rgba(228,96,10,0.3)' : 'rgba(255,255,255,0.05)', border: `1px solid ${layer.align === a ? '#E4600A' : 'rgba(255,255,255,0.1)'}`, borderRadius: 5, color: layer.align === a ? '#E4600A' : 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: 700, padding: '4px', cursor: 'pointer' }}>
+                      {a === 'left' ? '⬅' : a === 'center' ? '☰' : '➡'}
+                    </button>
+                  ))}
+                </div>
+                {/* Bold + Shadow toggles */}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {[['Bold', 'bold'], ['Shadow', 'shadow']].map(([lbl, key]) => (
+                    <button key={key}
+                      onClick={() => set('customTextLayers', state.customTextLayers.map(l => l.id === layer.id ? { ...l, [key]: !l[key] } : l))}
+                      style={{ flex: 1, background: layer[key] ? 'rgba(228,96,10,0.2)' : 'rgba(255,255,255,0.04)', border: `1px solid ${layer[key] ? 'rgba(228,96,10,0.5)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 6, color: layer[key] ? '#E4600A' : 'rgba(255,255,255,0.4)', fontSize: 9, fontWeight: 700, padding: '5px', cursor: 'pointer' }}>
+                      {lbl} {layer[key] ? 'ON' : 'OFF'}
+                    </button>
+                  ))}
                 </div>
               </div>
             ))}
@@ -894,6 +1031,10 @@ export default function EventFlyerStudio() {
               {
                 heading: 'Day Badge',
                 keys: [['Day X %', 'dayX', 0, 90], ['Day Y %', 'dayY', 0, 90]],
+              },
+              {
+                heading: 'Platform Icon (Promo)',
+                keys: [['Platform X %', 'platformX', 0, 90], ['Platform Y %', 'platformY', 0, 90]],
               },
               {
                 heading: 'Speaker Row (Grid & Day Card)',

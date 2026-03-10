@@ -233,48 +233,39 @@ export default function EventRegistration() {
   // Determine if this is feedback or registration
   const isFeedback = window.location.hash.includes('/feedback')
 
+  const demoConfig = {
+    id: 'demo',
+    type: isFeedback ? 'feedback' : 'registration',
+    title: isFeedback ? 'Event Feedback' : 'Event Registration',
+    description: isFeedback ? 'We would love to hear your thoughts on this event!' : 'Register to secure your spot for this exciting event.',
+    eventDate: '', brandName: 'IWC Concepts', accentColor: '#E4600A', accentColor2: '#F5B800',
+    fields: [], speakers: [], emailConfig: { enabled: false }, eventImage: null,
+  }
+
   useEffect(() => {
     const encoded = searchParams.get('d')
     const formId = searchParams.get('id')
 
+    if (formId) {
+      // Load from DB first — gets full form including eventImage
+      getFormById(formId).then(config => {
+        if (config) { setFormConfig(config); return }
+        // Not in DB — fall back to encoded URL params
+        if (encoded) {
+          const cfg = decodeFormConfig(encoded)
+          if (cfg) { setFormConfig(cfg); return }
+        }
+        setFormConfig(demoConfig)
+      })
+      return
+    }
+    // No ?id= — try encoded only (old-style links or no Supabase)
     if (encoded) {
       const config = decodeFormConfig(encoded)
       if (config) { setFormConfig(config); return }
     }
-    if (formId) {
-      getFormById(formId).then(config => {
-        if (config) { setFormConfig(config); return }
-        // Demo fallback if not found
-        setFormConfig({
-          id: 'demo',
-          type: isFeedback ? 'feedback' : 'registration',
-          title: isFeedback ? 'Event Feedback' : 'Event Registration',
-          description: isFeedback ? 'We would love to hear your thoughts on this event!' : 'Register to secure your spot for this exciting event.',
-          eventDate: '',
-          brandName: 'IWC Concepts',
-          accentColor: '#E4600A',
-          accentColor2: '#F5B800',
-          fields: [],
-          speakers: [],
-          emailConfig: { enabled: false },
-        })
-      })
-      return
-    }
-    // Demo fallback
-    setFormConfig({
-      id: 'demo',
-      type: isFeedback ? 'feedback' : 'registration',
-      title: isFeedback ? 'Event Feedback' : 'Event Registration',
-      description: isFeedback ? 'We would love to hear your thoughts on this event!' : 'Register to secure your spot for this exciting event.',
-      eventDate: '',
-      brandName: 'IWC Concepts',
-      accentColor: '#E4600A',
-      accentColor2: '#F5B800',
-      fields: [],
-      speakers: [],
-      emailConfig: { enabled: false },
-    })
+    setFormConfig(demoConfig)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
   function validate() {
@@ -367,6 +358,7 @@ export default function EventRegistration() {
   }
 
   const { accentColor: acc, accentColor2: acc2, title, description, eventDate, brandName, fields, speakers, emailConfig } = formConfig
+  // eventImage accessed directly from formConfig below
 
   if (submitted) {
     return (
@@ -418,6 +410,12 @@ export default function EventRegistration() {
       </div>
 
       <div style={{ maxWidth: 620, margin: '0 auto', padding: '28px 20px 60px' }}>
+        {/* Event Image */}
+        {formConfig.eventImage && (
+          <div style={{ marginBottom: 22, borderRadius: 14, overflow: 'hidden', border: `1px solid ${acc}30`, boxShadow: `0 8px 30px rgba(0,0,0,0.4)` }}>
+            <img src={formConfig.eventImage} alt="Event" style={{ width: '100%', display: 'block', maxHeight: 340, objectFit: 'cover' }} />
+          </div>
+        )}
         {/* Countdown */}
         {!isFeedback && eventDate && <Countdown eventDate={eventDate} accentColor={acc} accentColor2={acc2} />}
 
