@@ -225,7 +225,7 @@ const FLYER_TEMPLATES = [
       const badgeW = w * 0.26, badgeH = h * 0.065
       ctx.fillStyle = '#1a1a2e'
       roundRect(ctx, dx, dy, badgeW, badgeH, badgeH / 2); ctx.fill()
-      ctx.font = `800 ${w * 0.028}px 'Montserrat', Arial`; ctx.fillStyle = s.accentColor
+      ctx.font = `800 ${w * 0.028}px 'Montserrat', Arial`; ctx.fillStyle = s.dateTextColor || s.accentColor
       ctx.textAlign = 'center'; ctx.fillText(s.date, dx + badgeW / 2, dy + badgeH * 0.68); ctx.textAlign = 'left'
 
       // Platform icon + label — uses platformX/platformY independently
@@ -372,7 +372,8 @@ const FLYER_TEMPLATES = [
         const iy = detY2 + idx * lH * spacingMult
         ctx.font = `${qrSz * 0.11}px serif`; ctx.fillStyle = ic
         ctx.fillText(item.emoji, detX, iy + lH * 0.55)
-        ctx.font = `600 ${qrSz * 0.09}px 'Montserrat', Arial`; ctx.fillStyle = 'white'
+        ctx.font = `600 ${qrSz * 0.09}px 'Montserrat', Arial`
+        ctx.fillStyle = idx === 0 ? (s.dateTextColor || 'white') : 'white'
         if (item.label) {
           ctx.fillText(item.label, detX + qrSz * 0.18, iy + lH * 0.4)
           ctx.font = `400 ${qrSz * 0.08}px 'Montserrat', Arial`
@@ -482,7 +483,7 @@ const FLYER_TEMPLATES = [
       ctx.strokeStyle = s.accentColor; ctx.lineWidth = 2
       ctx.beginPath(); ctx.moveTo(0, stripY); ctx.lineTo(w, stripY); ctx.stroke()
 
-      ctx.font = `600 ${w * 0.021}px 'Montserrat', Arial`; ctx.fillStyle = 'white'
+      ctx.font = `600 ${w * 0.021}px 'Montserrat', Arial`; ctx.fillStyle = s.dateTextColor || 'white'
       ctx.fillText(s.date, w * 0.05, stripY + (h - stripY) * 0.6)
       if (s.time) {
         ctx.fillStyle = s.accentColor
@@ -514,6 +515,7 @@ const DEFAULT_STATE = {
   meetingId: '843 6787 5281', passcode: 'GOHIGHER',
   dayNumber: 1, showDay: true,
   dayBadgeColor: '#E4600A', dayTextColor: '#ffffff', dayBadgeFontSize: 100,
+  dateTextColor: '#E4600A',
   platformX: 5, platformY: 75,
   canvasW: 1080, canvasH: 1080,
 
@@ -818,6 +820,8 @@ export default function EventFlyerStudio() {
             <SwatchRow colors={EVENT_COLORS} value={state.accentColor} onChange={c => set('accentColor', c)} />
             <label style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.6)', display: 'block', margin: '8px 0 5px' }}>Secondary Accent</label>
             <SwatchRow colors={EVENT_COLORS} value={state.accentColor2} onChange={c => set('accentColor2', c)} />
+            <label style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.6)', display: 'block', margin: '8px 0 5px' }}>Date Text Color</label>
+            <SwatchRow colors={EVENT_COLORS} value={state.dateTextColor} onChange={c => set('dateTextColor', c)} />
           </div>
 
           <div style={divider} />
