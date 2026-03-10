@@ -338,19 +338,19 @@ export default function SpeakerDatabase() {
   const [sortBy, setSortBy] = useState('name') // name | rating | date
   const [editing, setEditing] = useState(null) // null | 'new' | speaker
 
-  const reload = useCallback(() => setSpeakers(getAllSpeakers()), [])
+  const reload = useCallback(async () => setSpeakers(await getAllSpeakers()), [])
   useEffect(() => { reload() }, [reload])
 
-  const handleSave = (spk) => {
-    saveSpeaker(spk)
-    reload()
+  const handleSave = async (spk) => {
+    await saveSpeaker(spk)
+    await reload()
     setEditing(null)
   }
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (!window.confirm('Remove this speaker from the database?')) return
-    deleteSpeaker(id)
-    reload()
+    await deleteSpeaker(id)
+    await reload()
   }
 
   // Filter + sort

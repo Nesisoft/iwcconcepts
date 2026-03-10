@@ -1,14 +1,9 @@
+import { dbGetAll, dbGet, dbPut, dbDelete, dbGetByIndex } from './db'
+import { getSupabase } from './supabase'
+
 // ── Unique ID generator ────────────────────────────────────────────────────
 export function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
-}
-
-// ── Storage keys ───────────────────────────────────────────────────────────
-const KEYS = {
-  FORMS: 'iwc_forms_v1',
-  SUBMISSIONS: 'iwc_subs_v1',
-  SPEAKERS: 'iwc_speakers_v1',
-  TASKS: 'iwc_tasks_v1',
 }
 
 // ── URL encode / decode form config (for shareable links) ──────────────────
@@ -64,62 +59,99 @@ export const DEFAULT_FEEDBACK_FIELDS = [
 ]
 
 // ── Forms CRUD ─────────────────────────────────────────────────────────────
-function readForms() {
-  try { return JSON.parse(localStorage.getItem(KEYS.FORMS) || '[]') }
-  catch { return [] }
+export async function getAllForms() {
+  const sb = getSupabase()
+  if (sb) {
+    const { data, error } = await sb.from('forms').select('data').order('created_at', { ascending: false })
+    if (error) throw error
+    return (data || []).map(r => r.data)
+  }
+  return dbGetAll('forms')
 }
-function writeForms(forms) { localStorage.setItem(KEYS.FORMS, JSON.stringify(forms)) }
 
-export function getAllForms() { return readForms() }
+export async function getFormById(id) {
+  const sb = getSupabase()
+  if (sb) {
+    const { data, error } = await sb.from('forms').select('data').eq('id', id).single()
+    if (error) return null
+    return data?.data || null
+  }
+  return dbGet('forms', id)
+}
 
-export function getFormById(id) { return readForms().find(f => f.id === id) || null }
-
-export function saveForm(form) {
-  const forms = readForms()
-  const idx = forms.findIndex(f => f.id === form.id)
+export async function saveForm(form) {
   const now = new Date().toISOString()
   const record = { ...form, updatedAt: now }
-  if (idx >= 0) { forms[idx] = record } else { forms.push({ ...record, id: form.id || uid(), createdAt: now }) }
-  writeForms(forms)
-  return getFormById(form.id)
+  if (!record.id) record.id = uid()
+  if (!record.createdAt) record.createdAt = now
+  const sb = getSupabase()
+  if (sb) {
+    const { error } = await sb.from('forms').upsert(
+      { id: record.id, data: record, created_at: record.createdAt },
+      { onConflict: 'id' }
+    )
+    if (error) throw error
+    return record
+  }
+  await dbPut('forms', record)
+  return record
 }
 
-export function deleteForm(id) {
-  writeForms(readForms().filter(f => f.id !== id))
-  // also delete submissions
-  const all = readAllSubs()
-  delete all[id]
-  localStorage.setItem(KEYS.SUBMISSIONS, JSON.stringify(all))
+export async function deleteForm(id) {
+  const sb = getSupabase()
+  if (sb) {
+    // Submissions and tasks are deleted via cascade in Supabase
+    // but our schema doesn't have FK cascade, so delete explicitly
+    await sb.from('submissions').delete().eq('form_id', id)
+    await sb.from('tasks').delete().eq('form_id', id)
+    const { error } = await sb.from('forms').delete().eq('id', id)
+    if (error) throw error
+    return
+  }
+  await dbDelete('forms', id)
+  const subs = await dbGetByIndex('submissions', 'formId', id)
+  for (const sub of subs) await dbDelete('submissions', sub.id)
+  await dbDelete('tasks', id)
 }
 
 // ── Submissions CRUD ───────────────────────────────────────────────────────
-function readAllSubs() {
-  try { return JSON.parse(localStorage.getItem(KEYS.SUBMISSIONS) || '{}') }
-  catch { return {} }
+export async function getFormSubmissions(formId) {
+  const sb = getSupabase()
+  if (sb) {
+    const { data, error } = await sb.from('submissions').select('data').eq('form_id', formId).order('submitted_at', { ascending: false })
+    if (error) throw error
+    return (data || []).map(r => r.data)
+  }
+  return dbGetByIndex('submissions', 'formId', formId)
 }
 
-export function getFormSubmissions(formId) { return readAllSubs()[formId] || [] }
-
-export function addSubmission(formId, data) {
-  const all = readAllSubs()
-  if (!all[formId]) all[formId] = []
+export async function addSubmission(formId, data) {
   const sub = { id: uid(), formId, timestamp: new Date().toISOString(), data }
-  all[formId].push(sub)
-  localStorage.setItem(KEYS.SUBMISSIONS, JSON.stringify(all))
+  const sb = getSupabase()
+  if (sb) {
+    const { error } = await sb.from('submissions').insert({
+      id: sub.id, form_id: formId, data: sub, submitted_at: sub.timestamp,
+    })
+    if (error) throw error
+    return sub
+  }
+  await dbPut('submissions', sub)
   return sub
 }
 
-export function deleteSubmission(formId, subId) {
-  const all = readAllSubs()
-  if (all[formId]) {
-    all[formId] = all[formId].filter(s => s.id !== subId)
-    localStorage.setItem(KEYS.SUBMISSIONS, JSON.stringify(all))
+export async function deleteSubmission(_formId, subId) {
+  const sb = getSupabase()
+  if (sb) {
+    const { error } = await sb.from('submissions').delete().eq('id', subId)
+    if (error) throw error
+    return
   }
+  await dbDelete('submissions', subId)
 }
 
-export function exportCSV(formId) {
-  const form = getFormById(formId)
-  const subs = getFormSubmissions(formId)
+export async function exportCSV(formId) {
+  const form = await getFormById(formId)
+  const subs = await getFormSubmissions(formId)
   if (!form || !subs.length) return
 
   const headers = ['#', 'Timestamp', ...form.fields.map(f => f.label)]
@@ -129,6 +161,7 @@ export function exportCSV(formId) {
     ...form.fields.map(f => {
       const v = s.data[f.id]
       if (f.type === 'whatsapp') return `${v?.code || ''} ${v?.number || ''}`
+      if (f.type === 'picture') return v?.name ? `[Photo: ${v.name}]` : ''
       if (Array.isArray(v)) return v.join('; ')
       return v || ''
     }),
@@ -147,28 +180,55 @@ export function exportCSV(formId) {
 }
 
 // ── Speakers CRUD ──────────────────────────────────────────────────────────
-function readSpeakers() {
-  try { return JSON.parse(localStorage.getItem(KEYS.SPEAKERS) || '[]') }
-  catch { return [] }
+export async function getAllSpeakers() {
+  const sb = getSupabase()
+  if (sb) {
+    const { data, error } = await sb.from('speakers').select('data').order('created_at', { ascending: false })
+    if (error) throw error
+    return (data || []).map(r => r.data)
+  }
+  return dbGetAll('speakers')
 }
 
-export function getAllSpeakers() { return readSpeakers() }
-export function getSpeakerById(id) { return readSpeakers().find(s => s.id === id) || null }
+export async function getSpeakerById(id) {
+  const sb = getSupabase()
+  if (sb) {
+    const { data, error } = await sb.from('speakers').select('data').eq('id', id).single()
+    if (error) return null
+    return data?.data || null
+  }
+  return dbGet('speakers', id)
+}
 
-export function saveSpeaker(speaker) {
-  const all = readSpeakers()
-  const idx = all.findIndex(s => s.id === speaker.id)
+export async function saveSpeaker(speaker) {
   const now = new Date().toISOString()
   const record = { ...speaker, updatedAt: now }
-  if (idx >= 0) { all[idx] = record } else { all.push({ ...record, id: speaker.id || uid(), createdAt: now }) }
-  localStorage.setItem(KEYS.SPEAKERS, JSON.stringify(all))
+  if (!record.id) record.id = uid()
+  if (!record.createdAt) record.createdAt = now
+  const sb = getSupabase()
+  if (sb) {
+    const { error } = await sb.from('speakers').upsert(
+      { id: record.id, data: record, created_at: record.createdAt },
+      { onConflict: 'id' }
+    )
+    if (error) throw error
+    return record
+  }
+  await dbPut('speakers', record)
+  return record
 }
 
-export function deleteSpeaker(id) {
-  localStorage.setItem(KEYS.SPEAKERS, JSON.stringify(readSpeakers().filter(s => s.id !== id)))
+export async function deleteSpeaker(id) {
+  const sb = getSupabase()
+  if (sb) {
+    const { error } = await sb.from('speakers').delete().eq('id', id)
+    if (error) throw error
+    return
+  }
+  await dbDelete('speakers', id)
 }
 
-// ── Event Tasks (Checklist) ────────────────────────────────────────────────
+// ── Event Tasks / Checklist ────────────────────────────────────────────────
 const DEFAULT_TASKS = {
   pre: [
     'Confirm meeting link / book venue',
@@ -200,25 +260,33 @@ const DEFAULT_TASKS = {
   ],
 }
 
-export function getEventTasks(formId) {
-  try {
-    const all = JSON.parse(localStorage.getItem(KEYS.TASKS) || '{}')
-    if (all[formId]) return all[formId]
-    const tasks = {
-      pre:    DEFAULT_TASKS.pre.map((t, i) => ({ id: `p${i}`, text: t, done: false })),
-      during: DEFAULT_TASKS.during.map((t, i) => ({ id: `d${i}`, text: t, done: false })),
-      post:   DEFAULT_TASKS.post.map((t, i) => ({ id: `q${i}`, text: t, done: false })),
-    }
-    all[formId] = tasks
-    localStorage.setItem(KEYS.TASKS, JSON.stringify(all))
-    return tasks
-  } catch { return { pre: [], during: [], post: [] } }
+export async function getEventTasks(formId) {
+  const sb = getSupabase()
+  if (sb) {
+    const { data } = await sb.from('tasks').select('data').eq('form_id', formId).maybeSingle()
+    if (data?.data) return data.data
+  } else {
+    const doc = await dbGet('tasks', formId)
+    if (doc) return { pre: doc.pre || [], during: doc.during || [], post: doc.post || [] }
+  }
+  // First time: create defaults
+  const tasks = {
+    pre:    DEFAULT_TASKS.pre.map((t, i) => ({ id: `p${i}`, text: t, done: false })),
+    during: DEFAULT_TASKS.during.map((t, i) => ({ id: `d${i}`, text: t, done: false })),
+    post:   DEFAULT_TASKS.post.map((t, i) => ({ id: `q${i}`, text: t, done: false })),
+  }
+  await saveEventTasks(formId, tasks)
+  return tasks
 }
 
-export function saveEventTasks(formId, tasks) {
-  const all = JSON.parse(localStorage.getItem(KEYS.TASKS) || '{}')
-  all[formId] = tasks
-  localStorage.setItem(KEYS.TASKS, JSON.stringify(all))
+export async function saveEventTasks(formId, tasks) {
+  const sb = getSupabase()
+  if (sb) {
+    const { error } = await sb.from('tasks').upsert({ form_id: formId, data: tasks }, { onConflict: 'form_id' })
+    if (error) throw error
+    return
+  }
+  await dbPut('tasks', { formId, ...tasks })
 }
 
 // ── Email sending via EmailJS ──────────────────────────────────────────────
