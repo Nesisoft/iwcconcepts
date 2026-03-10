@@ -249,7 +249,7 @@ const FLYER_TEMPLATES = [
         roundRect(ctx, dayX, dayY, dbW, h * 0.058, 8); ctx.fill()
         ctx.font = `900 ${w * 0.03 * (s.dayBadgeFontSize / 100)}px 'Montserrat', Arial`
         ctx.fillStyle = s.dayTextColor || '#fff'
-        ctx.textAlign = 'center'; ctx.fillText(`DAY ${s.dayNumber}`, dayX + dbW / 2, dayY + h * 0.038); ctx.textAlign = 'left'
+        ctx.textAlign = 'center'; ctx.fillText(`${s.dayLabel || 'DAY'} ${s.dayNumber}`, dayX + dbW / 2, dayY + h * 0.038); ctx.textAlign = 'left'
       }
 
       ctx.restore()
@@ -396,7 +396,7 @@ const FLYER_TEMPLATES = [
         roundRect(ctx, dayX, dayY2, dbW, h * 0.055, 6); ctx.fill()
         ctx.font = `900 ${w * 0.026 * (s.dayBadgeFontSize / 100)}px 'Montserrat', Arial`
         ctx.fillStyle = s.dayTextColor || 'white'
-        ctx.textAlign = 'center'; ctx.fillText(`DAY ${s.dayNumber}`, dayX + dbW / 2, dayY2 + h * 0.037); ctx.textAlign = 'left'
+        ctx.textAlign = 'center'; ctx.fillText(`${s.dayLabel || 'DAY'} ${s.dayNumber}`, dayX + dbW / 2, dayY2 + h * 0.037); ctx.textAlign = 'left'
       }
 
       ctx.restore()
@@ -424,7 +424,7 @@ const FLYER_TEMPLATES = [
       if (s.showDay) {
         ctx.font = `900 ${w * 0.28}px 'Montserrat', Arial`
         ctx.fillStyle = hexToRgba('#ffffff', 0.04)
-        ctx.textAlign = 'center'; ctx.fillText(`DAY ${s.dayNumber}`, w / 2, h * 0.55); ctx.textAlign = 'left'
+        ctx.textAlign = 'center'; ctx.fillText(`${s.dayLabel || 'DAY'} ${s.dayNumber}`, w / 2, h * 0.55); ctx.textAlign = 'left'
       }
 
       // Brand tag — uses brandX/brandY independently
@@ -443,7 +443,7 @@ const FLYER_TEMPLATES = [
         roundRect(ctx, dayX, dayY2, dbW, dbH, 12); ctx.fill()
         ctx.font = `900 ${w * 0.034 * (s.dayBadgeFontSize / 100)}px 'Montserrat', Arial`
         ctx.fillStyle = s.dayTextColor || 'white'
-        ctx.textAlign = 'center'; ctx.fillText(`DAY ${s.dayNumber}`, dayX + dbW / 2, dayY2 + dbH * 0.68); ctx.textAlign = 'left'
+        ctx.textAlign = 'center'; ctx.fillText(`${s.dayLabel || 'DAY'} ${s.dayNumber}`, dayX + dbW / 2, dayY2 + dbH * 0.68); ctx.textAlign = 'left'
       }
 
       // 3-part title — each part fully independent
@@ -513,7 +513,7 @@ const DEFAULT_STATE = {
   time: '6:00pm - 7:30pm GMT0',
   meetingPlatform: 'zoom',
   meetingId: '843 6787 5281', passcode: 'GOHIGHER',
-  dayNumber: 1, showDay: true,
+  dayNumber: '1', dayLabel: 'DAY', showDay: true,
   dayBadgeColor: '#E4600A', dayTextColor: '#ffffff', dayBadgeFontSize: 100,
   dateTextColor: '#E4600A',
   platformX: 5, platformY: 75,
@@ -797,12 +797,16 @@ export default function EventFlyerStudio() {
           {/* Day Settings */}
           <div style={{ marginBottom: 16 }}>
             <SecTitle>Day Settings</SecTitle>
-            <Toggle label="Show Day Number" checked={state.showDay} onChange={e => set('showDay', e.target.checked)} />
-            <label style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: 6 }}>Day Number</label>
-            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 10 }}>
-              {[1, 2, 3, 4, 5, 6, 7].map(d => (
-                <button key={d} onClick={() => set('dayNumber', d)} style={{ width: 30, height: 30, borderRadius: 6, background: state.dayNumber === d ? '#E4600A' : 'rgba(255,255,255,0.06)', border: `1px solid ${state.dayNumber === d ? '#E4600A' : 'rgba(255,255,255,0.12)'}`, color: 'white', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{d}</button>
-              ))}
+            <Toggle label="Show Day Badge" checked={state.showDay} onChange={e => set('showDay', e.target.checked)} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 10 }}>
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: 4 }}>Label (e.g. DAY)</label>
+                <input type="text" value={state.dayLabel} onChange={e => set('dayLabel', e.target.value)} style={{ ...inp, fontSize: 11, padding: '5px 8px' }} placeholder="DAY" />
+              </div>
+              <div>
+                <label style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: 4 }}>Number / Text</label>
+                <input type="text" value={state.dayNumber} onChange={e => set('dayNumber', e.target.value)} style={{ ...inp, fontSize: 11, padding: '5px 8px' }} placeholder="1" />
+              </div>
             </div>
             <label style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.6)', display: 'block', marginBottom: 5 }}>Badge Color</label>
             <SwatchRow colors={EVENT_COLORS} value={state.dayBadgeColor} onChange={c => set('dayBadgeColor', c)} />
