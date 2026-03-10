@@ -41,6 +41,7 @@ function makeDefaultForm(type) {
     brandName: 'IWC Concepts',
     accentColor: '#E4600A',
     accentColor2: '#F5B800',
+    eventImage: null,
     fields: (type === 'registration' ? DEFAULT_REGISTRATION_FIELDS : DEFAULT_FEEDBACK_FIELDS).map(f => ({ ...f })),
     speakers: [],
     emailConfig: {
@@ -176,6 +177,8 @@ export default function FormBuilder() {
   const [tab, setTab] = useState('content')
   const [editingField, setEditingField] = useState(null)
   const [copied, setCopied] = useState(false)
+  const [shortLinks, setShortLinks] = useState({})
+  const [shortLoading, setShortLoading] = useState({})
   const [submissionCount, setSubmissionCount] = useState(0)
 
   const refreshForms = useCallback(async () => {
@@ -262,6 +265,7 @@ export default function FormBuilder() {
 
   function getShareUrl(type) {
     if (!form) return ''
+    // eventImage is NOT embedded in the URL (too large) — loaded from DB by ?id=
     const shareConfig = {
       id: form.id, type: form.type, title: form.title, description: form.description,
       eventDate: form.eventDate, brandName: form.brandName,
@@ -273,7 +277,38 @@ export default function FormBuilder() {
     const encoded = encodeFormConfig(shareConfig)
     if (!encoded) return ''
     const base = window.location.href.split('#')[0]
-    return `${base}#/${type === 'feedback' ? 'feedback' : 'register'}?d=${encoded}`
+    // ?id= allows EventRegistration to load the full form (with image) from DB
+    // ?d= is the encoded fallback for offline/no-Supabase usage
+    return `${base}#/${type === 'feedback' ? 'feedback' : 'register'}?id=${form.id}&d=${encoded}`
+  }
+
+  async function generateShortLink(type) {
+    const url = getShareUrl(type)
+    if (!url) return
+    setShortLoading(l => ({ ...l, [type]: true }))
+    try {
+      const res = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(url)}`)
+      const json = await res.json()
+      if (json.shorturl) {
+        setShortLinks(l => ({ ...l, [type]: json.shorturl }))
+        navigator.clipboard.writeText(json.shorturl)
+      } else {
+        alert('Could not generate short link: ' + (json.errormessage || 'Unknown error'))
+      }
+    } catch {
+      alert('Could not generate short link. Please check your internet connection.')
+    } finally {
+      setShortLoading(l => ({ ...l, [type]: false }))
+    }
+  }
+
+  function handleEventImageUpload(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    if (file.size > 2 * 1024 * 1024) { alert('Image too large. Please use an image under 2MB.'); return }
+    const reader = new FileReader()
+    reader.onload = ev => setF('eventImage', ev.target.result)
+    reader.readAsDataURL(file)
   }
 
   function copyUrl(type) {
@@ -429,6 +464,26 @@ export default function FormBuilder() {
                     <SwatchRow value={form.accentColor2} onChange={v => setF('accentColor2', v)} />
                   </Field>
                   <div style={divider} />
+                  <Field label="Event Image (shown to registrants above the form)">
+                    {form.eventImage ? (
+                      <div style={{ position: 'relative', marginBottom: 6 }}>
+                        <img src={form.eventImage} alt="Event" style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', display: 'block' }} />
+                        <button onClick={() => setF('eventImage', null)} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(0,0,0,0.7)', border: 'none', borderRadius: '50%', color: 'white', cursor: 'pointer', width: 22, height: 22, fontSize: 12, lineHeight: '22px', textAlign: 'center' }}>✕</button>
+                      </div>
+                    ) : (
+                      <label style={{ display: 'block', border: `2px dashed rgba(139,92,246,0.4)`, borderRadius: 10, padding: '20px', textAlign: 'center', cursor: 'pointer', background: 'rgba(139,92,246,0.05)' }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = ACC; e.currentTarget.style.background = 'rgba(139,92,246,0.12)' }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)'; e.currentTarget.style.background = 'rgba(139,92,246,0.05)' }}
+                      >
+                        <input type="file" accept="image/*" onChange={handleEventImageUpload} style={{ display: 'none' }} />
+                        <div style={{ fontSize: 28, marginBottom: 6 }}>🖼️</div>
+                        <div style={{ fontSize: 11, color: ACC2, fontWeight: 700 }}>Click to upload event image</div>
+                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 3 }}>JPG, PNG, WebP · Max 2MB</div>
+                      </label>
+                    )}
+                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>Image is loaded from your database — not embedded in the share link.</div>
+                  </Field>
+                  <div style={divider} />
                   <Field label="Speaker / Guest Lineup (names & titles)">
                     {form.speakers.map((sp, i) => (
                       <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
@@ -542,13 +597,29 @@ export default function FormBuilder() {
                       <div key={type} style={{ marginBottom: 20 }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: ACC2, marginBottom: 8 }}>{icon} {label}</div>
                         <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '10px 12px', fontSize: 10, color: 'rgba(255,255,255,0.5)', wordBreak: 'break-all', marginBottom: 8, lineHeight: 1.6 }}>{url || 'Fill in form details to generate link'}</div>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <button onClick={() => copyUrl(type)} style={{ flex: 1, background: copied ? 'rgba(16,185,129,0.25)' : `rgba(139,92,246,0.25)`, border: `1px solid ${copied ? 'rgba(16,185,129,0.5)' : 'rgba(139,92,246,0.5)'}`, borderRadius: 8, color: copied ? '#34d399' : ACC2, fontSize: 11, fontWeight: 700, padding: '9px', cursor: 'pointer' }}>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <button onClick={() => copyUrl(type)} style={{ flex: 1, minWidth: 100, background: copied ? 'rgba(16,185,129,0.25)' : `rgba(139,92,246,0.25)`, border: `1px solid ${copied ? 'rgba(16,185,129,0.5)' : 'rgba(139,92,246,0.5)'}`, borderRadius: 8, color: copied ? '#34d399' : ACC2, fontSize: 11, fontWeight: 700, padding: '9px', cursor: 'pointer' }}>
                             {copied ? '✓ Copied!' : '📋 Copy Link'}
                           </button>
-                          <button onClick={() => window.open(url, '_blank')} style={{ flex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: 'white', fontSize: 11, fontWeight: 700, padding: '9px', cursor: 'pointer' }}>
+                          <button onClick={() => window.open(url, '_blank')} style={{ flex: 1, minWidth: 80, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: 'white', fontSize: 11, fontWeight: 700, padding: '9px', cursor: 'pointer' }}>
                             🔗 Open Form
                           </button>
+                        </div>
+                        {/* Short link */}
+                        <div style={{ marginTop: 10 }}>
+                          <button
+                            onClick={() => generateShortLink(type)}
+                            disabled={shortLoading[type]}
+                            style={{ background: shortLoading[type] ? 'rgba(255,255,255,0.05)' : 'rgba(52,152,219,0.15)', border: '1px solid rgba(52,152,219,0.35)', borderRadius: 8, color: '#74b9e8', fontSize: 11, fontWeight: 700, padding: '8px 14px', cursor: shortLoading[type] ? 'not-allowed' : 'pointer', width: '100%' }}
+                          >
+                            {shortLoading[type] ? '⏳ Generating…' : '🔗 Generate Short Link'}
+                          </button>
+                          {shortLinks[type] && (
+                            <div style={{ marginTop: 8, background: 'rgba(52,152,219,0.1)', border: '1px solid rgba(52,152,219,0.25)', borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                              <span style={{ fontSize: 12, color: '#74b9e8', fontWeight: 700 }}>{shortLinks[type]}</span>
+                              <button onClick={() => navigator.clipboard.writeText(shortLinks[type])} style={{ background: 'rgba(52,152,219,0.25)', border: 'none', borderRadius: 6, color: '#74b9e8', fontSize: 10, fontWeight: 700, padding: '4px 10px', cursor: 'pointer', flexShrink: 0 }}>Copy</button>
+                            </div>
+                          )}
                         </div>
                         {url && (
                           <div style={{ marginTop: 14, textAlign: 'center' }}>
@@ -567,7 +638,18 @@ export default function FormBuilder() {
                       <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 12px', fontSize: 10, color: 'rgba(255,255,255,0.4)', wordBreak: 'break-all', marginBottom: 8, lineHeight: 1.6 }}>
                         {getShareUrl('feedback') || 'Fill in form details first'}
                       </div>
-                      <button onClick={() => copyUrl('feedback')} style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.35)', borderRadius: 8, color: '#34d399', fontSize: 11, fontWeight: 700, padding: '9px 16px', cursor: 'pointer' }}>📋 Copy Feedback Link</button>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button onClick={() => copyUrl('feedback')} style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.35)', borderRadius: 8, color: '#34d399', fontSize: 11, fontWeight: 700, padding: '9px 16px', cursor: 'pointer' }}>📋 Copy Feedback Link</button>
+                        <button onClick={() => generateShortLink('feedback')} disabled={shortLoading['feedback']} style={{ background: 'rgba(52,152,219,0.15)', border: '1px solid rgba(52,152,219,0.35)', borderRadius: 8, color: '#74b9e8', fontSize: 11, fontWeight: 700, padding: '9px 14px', cursor: shortLoading['feedback'] ? 'not-allowed' : 'pointer' }}>
+                          {shortLoading['feedback'] ? '⏳ Generating…' : '🔗 Short Link'}
+                        </button>
+                      </div>
+                      {shortLinks['feedback'] && (
+                        <div style={{ marginTop: 8, background: 'rgba(52,152,219,0.1)', border: '1px solid rgba(52,152,219,0.25)', borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                          <span style={{ fontSize: 12, color: '#74b9e8', fontWeight: 700 }}>{shortLinks['feedback']}</span>
+                          <button onClick={() => navigator.clipboard.writeText(shortLinks['feedback'])} style={{ background: 'rgba(52,152,219,0.25)', border: 'none', borderRadius: 6, color: '#74b9e8', fontSize: 10, fontWeight: 700, padding: '4px 10px', cursor: 'pointer', flexShrink: 0 }}>Copy</button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

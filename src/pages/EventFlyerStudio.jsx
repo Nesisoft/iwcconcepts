@@ -544,6 +544,7 @@ const DEFAULT_STATE = {
     { name: 'Derrick Agyare', title: 'PR Strategist/ Advisor', image: null, previewSrc: null },
   ],
   qrCode: null, qrPreview: null,
+  customTextLayers: [],
 }
 
 // ── COMPONENT ──────────────────────────────────────────────────────────────
@@ -561,10 +562,35 @@ export default function EventFlyerStudio() {
 
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return
-    canvas.width = state.canvasW; canvas.height = state.canvasH
+    const w = state.canvasW, h = state.canvasH
+    canvas.width = w; canvas.height = h
     const ctx = canvas.getContext('2d')
-    try { FLYER_TEMPLATES[state.templateId].render(ctx, state.canvasW, state.canvasH, state) }
+    try { FLYER_TEMPLATES[state.templateId].render(ctx, w, h, state) }
     catch (e) { console.error('FlyerStudio render error (template ' + state.templateId + '):', e) }
+    // Draw custom text layers on top of the template
+    for (const layer of state.customTextLayers || []) {
+      if (!layer.text) continue
+      const fs = layer.fontSize * w / 1080
+      const weight = layer.bold ? '900' : '400'
+      ctx.font = `${weight} ${fs}px '${layer.font}', Arial`
+      ctx.fillStyle = layer.color
+      ctx.textAlign = layer.align || 'left'
+      const px = (layer.x / 100) * w
+      const py = (layer.y / 100) * h
+      // Optional text shadow for readability
+      if (layer.shadow) {
+        ctx.shadowColor = 'rgba(0,0,0,0.7)'
+        ctx.shadowBlur = fs * 0.15
+        ctx.shadowOffsetX = 2
+        ctx.shadowOffsetY = 2
+      }
+      ctx.fillText(layer.text, px, py)
+      ctx.shadowColor = 'transparent'
+      ctx.shadowBlur = 0
+      ctx.shadowOffsetX = 0
+      ctx.shadowOffsetY = 0
+      ctx.textAlign = 'left'
+    }
   }, [state, iconsLoaded])
 
   useEffect(() => {
@@ -795,6 +821,84 @@ export default function EventFlyerStudio() {
                     <input type="text" placeholder={`Speaker ${i + 1} name`} value={sp.name} onChange={e => updateSpeakerField(i, 'name', e.target.value)} style={{ ...inp, fontSize: 11, padding: '4px 8px' }} />
                     <input type="text" placeholder="Title / Role" value={sp.title} onChange={e => updateSpeakerField(i, 'title', e.target.value)} style={{ ...inp, fontSize: 10, padding: '4px 8px' }} />
                   </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={divider} />
+
+          {/* ── Custom Text Layers ── */}
+          <div style={{ marginBottom: 16 }}>
+            <SecTitle>Custom Text</SecTitle>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.38)', marginBottom: 10, lineHeight: 1.5 }}>
+              Add your own text to the flyer — control font, size, color, and position independently.
+            </div>
+            <button
+              onClick={() => {
+                const id = 'ct_' + Math.random().toString(36).slice(2, 7)
+                set('customTextLayers', [...(state.customTextLayers || []), {
+                  id, text: 'Your text here', x: 10, y: 85, fontSize: 48,
+                  color: '#ffffff', font: 'Montserrat', bold: false, align: 'left', shadow: true,
+                }])
+              }}
+              style={{ width: '100%', background: 'rgba(228,96,10,0.12)', border: '1px dashed rgba(228,96,10,0.5)', borderRadius: 8, color: '#E4600A', fontSize: 11, fontWeight: 700, padding: '9px', cursor: 'pointer', marginBottom: 10 }}
+            >+ Add Text Layer</button>
+
+            {(state.customTextLayers || []).map((layer, idx) => (
+              <div key={layer.id} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(228,96,10,0.25)', borderRadius: 9, padding: 10, marginBottom: 8 }}>
+                {/* Header row */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
+                  <span style={{ fontSize: 9, fontWeight: 800, color: '#E4600A', letterSpacing: 1, textTransform: 'uppercase' }}>Text {idx + 1}</span>
+                  <button onClick={() => set('customTextLayers', state.customTextLayers.filter(l => l.id !== layer.id))} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: 5, color: '#f87171', padding: '2px 7px', fontSize: 10, cursor: 'pointer', fontWeight: 700 }}>✕ Remove</button>
+                </div>
+                {/* Text input */}
+                <div style={{ marginBottom: 6 }}>
+                  <label style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', display: 'block', marginBottom: 2 }}>Text</label>
+                  <input type="text" value={layer.text}
+                    onChange={e => set('customTextLayers', state.customTextLayers.map(l => l.id === layer.id ? { ...l, text: e.target.value } : l))}
+                    style={{ ...inp, fontSize: 11, padding: '5px 8px' }} placeholder="Enter text…" />
+                </div>
+                {/* Font */}
+                <label style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', display: 'block', marginBottom: 2 }}>Font Family</label>
+                <FontSelect value={layer.font} onChange={v => set('customTextLayers', state.customTextLayers.map(l => l.id === layer.id ? { ...l, font: v } : l))} />
+                {/* Color */}
+                <label style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', display: 'block', marginBottom: 4 }}>Color</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
+                  <input type="color" value={layer.color}
+                    onChange={e => set('customTextLayers', state.customTextLayers.map(l => l.id === layer.id ? { ...l, color: e.target.value } : l))}
+                    style={{ width: 34, height: 26, border: 'none', borderRadius: 5, cursor: 'pointer', background: 'transparent' }} />
+                  <SwatchRow colors={EVENT_COLORS} value={layer.color}
+                    onChange={c => set('customTextLayers', state.customTextLayers.map(l => l.id === layer.id ? { ...l, color: c } : l))} />
+                </div>
+                {/* Size */}
+                <Slider label="Font Size (px @ 1080w)" value={layer.fontSize} min={12} max={220} small
+                  onChange={e => set('customTextLayers', state.customTextLayers.map(l => l.id === layer.id ? { ...l, fontSize: +e.target.value } : l))} />
+                {/* X / Y */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                  <Slider label="X %" value={layer.x} min={0} max={95} small
+                    onChange={e => set('customTextLayers', state.customTextLayers.map(l => l.id === layer.id ? { ...l, x: +e.target.value } : l))} />
+                  <Slider label="Y %" value={layer.y} min={2} max={99} small
+                    onChange={e => set('customTextLayers', state.customTextLayers.map(l => l.id === layer.id ? { ...l, y: +e.target.value } : l))} />
+                </div>
+                {/* Alignment */}
+                <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
+                  {['left', 'center', 'right'].map(a => (
+                    <button key={a} onClick={() => set('customTextLayers', state.customTextLayers.map(l => l.id === layer.id ? { ...l, align: a } : l))}
+                      style={{ flex: 1, background: layer.align === a ? 'rgba(228,96,10,0.3)' : 'rgba(255,255,255,0.05)', border: `1px solid ${layer.align === a ? '#E4600A' : 'rgba(255,255,255,0.1)'}`, borderRadius: 5, color: layer.align === a ? '#E4600A' : 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: 700, padding: '4px', cursor: 'pointer' }}>
+                      {a === 'left' ? '⬅' : a === 'center' ? '☰' : '➡'}
+                    </button>
+                  ))}
+                </div>
+                {/* Bold + Shadow toggles */}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {[['Bold', 'bold'], ['Shadow', 'shadow']].map(([lbl, key]) => (
+                    <button key={key}
+                      onClick={() => set('customTextLayers', state.customTextLayers.map(l => l.id === layer.id ? { ...l, [key]: !l[key] } : l))}
+                      style={{ flex: 1, background: layer[key] ? 'rgba(228,96,10,0.2)' : 'rgba(255,255,255,0.04)', border: `1px solid ${layer[key] ? 'rgba(228,96,10,0.5)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 6, color: layer[key] ? '#E4600A' : 'rgba(255,255,255,0.4)', fontSize: 9, fontWeight: 700, padding: '5px', cursor: 'pointer' }}>
+                      {lbl} {layer[key] ? 'ON' : 'OFF'}
+                    </button>
+                  ))}
                 </div>
               </div>
             ))}
