@@ -1,4 +1,6 @@
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { isConfigured } from '../utils/supabase'
 
 const tools = [
   {
@@ -72,6 +74,16 @@ const tools = [
     available: true,
   },
   {
+    id: 'db-setup',
+    path: '/db-setup',
+    icon: '🗄️',
+    title: 'Database Setup',
+    desc: 'Connect Supabase for cloud persistence. Access your forms, submissions, and speaker data from any device or browser.',
+    tags: ['Cloud', 'Supabase', 'Sync', 'Setup'],
+    accent: '#3498DB',
+    available: true,
+  },
+  {
     id: 'coming-soon-1',
     path: null,
     icon: '📈',
@@ -85,6 +97,8 @@ const tools = [
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const [cloud, setCloud] = useState(false)
+  useEffect(() => { setCloud(isConfigured()) }, [])
 
   return (
     <div style={{ minHeight: '100vh', background: '#0f0a1a', fontFamily: "'Montserrat', sans-serif" }}>
@@ -111,8 +125,16 @@ export default function Dashboard() {
             <div style={{ fontSize: 9, color: '#C9A84C', letterSpacing: 3, textTransform: 'uppercase' }}>Creative Studio Platform</div>
           </div>
         </div>
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', letterSpacing: 1 }}>
-          Faith · Business · Impact
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button
+            onClick={() => navigate('/db-setup')}
+            title={cloud ? 'Supabase connected — click to manage' : 'Set up cloud database'}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, background: cloud ? 'rgba(46,204,113,0.1)' : 'rgba(255,255,255,0.06)', border: `1px solid ${cloud ? 'rgba(46,204,113,0.35)' : 'rgba(255,255,255,0.12)'}`, borderRadius: 18, padding: '5px 13px', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: cloud ? '#2ECC71' : 'rgba(255,255,255,0.45)', fontFamily: "'Montserrat',sans-serif" }}
+          >
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: cloud ? '#2ECC71' : 'rgba(255,255,255,0.3)', flexShrink: 0 }} />
+            {cloud ? 'Cloud DB' : 'Local DB'}
+          </button>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: 1 }}>Faith · Business · Impact</div>
         </div>
       </header>
 

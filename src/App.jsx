@@ -11,6 +11,7 @@ import EventFeedback from './pages/EventFeedback'
 import EventDashboard from './pages/EventDashboard'
 import SpeakerDatabase from './pages/SpeakerDatabase'
 import BannerStudio from './pages/BannerStudio'
+import DatabaseSetup from './pages/DatabaseSetup'
 
 export default function App() {
   useEffect(() => { migrateFromLocalStorage() }, [])
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/feedback" element={<EventFeedback />} />
         <Route path="/event-dashboard" element={<EventDashboard />} />
         <Route path="/speakers" element={<SpeakerDatabase />} />
+        <Route path="/db-setup" element={<DatabaseSetup />} />
       </Routes>
     </HashRouter>
   )

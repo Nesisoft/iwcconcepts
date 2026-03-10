@@ -1,4 +1,5 @@
 import { dbGetAll, dbGet, dbPut, dbDelete, dbGetByIndex } from './db'
+import { getSupabase } from './supabase'
 
 // ── Unique ID generator ────────────────────────────────────────────────────
 export function uid() {
@@ -57,12 +58,24 @@ export const DEFAULT_FEEDBACK_FIELDS = [
   { id: 'f_testimonial',type: 'textarea',  label: 'Testimonial (will be shared)',  placeholder: 'Write a short testimonial we can feature...', required: false },
 ]
 
-// ── Forms CRUD (async) ─────────────────────────────────────────────────────
+// ── Forms CRUD ─────────────────────────────────────────────────────────────
 export async function getAllForms() {
+  const sb = getSupabase()
+  if (sb) {
+    const { data, error } = await sb.from('forms').select('data').order('created_at', { ascending: false })
+    if (error) throw error
+    return (data || []).map(r => r.data)
+  }
   return dbGetAll('forms')
 }
 
 export async function getFormById(id) {
+  const sb = getSupabase()
+  if (sb) {
+    const { data, error } = await sb.from('forms').select('data').eq('id', id).single()
+    if (error) return null
+    return data?.data || null
+  }
   return dbGet('forms', id)
 }
 
@@ -71,31 +84,68 @@ export async function saveForm(form) {
   const record = { ...form, updatedAt: now }
   if (!record.id) record.id = uid()
   if (!record.createdAt) record.createdAt = now
+  const sb = getSupabase()
+  if (sb) {
+    const { error } = await sb.from('forms').upsert(
+      { id: record.id, data: record, created_at: record.createdAt },
+      { onConflict: 'id' }
+    )
+    if (error) throw error
+    return record
+  }
   await dbPut('forms', record)
   return record
 }
 
 export async function deleteForm(id) {
+  const sb = getSupabase()
+  if (sb) {
+    // Submissions and tasks are deleted via cascade in Supabase
+    // but our schema doesn't have FK cascade, so delete explicitly
+    await sb.from('submissions').delete().eq('form_id', id)
+    await sb.from('tasks').delete().eq('form_id', id)
+    const { error } = await sb.from('forms').delete().eq('id', id)
+    if (error) throw error
+    return
+  }
   await dbDelete('forms', id)
-  // Delete all submissions for this form
   const subs = await dbGetByIndex('submissions', 'formId', id)
   for (const sub of subs) await dbDelete('submissions', sub.id)
-  // Delete tasks
   await dbDelete('tasks', id)
 }
 
-// ── Submissions CRUD (async) ───────────────────────────────────────────────
+// ── Submissions CRUD ───────────────────────────────────────────────────────
 export async function getFormSubmissions(formId) {
+  const sb = getSupabase()
+  if (sb) {
+    const { data, error } = await sb.from('submissions').select('data').eq('form_id', formId).order('submitted_at', { ascending: false })
+    if (error) throw error
+    return (data || []).map(r => r.data)
+  }
   return dbGetByIndex('submissions', 'formId', formId)
 }
 
 export async function addSubmission(formId, data) {
   const sub = { id: uid(), formId, timestamp: new Date().toISOString(), data }
+  const sb = getSupabase()
+  if (sb) {
+    const { error } = await sb.from('submissions').insert({
+      id: sub.id, form_id: formId, data: sub, submitted_at: sub.timestamp,
+    })
+    if (error) throw error
+    return sub
+  }
   await dbPut('submissions', sub)
   return sub
 }
 
 export async function deleteSubmission(_formId, subId) {
+  const sb = getSupabase()
+  if (sb) {
+    const { error } = await sb.from('submissions').delete().eq('id', subId)
+    if (error) throw error
+    return
+  }
   await dbDelete('submissions', subId)
 }
 
@@ -129,12 +179,24 @@ export async function exportCSV(formId) {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-// ── Speakers CRUD (async) ──────────────────────────────────────────────────
+// ── Speakers CRUD ──────────────────────────────────────────────────────────
 export async function getAllSpeakers() {
+  const sb = getSupabase()
+  if (sb) {
+    const { data, error } = await sb.from('speakers').select('data').order('created_at', { ascending: false })
+    if (error) throw error
+    return (data || []).map(r => r.data)
+  }
   return dbGetAll('speakers')
 }
 
 export async function getSpeakerById(id) {
+  const sb = getSupabase()
+  if (sb) {
+    const { data, error } = await sb.from('speakers').select('data').eq('id', id).single()
+    if (error) return null
+    return data?.data || null
+  }
   return dbGet('speakers', id)
 }
 
@@ -143,15 +205,30 @@ export async function saveSpeaker(speaker) {
   const record = { ...speaker, updatedAt: now }
   if (!record.id) record.id = uid()
   if (!record.createdAt) record.createdAt = now
+  const sb = getSupabase()
+  if (sb) {
+    const { error } = await sb.from('speakers').upsert(
+      { id: record.id, data: record, created_at: record.createdAt },
+      { onConflict: 'id' }
+    )
+    if (error) throw error
+    return record
+  }
   await dbPut('speakers', record)
   return record
 }
 
 export async function deleteSpeaker(id) {
+  const sb = getSupabase()
+  if (sb) {
+    const { error } = await sb.from('speakers').delete().eq('id', id)
+    if (error) throw error
+    return
+  }
   await dbDelete('speakers', id)
 }
 
-// ── Event Tasks / Checklist (async) ───────────────────────────────────────
+// ── Event Tasks / Checklist ────────────────────────────────────────────────
 const DEFAULT_TASKS = {
   pre: [
     'Confirm meeting link / book venue',
@@ -184,18 +261,31 @@ const DEFAULT_TASKS = {
 }
 
 export async function getEventTasks(formId) {
-  const doc = await dbGet('tasks', formId)
-  if (doc) return { pre: doc.pre || [], during: doc.during || [], post: doc.post || [] }
+  const sb = getSupabase()
+  if (sb) {
+    const { data } = await sb.from('tasks').select('data').eq('form_id', formId).maybeSingle()
+    if (data?.data) return data.data
+  } else {
+    const doc = await dbGet('tasks', formId)
+    if (doc) return { pre: doc.pre || [], during: doc.during || [], post: doc.post || [] }
+  }
+  // First time: create defaults
   const tasks = {
     pre:    DEFAULT_TASKS.pre.map((t, i) => ({ id: `p${i}`, text: t, done: false })),
     during: DEFAULT_TASKS.during.map((t, i) => ({ id: `d${i}`, text: t, done: false })),
     post:   DEFAULT_TASKS.post.map((t, i) => ({ id: `q${i}`, text: t, done: false })),
   }
-  await dbPut('tasks', { formId, ...tasks })
+  await saveEventTasks(formId, tasks)
   return tasks
 }
 
 export async function saveEventTasks(formId, tasks) {
+  const sb = getSupabase()
+  if (sb) {
+    const { error } = await sb.from('tasks').upsert({ form_id: formId, data: tasks }, { onConflict: 'form_id' })
+    if (error) throw error
+    return
+  }
   await dbPut('tasks', { formId, ...tasks })
 }
 
