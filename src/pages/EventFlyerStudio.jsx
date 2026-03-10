@@ -853,6 +853,10 @@ export default function EventFlyerStudio() {
                 )}
               </div>
             ))}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginTop: 4 }}>
+              <Slider label="Circle Size %" value={state.speakerSize} min={30} max={200} small onChange={e => set('speakerSize', +e.target.value)} />
+              <Slider label="Host Photo Size %" value={state.hostPhotoSize} min={30} max={200} small onChange={e => set('hostPhotoSize', +e.target.value)} />
+            </div>
           </div>
 
           <div style={divider} />
