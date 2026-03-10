@@ -112,6 +112,22 @@ function drawGridBg(ctx, w, h, color = '#f4f4f4') {
   for (let y = 0; y <= h; y += step) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke() }
 }
 
+function drawBg(ctx, w, h, s, defaultColor) {
+  ctx.fillStyle = s.bgColor || defaultColor
+  ctx.fillRect(0, 0, w, h)
+  if (s.bgImage) {
+    const img = s.bgImage
+    const sc = Math.max(w / img.naturalWidth, h / img.naturalHeight) * ((s.bgImageSize || 100) / 100)
+    const dw = img.naturalWidth * sc, dh = img.naturalHeight * sc
+    ctx.drawImage(img, (s.bgImageX || 50) / 100 * w - dw / 2, (s.bgImageY || 50) / 100 * h - dh / 2, dw, dh)
+  } else {
+    ctx.strokeStyle = 'rgba(0,0,0,0.055)'; ctx.lineWidth = 1
+    const step = w / 30
+    for (let x = 0; x <= w; x += step) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke() }
+    for (let y = 0; y <= h; y += step) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke() }
+  }
+}
+
 // ── Draw the 3 title parts (shared across all templates) ──────────────────
 function drawTitleParts(ctx, w, h, s, opts = {}) {
   const {
@@ -151,16 +167,32 @@ function drawTitleParts(ctx, w, h, s, opts = {}) {
   ctx.textAlign = 'left'
   if (hostName) ctx.fillText(hostName, hnx, hny)
 
-  // Underline accent beneath host name
+  // Brush-stroke underline accent beneath host name
   if (hostName) {
     const nmW = ctx.measureText(hostName).width
-    ctx.strokeStyle = hostUnderlineColor || s.accentColor
-    ctx.lineWidth = Math.max(3, 4 * (w / 1080))
+    const ulColor = s.underlineColor || hostUnderlineColor || s.accentColor
+    const baseW = Math.max(2, 3.5 * (w / 1080)) * ((s.underlineThickness || 100) / 100)
+    const uly = hny + hnfs * hostUnderlineOffset + (s.underlineOffsetY || 0) * (w / 1080)
+    const curve = (s.underlineCurve || 0) * (w / 1080)
+    const layers = [
+      { wf: 0.28, a: 0.28, oy: -baseW * 0.45 },
+      { wf: 0.62, a: 0.52, oy: -baseW * 0.15 },
+      { wf: 1.00, a: 0.82, oy: 0 },
+      { wf: 0.68, a: 0.50, oy: baseW * 0.20 },
+      { wf: 0.26, a: 0.26, oy: baseW * 0.42 },
+    ]
+    ctx.strokeStyle = ulColor
     ctx.lineCap = 'round'
-    ctx.beginPath()
-    ctx.moveTo(hnx, hny + hnfs * hostUnderlineOffset)
-    ctx.lineTo(hnx + nmW, hny + hnfs * hostUnderlineOffset)
-    ctx.stroke()
+    ctx.save()
+    layers.forEach(({ wf, a, oy }) => {
+      ctx.lineWidth = baseW * wf
+      ctx.globalAlpha = a
+      ctx.beginPath()
+      ctx.moveTo(hnx, uly + oy)
+      ctx.quadraticCurveTo(hnx + nmW * 0.5, uly + oy - curve, hnx + nmW, uly + oy)
+      ctx.stroke()
+    })
+    ctx.restore()
   }
 }
 
@@ -170,7 +202,7 @@ const FLYER_TEMPLATES = [
     id: 0, name: 'Promo',
     render(ctx, w, h, s) {
       ctx.save()
-      drawGridBg(ctx, w, h, '#f5f5f5')
+      drawBg(ctx, w, h, s, '#f5f5f5')
 
       // Decorative coloured squares (top-right)
       const sqW = w * (s.hostPhotoSize / 100) * 0.42
@@ -209,10 +241,12 @@ const FLYER_TEMPLATES = [
 
       // Brand tag — uses brandX/brandY independently
       const bx = s.brandX / 100 * w, by = s.brandY / 100 * h
-      const tagH2 = h * 0.05, tagW2 = w * 0.28
-      ctx.strokeStyle = '#1a1a2e'; ctx.lineWidth = Math.max(1.5, 2 * (w / 1080))
+      const btScale = (s.brandTagSize || 100) / 100
+      const tagH2 = h * 0.05 * btScale, tagW2 = w * 0.28 * btScale
+      const btColor = s.brandTagColor || '#1a1a2e'
+      ctx.strokeStyle = btColor; ctx.lineWidth = Math.max(1.5, 2 * (w / 1080))
       roundRect(ctx, bx, by, tagW2, tagH2, tagH2 / 2); ctx.stroke()
-      ctx.font = `700 ${w * 0.02}px 'Montserrat', Arial`; ctx.fillStyle = '#1a1a2e'
+      ctx.font = `700 ${w * 0.02 * btScale}px '${s.brandTagFont || 'Montserrat'}', Arial`; ctx.fillStyle = btColor
       ctx.textAlign = 'center'; ctx.fillText(s.brandName, bx + tagW2 / 2, by + tagH2 * 0.68); ctx.textAlign = 'left'
 
       // 3-part title — each part fully independent
@@ -264,7 +298,7 @@ const FLYER_TEMPLATES = [
     id: 1, name: 'Speaker Grid',
     render(ctx, w, h, s) {
       ctx.save()
-      drawGridBg(ctx, w, h, '#f8f8f8')
+      drawBg(ctx, w, h, s, '#f8f8f8')
 
       const spSlots = 4
       const spR = w * 0.09 * (s.speakerSize / 100)
@@ -302,10 +336,12 @@ const FLYER_TEMPLATES = [
       // Brand tag — uses brandX/brandY (INDEPENDENT from title)
       const bTagX = s.brandX / 100 * w
       const bTagY = s.brandY / 100 * h
-      const brandBoxW = w * 0.22, brandBoxH = h * 0.04
-      ctx.strokeStyle = '#1a1a2e'; ctx.lineWidth = Math.max(1, 1.5 * (w / 1080))
+      const btScale = (s.brandTagSize || 100) / 100
+      const brandBoxW = w * 0.22 * btScale, brandBoxH = h * 0.04 * btScale
+      const btColor = s.brandTagColor || '#1a1a2e'
+      ctx.strokeStyle = btColor; ctx.lineWidth = Math.max(1, 1.5 * (w / 1080))
       roundRect(ctx, bTagX, bTagY, brandBoxW, brandBoxH, brandBoxH / 2); ctx.stroke()
-      ctx.font = `700 ${w * 0.018}px 'Montserrat', Arial`; ctx.fillStyle = '#1a1a2e'
+      ctx.font = `700 ${w * 0.018 * btScale}px '${s.brandTagFont || 'Montserrat'}', Arial`; ctx.fillStyle = btColor
       ctx.textAlign = 'center'; ctx.fillText(s.brandName, bTagX + brandBoxW / 2, bTagY + brandBoxH * 0.68); ctx.textAlign = 'left'
 
       // 3-part title — each part has its OWN independent position
@@ -412,10 +448,14 @@ const FLYER_TEMPLATES = [
     id: 2, name: 'Day Card',
     render(ctx, w, h, s) {
       ctx.save()
-      // Dark gradient background
-      const bg = ctx.createLinearGradient(0, 0, w, h)
-      bg.addColorStop(0, '#0d0520'); bg.addColorStop(1, '#1a0a35')
-      ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h)
+      // Dark gradient background (overridable via bgColor / bgImage)
+      if (s.bgImage || s.bgColor) {
+        drawBg(ctx, w, h, s, '#0d0520')
+      } else {
+        const bg = ctx.createLinearGradient(0, 0, w, h)
+        bg.addColorStop(0, '#0d0520'); bg.addColorStop(1, '#1a0a35')
+        ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h)
+      }
 
       const g1 = ctx.createRadialGradient(w * 0.1, h * 0.1, 0, w * 0.1, h * 0.1, w * 0.6)
       g1.addColorStop(0, hexToRgba(s.accentColor, 0.3)); g1.addColorStop(1, 'transparent')
@@ -434,10 +474,12 @@ const FLYER_TEMPLATES = [
 
       // Brand tag — uses brandX/brandY independently
       const bx = s.brandX / 100 * w, by = s.brandY / 100 * h
-      const bTagW = w * 0.22, bTagH = h * 0.046
-      ctx.strokeStyle = s.accentColor; ctx.lineWidth = Math.max(1, 1.5 * (w / 1080))
+      const btScale = (s.brandTagSize || 100) / 100
+      const bTagW = w * 0.22 * btScale, bTagH = h * 0.046 * btScale
+      const btColor = s.brandTagColor || s.accentColor
+      ctx.strokeStyle = btColor; ctx.lineWidth = Math.max(1, 1.5 * (w / 1080))
       roundRect(ctx, bx, by, bTagW, bTagH, bTagH / 2); ctx.stroke()
-      ctx.font = `700 ${w * 0.019}px 'Montserrat', Arial`; ctx.fillStyle = s.accentColor
+      ctx.font = `700 ${w * 0.019 * btScale}px '${s.brandTagFont || 'Montserrat'}', Arial`; ctx.fillStyle = btColor
       ctx.textAlign = 'center'; ctx.fillText(s.brandName, bx + bTagW / 2, by + bTagH * 0.67); ctx.textAlign = 'left'
 
       // Day badge (prominent) — uses dayX/dayY independently
@@ -563,6 +605,9 @@ const DEFAULT_STATE = {
   ],
   qrCode: null, qrPreview: null,
   customTextLayers: [],
+  underlineColor: '', underlineOffsetY: 0, underlineCurve: 0, underlineThickness: 100,
+  brandTagSize: 100, brandTagColor: '', brandTagFont: 'Montserrat',
+  bgColor: '', bgImage: null, bgImagePreview: null, bgImageX: 50, bgImageY: 50, bgImageSize: 100,
 }
 
 // ── COMPONENT ──────────────────────────────────────────────────────────────
@@ -640,6 +685,18 @@ export default function EventFlyerStudio() {
         speakers: prev.speakers.map((sp, i) => i === index ? { ...sp, image: img, previewSrc: ev.target.result } : sp),
       }))
       img.src = ev.target.result
+    }
+    reader.readAsDataURL(file)
+  }
+
+  function handleBgImage(e) {
+    const file = e.target.files[0]; if (!file) return
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const img = new Image()
+      img.onload = () => set('bgImage', img)
+      img.src = ev.target.result
+      set('bgImagePreview', ev.target.result)
     }
     reader.readAsDataURL(file)
   }
@@ -737,6 +794,18 @@ export default function EventFlyerStudio() {
 
           <div style={divider} />
 
+          {/* Brand Tag */}
+          <div style={{ marginBottom: 16 }}>
+            <SecTitle>Brand Tag</SecTitle>
+            <label style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', display: 'block', marginBottom: 3 }}>Font Family</label>
+            <FontSelect value={state.brandTagFont} onChange={v => set('brandTagFont', v)} />
+            <label style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', display: 'block', marginBottom: 3 }}>Color</label>
+            <SwatchRow colors={EVENT_COLORS} value={state.brandTagColor || '#1a1a2e'} onChange={c => set('brandTagColor', c)} />
+            <Slider label="Size %" value={state.brandTagSize} min={30} max={250} small onChange={e => set('brandTagSize', +e.target.value)} />
+          </div>
+
+          <div style={divider} />
+
           {/* Title Typography — 3 independent parts */}
           <div style={{ marginBottom: 16 }}>
             <SecTitle>Title Typography</SecTitle>
@@ -796,6 +865,18 @@ export default function EventFlyerStudio() {
                 <Slider label="Y %" value={state.hostNameY} min={0} max={95} small onChange={e => set('hostNameY', +e.target.value)} />
               </div>
             </div>
+
+            {/* Underline */}
+            <div style={subGroupStyle}>
+              <span style={subLabel}>Name Underline (Brush Stroke)</span>
+              <label style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', display: 'block', marginBottom: 3 }}>Color</label>
+              <SwatchRow colors={EVENT_COLORS} value={state.underlineColor || state.accentColor} onChange={c => set('underlineColor', c)} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginTop: 4 }}>
+                <Slider label="Thickness %" value={state.underlineThickness} min={20} max={400} small onChange={e => set('underlineThickness', +e.target.value)} />
+                <Slider label="Curve" value={state.underlineCurve} min={-80} max={80} small onChange={e => set('underlineCurve', +e.target.value)} />
+                <Slider label="Offset Y" value={state.underlineOffsetY} min={-40} max={60} small onChange={e => set('underlineOffsetY', +e.target.value)} />
+              </div>
+            </div>
           </div>
 
           <div style={divider} />
@@ -832,6 +913,34 @@ export default function EventFlyerStudio() {
             <SwatchRow colors={EVENT_COLORS} value={state.accentColor2} onChange={c => set('accentColor2', c)} />
             <label style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.6)', display: 'block', margin: '8px 0 5px' }}>Date Text Color</label>
             <SwatchRow colors={EVENT_COLORS} value={state.dateTextColor} onChange={c => set('dateTextColor', c)} />
+          </div>
+
+          <div style={divider} />
+
+          {/* Background */}
+          <div style={{ marginBottom: 16 }}>
+            <SecTitle>Background</SecTitle>
+            <label style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', display: 'block', marginBottom: 3 }}>Solid Color (overrides template default)</label>
+            <SwatchRow colors={[...EVENT_COLORS, { c: '#f5f5f5', n: 'Light' }, { c: '#0d0520', n: 'Night' }]} value={state.bgColor || '#f5f5f5'} onChange={c => set('bgColor', c)} />
+            <button onClick={() => set('bgColor', '')} style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', marginBottom: 8 }}>↩ Reset to template default</button>
+            <label style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', display: 'block', marginBottom: 4 }}>Background Image</label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', background: 'rgba(255,255,255,0.05)', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: 8, padding: '8px 10px', marginBottom: 8 }}>
+              <input type="file" accept="image/*" onChange={handleBgImage} style={{ display: 'none' }} />
+              {state.bgImagePreview
+                ? <img src={state.bgImagePreview} alt="" style={{ width: 48, height: 32, objectFit: 'cover', borderRadius: 4 }} />
+                : <span style={{ fontSize: 18 }}>🖼</span>}
+              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>{state.bgImagePreview ? 'Change image' : 'Upload image'}</span>
+            </label>
+            {state.bgImagePreview && (
+              <>
+                <button onClick={() => { set('bgImage', null); set('bgImagePreview', null) }} style={{ fontSize: 9, color: 'rgba(255,100,100,0.7)', background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 8px 0' }}>✕ Remove image</button>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                  <Slider label="Image X %" value={state.bgImageX} min={0} max={100} small onChange={e => set('bgImageX', +e.target.value)} />
+                  <Slider label="Image Y %" value={state.bgImageY} min={0} max={100} small onChange={e => set('bgImageY', +e.target.value)} />
+                  <Slider label="Image Size %" value={state.bgImageSize} min={50} max={300} small onChange={e => set('bgImageSize', +e.target.value)} />
+                </div>
+              </>
+            )}
           </div>
 
           <div style={divider} />
