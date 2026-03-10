@@ -195,7 +195,7 @@ function OverviewTab({ form, subs }) {
               Open Registration Form ↗
             </a>
           )}
-          <button style={S.btn('#3498DB', 'outline')} onClick={() => exportCSV(form.id)}>
+          <button style={S.btn('#3498DB', 'outline')} onClick={async () => exportCSV(form.id)}>
             Export CSV
           </button>
         </div>
@@ -225,7 +225,7 @@ function SubmissionsTab({ form, subs, onDelete }) {
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
-        <button style={S.btn('#2ECC71', 'outline')} onClick={() => exportCSV(form.id)}>
+        <button style={S.btn('#2ECC71', 'outline')} onClick={async () => exportCSV(form.id)}>
           ↓ Export CSV ({subs.length})
         </button>
       </div>
@@ -259,9 +259,11 @@ function SubmissionsTab({ form, subs, onDelete }) {
                 </td>
                 {form.fields?.slice(0, 4).map(f => {
                   const v = s.data?.[f.id]
-                  const display = f.type === 'whatsapp'
-                    ? `${v?.code || ''} ${v?.number || ''}`
-                    : Array.isArray(v) ? v.join(', ') : (v || '—')
+                  let display
+                  if (f.type === 'whatsapp') display = `${v?.code || ''} ${v?.number || ''}`
+                  else if (f.type === 'picture') display = v?.name ? `📷 ${v.name}` : '—'
+                  else if (Array.isArray(v)) display = v.join(', ')
+                  else display = v || '—'
                   return <td key={f.id} style={tdStyle}>{String(display).slice(0, 40)}</td>
                 })}
                 <td style={{ ...tdStyle, display: 'flex', gap: 6 }}>
@@ -287,13 +289,23 @@ function SubmissionsTab({ form, subs, onDelete }) {
             </div>
             {form.fields?.map(f => {
               const v = detail.data?.[f.id]
-              const display = f.type === 'whatsapp'
-                ? `${v?.code || ''} ${v?.number || ''}`
-                : Array.isArray(v) ? v.join(', ') : (v || '—')
               return (
                 <div key={f.id} style={{ marginBottom: 12 }}>
                   <div style={S.label}>{f.label}</div>
-                  <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', whiteSpace: 'pre-wrap' }}>{String(display)}</div>
+                  {f.type === 'picture' ? (
+                    v?.preview ? (
+                      <div>
+                        <img src={v.preview} alt={v.name} style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 8, objectFit: 'contain', border: '1px solid rgba(255,255,255,0.1)' }} />
+                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>📎 {v.name} ({Math.round(v.size / 1024)}KB)</div>
+                      </div>
+                    ) : <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>—</div>
+                  ) : (
+                    <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', whiteSpace: 'pre-wrap' }}>
+                      {f.type === 'whatsapp'
+                        ? `${v?.code || ''} ${v?.number || ''}`
+                        : Array.isArray(v) ? v.join(', ') : (v || '—')}
+                    </div>
+                  )}
                 </div>
               )
             })}
@@ -434,33 +446,37 @@ function SpeakerEditorModal({ speaker, onSave, onClose }) {
 
 // ── Checklist tab ─────────────────────────────────────────────────────────────
 function ChecklistTab({ formId }) {
-  const [tasks, setTasks] = useState(() => getEventTasks(formId))
+  const [tasks, setTasks] = useState({ pre: [], during: [], post: [] })
   const [newText, setNewText] = useState({ pre: '', during: '', post: '' })
 
-  const toggle = (phase, id) => {
+  useEffect(() => {
+    getEventTasks(formId).then(setTasks)
+  }, [formId])
+
+  const toggle = async (phase, id) => {
     const updated = {
       ...tasks,
       [phase]: tasks[phase].map(t => t.id === id ? { ...t, done: !t.done } : t),
     }
     setTasks(updated)
-    saveEventTasks(formId, updated)
+    await saveEventTasks(formId, updated)
   }
 
-  const addTask = (phase) => {
+  const addTask = async (phase) => {
     if (!newText[phase].trim()) return
     const updated = {
       ...tasks,
       [phase]: [...tasks[phase], { id: uid(), text: newText[phase].trim(), done: false }],
     }
     setTasks(updated)
-    saveEventTasks(formId, updated)
+    await saveEventTasks(formId, updated)
     setNewText(n => ({ ...n, [phase]: '' }))
   }
 
-  const removeTask = (phase, id) => {
+  const removeTask = async (phase, id) => {
     const updated = { ...tasks, [phase]: tasks[phase].filter(t => t.id !== id) }
     setTasks(updated)
-    saveEventTasks(formId, updated)
+    await saveEventTasks(formId, updated)
   }
 
   const phases = [
@@ -678,10 +694,10 @@ export default function EventDashboard() {
   const [subs, setSubs] = useState([])
 
   // Reload forms and subs
-  const reload = useCallback(() => {
-    const all = getAllForms()
+  const reload = useCallback(async () => {
+    const all = await getAllForms()
     setForms(all)
-    if (selectedId) setSubs(getFormSubmissions(selectedId))
+    if (selectedId) setSubs(await getFormSubmissions(selectedId))
   }, [selectedId])
 
   useEffect(() => { reload() }, [reload])
@@ -699,15 +715,16 @@ export default function EventDashboard() {
 
   const form = forms.find(f => f.id === selectedId) || null
 
-  const handleDeleteSub = (subId) => {
+  const handleDeleteSub = async (subId) => {
     if (!window.confirm('Delete this submission?')) return
-    deleteSubmission(selectedId, subId)
+    await deleteSubmission(selectedId, subId)
     reload()
   }
 
-  const handleFormChange = (updated) => {
-    saveForm(updated)
-    setForms(getAllForms())
+  const handleFormChange = async (updated) => {
+    await saveForm(updated)
+    const all = await getAllForms()
+    setForms(all)
   }
 
   const tabs = [
@@ -751,7 +768,7 @@ export default function EventDashboard() {
       </header>
 
       {/* Form selector */}
-      <FormSelector forms={forms} selected={selectedId} onSelect={id => { setSelectedId(id); setSubs(getFormSubmissions(id)) }} />
+      <FormSelector forms={forms} selected={selectedId} onSelect={async id => { setSelectedId(id); setSubs(await getFormSubmissions(id)) }} />
 
       {/* No forms */}
       {forms.length === 0 && (
@@ -789,7 +806,7 @@ export default function EventDashboard() {
 
           {tab === 'overview' && <OverviewTab form={form} subs={subs} />}
           {tab === 'submissions' && <SubmissionsTab form={form} subs={subs} onDelete={handleDeleteSub} />}
-          {tab === 'speakers' && <SpeakersTab form={form} onChange={f => { handleFormChange(f); setForms(getAllForms()) }} />}
+          {tab === 'speakers' && <SpeakersTab form={form} onChange={handleFormChange} />}
           {tab === 'checklist' && <ChecklistTab formId={form.id} />}
           {tab === 'reminders' && <RemindersTab form={form} subs={subs} />}
         </div>

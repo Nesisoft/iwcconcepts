@@ -167,6 +167,53 @@ function FormField({ field, value, onChange, accent, errors }) {
         <StarRating value={value || 0} onChange={onChange} accent={accent} />
       )}
 
+      {field.type === 'picture' && (
+        <div>
+          <label style={{ display: 'block', cursor: 'pointer' }}>
+            <div style={{
+              border: `2px dashed ${err ? 'rgba(239,68,68,0.7)' : 'rgba(255,255,255,0.2)'}`,
+              borderRadius: 10, padding: '20px', textAlign: 'center',
+              background: 'rgba(255,255,255,0.03)', transition: 'border-color 0.2s',
+            }}>
+              {value?.preview ? (
+                <img src={value.preview} style={{ maxHeight: 180, maxWidth: '100%', borderRadius: 8, objectFit: 'contain' }} alt="Preview" />
+              ) : (
+                <>
+                  <div style={{ fontSize: 36, marginBottom: 8 }}>🖼️</div>
+                  <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>Click to upload photo</div>
+                  {field.placeholder && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>{field.placeholder}</div>}
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginTop: 6 }}>Max {field.maxSizeMB || 5}MB</div>
+                </>
+              )}
+            </div>
+            <input
+              type="file"
+              accept={field.accept || 'image/*'}
+              style={{ display: 'none' }}
+              onChange={e => {
+                const file = e.target.files[0]
+                if (!file) return
+                const maxBytes = (field.maxSizeMB || 5) * 1024 * 1024
+                if (file.size > maxBytes) {
+                  alert(`File too large. Maximum size is ${field.maxSizeMB || 5}MB.`)
+                  e.target.value = ''
+                  return
+                }
+                const reader = new FileReader()
+                reader.onload = ev => onChange({ name: file.name, type: file.type, size: file.size, preview: ev.target.result })
+                reader.readAsDataURL(file)
+              }}
+            />
+          </label>
+          {value?.name && (
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>📎 {value.name} ({Math.round(value.size / 1024)}KB)</span>
+              <button onClick={() => onChange(null)} style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: 10, fontWeight: 700 }}>Remove</button>
+            </div>
+          )}
+        </div>
+      )}
+
       {err && <div style={{ fontSize: 10, color: '#f87171', marginTop: 5 }}>⚠ {err}</div>}
     </div>
   )
@@ -195,8 +242,24 @@ export default function EventRegistration() {
       if (config) { setFormConfig(config); return }
     }
     if (formId) {
-      const config = getFormById(formId)
-      if (config) { setFormConfig(config); return }
+      getFormById(formId).then(config => {
+        if (config) { setFormConfig(config); return }
+        // Demo fallback if not found
+        setFormConfig({
+          id: 'demo',
+          type: isFeedback ? 'feedback' : 'registration',
+          title: isFeedback ? 'Event Feedback' : 'Event Registration',
+          description: isFeedback ? 'We would love to hear your thoughts on this event!' : 'Register to secure your spot for this exciting event.',
+          eventDate: '',
+          brandName: 'IWC Concepts',
+          accentColor: '#E4600A',
+          accentColor2: '#F5B800',
+          fields: [],
+          speakers: [],
+          emailConfig: { enabled: false },
+        })
+      })
+      return
     }
     // Demo fallback
     setFormConfig({
@@ -222,6 +285,7 @@ export default function EventRegistration() {
         if (!v || (Array.isArray(v) && v.length === 0)) errs[f.id] = 'This field is required'
         if (f.type === 'whatsapp' && (!v?.number || v.number.trim() === '')) errs[f.id] = 'Please enter your WhatsApp number'
         if (f.type === 'email' && v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) errs[f.id] = 'Please enter a valid email address'
+        if (f.type === 'picture' && !v?.preview) errs[f.id] = 'Please upload a photo'
       }
     })
     return errs
@@ -240,8 +304,8 @@ export default function EventRegistration() {
     setSubmitError('')
 
     try {
-      // Store locally
-      if (formConfig.id !== 'demo') addSubmission(formConfig.id, formData)
+      // Store in IndexedDB
+      if (formConfig.id !== 'demo') await addSubmission(formConfig.id, formData)
 
       // Build human-readable summary for email
       const summary = formConfig.fields.map(f => {

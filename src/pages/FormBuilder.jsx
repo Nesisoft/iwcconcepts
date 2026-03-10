@@ -26,6 +26,7 @@ const FIELD_TYPES = [
   { type: 'text',       icon: '📝', label: 'Short Text' },
   { type: 'textarea',   icon: '📄', label: 'Long Answer' },
   { type: 'rating',     icon: '⭐', label: 'Star Rating' },
+  { type: 'picture',    icon: '🖼️', label: 'Photo Upload' },
 ]
 
 function makeDefaultForm(type) {
@@ -117,6 +118,27 @@ function FieldEditorModal({ field, onSave, onClose }) {
 
         <Toggle label="Required" checked={f.required} onChange={e => set('required', e.target.checked)} />
 
+        {f.type === 'picture' && (
+          <>
+            <Field label="Accepted File Types">
+              <select style={inp()} value={f.accept || 'image/*'} onChange={e => set('accept', e.target.value)}>
+                <option value="image/*">Images only (JPG, PNG, WebP, etc.)</option>
+                <option value="image/jpeg,image/png">JPG & PNG only</option>
+                <option value="image/*,.pdf">Images & PDF</option>
+                <option value="*">Any file type</option>
+              </select>
+            </Field>
+            <Field label="Max File Size (MB)">
+              <input type="number" style={inp()} min="1" max="20" value={f.maxSizeMB || 5}
+                onChange={e => set('maxSizeMB', Number(e.target.value))} />
+            </Field>
+            <Field label="Helper Text (shown below upload button)">
+              <input style={inp()} value={f.placeholder || ''} placeholder="e.g. Passport photo required"
+                onChange={e => set('placeholder', e.target.value)} />
+            </Field>
+          </>
+        )}
+
         {(f.type === 'radio' || f.type === 'checkbox') && (
           <div style={{ marginBottom: 12 }}>
             <Label>Options</Label>
@@ -148,15 +170,32 @@ function FieldEditorModal({ field, onSave, onClose }) {
 export default function FormBuilder() {
   const navigate = useNavigate()
   const [forms, setForms] = useState([])
+  const [subCounts, setSubCounts] = useState({})
   const [selectedId, setSelectedId] = useState(null)
   const [form, setForm] = useState(null)
   const [tab, setTab] = useState('content')
   const [editingField, setEditingField] = useState(null)
   const [copied, setCopied] = useState(false)
+  const [submissionCount, setSubmissionCount] = useState(0)
 
-  const refreshForms = () => setForms(getAllForms())
+  const refreshForms = useCallback(async () => {
+    const all = await getAllForms()
+    setForms(all)
+    const counts = {}
+    await Promise.all(all.map(async f => {
+      const subs = await getFormSubmissions(f.id)
+      counts[f.id] = subs.length
+    }))
+    setSubCounts(counts)
+  }, [])
 
-  useEffect(() => { refreshForms() }, [])
+  useEffect(() => { refreshForms() }, [refreshForms])
+
+  // Update submission count when selected form changes
+  useEffect(() => {
+    if (!selectedId) { setSubmissionCount(0); return }
+    getFormSubmissions(selectedId).then(subs => setSubmissionCount(subs.length))
+  }, [selectedId])
 
   // Auto-save form after 600ms of no changes
   const debouncedSave = useCallback((f) => {
@@ -171,24 +210,25 @@ export default function FormBuilder() {
     return cleanup
   }, [form, debouncedSave])
 
-  function loadForm(id) {
-    const f = getAllForms().find(x => x.id === id)
+  async function loadForm(id) {
+    const all = await getAllForms()
+    const f = all.find(x => x.id === id)
     if (f) { setForm({ ...f, fields: f.fields.map(x => ({ ...x })) }); setSelectedId(id); setTab('content') }
   }
 
-  function createForm(type) {
+  async function createForm(type) {
     const f = makeDefaultForm(type)
-    saveForm(f)
-    refreshForms()
+    await saveForm(f)
+    await refreshForms()
     setForm(f)
     setSelectedId(f.id)
     setTab('content')
   }
 
-  function handleDelete(id) {
+  async function handleDelete(id) {
     if (!confirm('Delete this form? All submissions will also be deleted.')) return
-    deleteForm(id)
-    refreshForms()
+    await deleteForm(id)
+    await refreshForms()
     if (selectedId === id) { setSelectedId(null); setForm(null) }
   }
 
@@ -208,6 +248,8 @@ export default function FormBuilder() {
       id: uid(), type, label: FIELD_TYPES.find(t => t.type === type)?.label || 'Field',
       placeholder: '', required: false, options: type === 'radio' || type === 'checkbox' ? ['Option 1', 'Option 2'] : [],
       defaultCountryCode: type === 'whatsapp' ? '+233' : undefined,
+      accept: type === 'picture' ? 'image/*' : undefined,
+      maxSizeMB: type === 'picture' ? 5 : undefined,
     }
     setF('fields', [...form.fields, newField])
     setEditingField(newField)
@@ -239,8 +281,6 @@ export default function FormBuilder() {
     if (!url) return
     navigator.clipboard.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) })
   }
-
-  const submissionCount = selectedId ? getFormSubmissions(selectedId).length : 0
 
   // Styles
   const panelStyle = { background: '#130a24', height: '100%', overflowY: 'auto', padding: 16 }
@@ -300,7 +340,7 @@ export default function FormBuilder() {
           )}
 
           {forms.map(f => {
-            const count = getFormSubmissions(f.id).length
+            const count = subCounts[f.id] || 0
             const active = f.id === selectedId
             return (
               <div key={f.id} onClick={() => loadForm(f.id)} style={{

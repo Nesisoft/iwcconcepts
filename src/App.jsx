@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { HashRouter, Routes, Route } from 'react-router-dom'
+import { migrateFromLocalStorage } from './utils/db'
 import Dashboard from './pages/Dashboard'
 import QuoteCardStudio from './pages/QuoteCardStudio'
 import EventFlyerStudio from './pages/EventFlyerStudio'
@@ -11,6 +13,7 @@ import SpeakerDatabase from './pages/SpeakerDatabase'
 import BannerStudio from './pages/BannerStudio'
 
 export default function App() {
+  useEffect(() => { migrateFromLocalStorage() }, [])
   return (
     <HashRouter>
       <Routes>

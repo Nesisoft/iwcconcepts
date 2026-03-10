@@ -1,14 +1,8 @@
+import { dbGetAll, dbGet, dbPut, dbDelete, dbGetByIndex } from './db'
+
 // ── Unique ID generator ────────────────────────────────────────────────────
 export function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
-}
-
-// ── Storage keys ───────────────────────────────────────────────────────────
-const KEYS = {
-  FORMS: 'iwc_forms_v1',
-  SUBMISSIONS: 'iwc_subs_v1',
-  SPEAKERS: 'iwc_speakers_v1',
-  TASKS: 'iwc_tasks_v1',
 }
 
 // ── URL encode / decode form config (for shareable links) ──────────────────
@@ -63,63 +57,51 @@ export const DEFAULT_FEEDBACK_FIELDS = [
   { id: 'f_testimonial',type: 'textarea',  label: 'Testimonial (will be shared)',  placeholder: 'Write a short testimonial we can feature...', required: false },
 ]
 
-// ── Forms CRUD ─────────────────────────────────────────────────────────────
-function readForms() {
-  try { return JSON.parse(localStorage.getItem(KEYS.FORMS) || '[]') }
-  catch { return [] }
+// ── Forms CRUD (async) ─────────────────────────────────────────────────────
+export async function getAllForms() {
+  return dbGetAll('forms')
 }
-function writeForms(forms) { localStorage.setItem(KEYS.FORMS, JSON.stringify(forms)) }
 
-export function getAllForms() { return readForms() }
+export async function getFormById(id) {
+  return dbGet('forms', id)
+}
 
-export function getFormById(id) { return readForms().find(f => f.id === id) || null }
-
-export function saveForm(form) {
-  const forms = readForms()
-  const idx = forms.findIndex(f => f.id === form.id)
+export async function saveForm(form) {
   const now = new Date().toISOString()
   const record = { ...form, updatedAt: now }
-  if (idx >= 0) { forms[idx] = record } else { forms.push({ ...record, id: form.id || uid(), createdAt: now }) }
-  writeForms(forms)
-  return getFormById(form.id)
+  if (!record.id) record.id = uid()
+  if (!record.createdAt) record.createdAt = now
+  await dbPut('forms', record)
+  return record
 }
 
-export function deleteForm(id) {
-  writeForms(readForms().filter(f => f.id !== id))
-  // also delete submissions
-  const all = readAllSubs()
-  delete all[id]
-  localStorage.setItem(KEYS.SUBMISSIONS, JSON.stringify(all))
+export async function deleteForm(id) {
+  await dbDelete('forms', id)
+  // Delete all submissions for this form
+  const subs = await dbGetByIndex('submissions', 'formId', id)
+  for (const sub of subs) await dbDelete('submissions', sub.id)
+  // Delete tasks
+  await dbDelete('tasks', id)
 }
 
-// ── Submissions CRUD ───────────────────────────────────────────────────────
-function readAllSubs() {
-  try { return JSON.parse(localStorage.getItem(KEYS.SUBMISSIONS) || '{}') }
-  catch { return {} }
+// ── Submissions CRUD (async) ───────────────────────────────────────────────
+export async function getFormSubmissions(formId) {
+  return dbGetByIndex('submissions', 'formId', formId)
 }
 
-export function getFormSubmissions(formId) { return readAllSubs()[formId] || [] }
-
-export function addSubmission(formId, data) {
-  const all = readAllSubs()
-  if (!all[formId]) all[formId] = []
+export async function addSubmission(formId, data) {
   const sub = { id: uid(), formId, timestamp: new Date().toISOString(), data }
-  all[formId].push(sub)
-  localStorage.setItem(KEYS.SUBMISSIONS, JSON.stringify(all))
+  await dbPut('submissions', sub)
   return sub
 }
 
-export function deleteSubmission(formId, subId) {
-  const all = readAllSubs()
-  if (all[formId]) {
-    all[formId] = all[formId].filter(s => s.id !== subId)
-    localStorage.setItem(KEYS.SUBMISSIONS, JSON.stringify(all))
-  }
+export async function deleteSubmission(_formId, subId) {
+  await dbDelete('submissions', subId)
 }
 
-export function exportCSV(formId) {
-  const form = getFormById(formId)
-  const subs = getFormSubmissions(formId)
+export async function exportCSV(formId) {
+  const form = await getFormById(formId)
+  const subs = await getFormSubmissions(formId)
   if (!form || !subs.length) return
 
   const headers = ['#', 'Timestamp', ...form.fields.map(f => f.label)]
@@ -129,6 +111,7 @@ export function exportCSV(formId) {
     ...form.fields.map(f => {
       const v = s.data[f.id]
       if (f.type === 'whatsapp') return `${v?.code || ''} ${v?.number || ''}`
+      if (f.type === 'picture') return v?.name ? `[Photo: ${v.name}]` : ''
       if (Array.isArray(v)) return v.join('; ')
       return v || ''
     }),
@@ -146,29 +129,29 @@ export function exportCSV(formId) {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-// ── Speakers CRUD ──────────────────────────────────────────────────────────
-function readSpeakers() {
-  try { return JSON.parse(localStorage.getItem(KEYS.SPEAKERS) || '[]') }
-  catch { return [] }
+// ── Speakers CRUD (async) ──────────────────────────────────────────────────
+export async function getAllSpeakers() {
+  return dbGetAll('speakers')
 }
 
-export function getAllSpeakers() { return readSpeakers() }
-export function getSpeakerById(id) { return readSpeakers().find(s => s.id === id) || null }
+export async function getSpeakerById(id) {
+  return dbGet('speakers', id)
+}
 
-export function saveSpeaker(speaker) {
-  const all = readSpeakers()
-  const idx = all.findIndex(s => s.id === speaker.id)
+export async function saveSpeaker(speaker) {
   const now = new Date().toISOString()
   const record = { ...speaker, updatedAt: now }
-  if (idx >= 0) { all[idx] = record } else { all.push({ ...record, id: speaker.id || uid(), createdAt: now }) }
-  localStorage.setItem(KEYS.SPEAKERS, JSON.stringify(all))
+  if (!record.id) record.id = uid()
+  if (!record.createdAt) record.createdAt = now
+  await dbPut('speakers', record)
+  return record
 }
 
-export function deleteSpeaker(id) {
-  localStorage.setItem(KEYS.SPEAKERS, JSON.stringify(readSpeakers().filter(s => s.id !== id)))
+export async function deleteSpeaker(id) {
+  await dbDelete('speakers', id)
 }
 
-// ── Event Tasks (Checklist) ────────────────────────────────────────────────
+// ── Event Tasks / Checklist (async) ───────────────────────────────────────
 const DEFAULT_TASKS = {
   pre: [
     'Confirm meeting link / book venue',
@@ -200,25 +183,20 @@ const DEFAULT_TASKS = {
   ],
 }
 
-export function getEventTasks(formId) {
-  try {
-    const all = JSON.parse(localStorage.getItem(KEYS.TASKS) || '{}')
-    if (all[formId]) return all[formId]
-    const tasks = {
-      pre:    DEFAULT_TASKS.pre.map((t, i) => ({ id: `p${i}`, text: t, done: false })),
-      during: DEFAULT_TASKS.during.map((t, i) => ({ id: `d${i}`, text: t, done: false })),
-      post:   DEFAULT_TASKS.post.map((t, i) => ({ id: `q${i}`, text: t, done: false })),
-    }
-    all[formId] = tasks
-    localStorage.setItem(KEYS.TASKS, JSON.stringify(all))
-    return tasks
-  } catch { return { pre: [], during: [], post: [] } }
+export async function getEventTasks(formId) {
+  const doc = await dbGet('tasks', formId)
+  if (doc) return { pre: doc.pre || [], during: doc.during || [], post: doc.post || [] }
+  const tasks = {
+    pre:    DEFAULT_TASKS.pre.map((t, i) => ({ id: `p${i}`, text: t, done: false })),
+    during: DEFAULT_TASKS.during.map((t, i) => ({ id: `d${i}`, text: t, done: false })),
+    post:   DEFAULT_TASKS.post.map((t, i) => ({ id: `q${i}`, text: t, done: false })),
+  }
+  await dbPut('tasks', { formId, ...tasks })
+  return tasks
 }
 
-export function saveEventTasks(formId, tasks) {
-  const all = JSON.parse(localStorage.getItem(KEYS.TASKS) || '{}')
-  all[formId] = tasks
-  localStorage.setItem(KEYS.TASKS, JSON.stringify(all))
+export async function saveEventTasks(formId, tasks) {
+  await dbPut('tasks', { formId, ...tasks })
 }
 
 // ── Email sending via EmailJS ──────────────────────────────────────────────
