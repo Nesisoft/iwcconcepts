@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { isConfigured } from '../utils/supabase'
+import { useAuth } from '../contexts/AuthContext'
 
 const tools = [
   {
@@ -97,8 +98,15 @@ const tools = [
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const { signOut, user } = useAuth()
   const [cloud, setCloud] = useState(false)
   useEffect(() => { setCloud(isConfigured()) }, [])
+
+  async function handleLogout() {
+    if (!window.confirm('Sign out of IWC Concepts?')) return
+    await signOut()
+    navigate('/login', { replace: true })
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#0f0a1a', fontFamily: "'Montserrat', sans-serif" }}>
@@ -134,7 +142,19 @@ export default function Dashboard() {
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: cloud ? '#2ECC71' : 'rgba(255,255,255,0.3)', flexShrink: 0 }} />
             {cloud ? 'Cloud DB' : 'Local DB'}
           </button>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: 1 }}>Faith · Business · Impact</div>
+          {/* User / logout */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: 12 }}>
+            {user?.email && user.email !== 'admin' && (
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</div>
+            )}
+            <button
+              onClick={handleLogout}
+              title="Sign out"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 18, padding: '5px 13px', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.45)', fontFamily: "'Montserrat',sans-serif" }}
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
       </header>
 
