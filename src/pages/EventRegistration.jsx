@@ -1,0 +1,439 @@
+import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import {
+  decodeFormConfig, getFormById, addSubmission, sendEmailJS, formatDate,
+  getTimeLeft, COUNTRY_CODES, uid,
+} from '../utils/formStorage'
+
+// ── Countdown component ────────────────────────────────────────────────────
+function Countdown({ eventDate, accentColor, accentColor2 }) {
+  const [left, setLeft] = useState(getTimeLeft(eventDate))
+  useEffect(() => {
+    const id = setInterval(() => setLeft(getTimeLeft(eventDate)), 1000)
+    return () => clearInterval(id)
+  }, [eventDate])
+
+  if (!left) return null
+
+  const blocks = [
+    { v: left.days,    l: 'Days' },
+    { v: left.hours,   l: 'Hours' },
+    { v: left.minutes, l: 'Mins' },
+    { v: left.seconds, l: 'Secs' },
+  ]
+
+  if (left.past) {
+    return (
+      <div style={{ textAlign: 'center', padding: '12px 0', color: accentColor, fontWeight: 800, fontSize: 14 }}>
+        🎉 This event is live / has taken place
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap', margin: '18px 0' }}>
+      {blocks.map(({ v, l }) => (
+        <div key={l} style={{ textAlign: 'center', minWidth: 64 }}>
+          <div style={{
+            background: `linear-gradient(135deg, ${accentColor}22, ${accentColor2}22)`,
+            border: `1px solid ${accentColor}55`, borderRadius: 12,
+            padding: '12px 10px', minWidth: 60,
+          }}>
+            <div style={{ fontSize: 28, fontWeight: 900, color: accentColor, lineHeight: 1 }}>
+              {String(v).padStart(2, '0')}
+            </div>
+          </div>
+          <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.45)', letterSpacing: 1.5, textTransform: 'uppercase', marginTop: 5 }}>{l}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Star rating component ──────────────────────────────────────────────────
+function StarRating({ value, onChange, accent }) {
+  const [hover, setHover] = useState(0)
+  return (
+    <div style={{ display: 'flex', gap: 6 }}>
+      {[1, 2, 3, 4, 5].map(s => (
+        <span key={s} onClick={() => onChange(s)} onMouseEnter={() => setHover(s)} onMouseLeave={() => setHover(0)}
+          style={{ fontSize: 34, cursor: 'pointer', color: (hover || value) >= s ? accent : 'rgba(255,255,255,0.2)', transition: 'color 0.12s, transform 0.1s', transform: (hover || value) >= s ? 'scale(1.12)' : 'scale(1)', display: 'inline-block' }}>
+          ★
+        </span>
+      ))}
+    </div>
+  )
+}
+
+// ── WhatsApp field ─────────────────────────────────────────────────────────
+function WhatsAppField({ field, value, onChange, accent }) {
+  const selected = value?.code || field.defaultCountryCode || '+233'
+  return (
+    <div style={{ display: 'flex', gap: 6 }}>
+      <select
+        value={selected}
+        onChange={e => onChange({ ...value, code: e.target.value })}
+        style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: 'white', fontSize: 12, padding: '10px 8px', minWidth: 100, cursor: 'pointer' }}
+      >
+        {COUNTRY_CODES.map(cc => (
+          <option key={cc.code + cc.name} value={cc.code} style={{ background: '#1a0a2e' }}>
+            {cc.flag} {cc.code} {cc.name}
+          </option>
+        ))}
+      </select>
+      <input
+        type="tel"
+        placeholder={field.placeholder || 'Phone number'}
+        value={value?.number || ''}
+        onChange={e => onChange({ ...value, number: e.target.value })}
+        style={{ flex: 1, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: 'white', fontSize: 12, padding: '10px 12px' }}
+      />
+    </div>
+  )
+}
+
+// ── Single field renderer ──────────────────────────────────────────────────
+function FormField({ field, value, onChange, accent, errors }) {
+  const err = errors?.[field.id]
+  const baseInput = {
+    background: 'rgba(255,255,255,0.08)', border: `1px solid ${err ? 'rgba(239,68,68,0.7)' : 'rgba(255,255,255,0.15)'}`,
+    borderRadius: 8, color: 'white', fontSize: 13, padding: '11px 14px', width: '100%',
+    outline: 'none', fontFamily: "'Montserrat',sans-serif", boxSizing: 'border-box',
+  }
+
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <label style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.8)', display: 'block', marginBottom: 7 }}>
+        {field.label}
+        {field.required && <span style={{ color: accent, marginLeft: 3 }}>*</span>}
+      </label>
+
+      {(field.type === 'full_name' || field.type === 'text') && (
+        <input type="text" style={baseInput} placeholder={field.placeholder} value={value || ''} onChange={e => onChange(e.target.value)} />
+      )}
+
+      {field.type === 'email' && (
+        <input type="email" style={baseInput} placeholder={field.placeholder} value={value || ''} onChange={e => onChange(e.target.value)} />
+      )}
+
+      {field.type === 'textarea' && (
+        <textarea style={{ ...baseInput, resize: 'vertical', lineHeight: 1.6, minHeight: 90 }} placeholder={field.placeholder} value={value || ''} onChange={e => onChange(e.target.value)} rows={4} />
+      )}
+
+      {field.type === 'whatsapp' && (
+        <WhatsAppField field={field} value={value} onChange={onChange} accent={accent} />
+      )}
+
+      {field.type === 'radio' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {(field.options || []).map(opt => (
+            <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+              <div style={{
+                width: 18, height: 18, borderRadius: '50%', border: `2px solid ${value === opt ? accent : 'rgba(255,255,255,0.3)'}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'border-color 0.15s',
+              }}>
+                {value === opt && <div style={{ width: 9, height: 9, borderRadius: '50%', background: accent }} />}
+              </div>
+              <span style={{ fontSize: 12, color: value === opt ? 'white' : 'rgba(255,255,255,0.7)' }} onClick={() => onChange(opt)}>{opt}</span>
+            </label>
+          ))}
+        </div>
+      )}
+
+      {field.type === 'checkbox' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {(field.options || []).map(opt => {
+            const checked = Array.isArray(value) && value.includes(opt)
+            return (
+              <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                <div style={{
+                  width: 18, height: 18, borderRadius: 4, border: `2px solid ${checked ? accent : 'rgba(255,255,255,0.3)'}`,
+                  background: checked ? accent : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0, transition: 'all 0.15s',
+                }} onClick={() => {
+                  const arr = Array.isArray(value) ? [...value] : []
+                  onChange(checked ? arr.filter(x => x !== opt) : [...arr, opt])
+                }}>
+                  {checked && <span style={{ color: 'white', fontSize: 11, fontWeight: 900 }}>✓</span>}
+                </div>
+                <span style={{ fontSize: 12, color: checked ? 'white' : 'rgba(255,255,255,0.7)' }}>{opt}</span>
+              </label>
+            )
+          })}
+        </div>
+      )}
+
+      {field.type === 'rating' && (
+        <StarRating value={value || 0} onChange={onChange} accent={accent} />
+      )}
+
+      {err && <div style={{ fontSize: 10, color: '#f87171', marginTop: 5 }}>⚠ {err}</div>}
+    </div>
+  )
+}
+
+// ── Main page ──────────────────────────────────────────────────────────────
+export default function EventRegistration() {
+  const [searchParams] = useSearchParams()
+  const [formConfig, setFormConfig] = useState(null)
+  const [formData, setFormData] = useState({})
+  const [errors, setErrors] = useState({})
+  const [submitting, setSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [submitError, setSubmitError] = useState('')
+  const formRef = useRef(null)
+
+  // Determine if this is feedback or registration
+  const isFeedback = window.location.hash.includes('/feedback')
+
+  useEffect(() => {
+    const encoded = searchParams.get('d')
+    const formId = searchParams.get('id')
+
+    if (encoded) {
+      const config = decodeFormConfig(encoded)
+      if (config) { setFormConfig(config); return }
+    }
+    if (formId) {
+      const config = getFormById(formId)
+      if (config) { setFormConfig(config); return }
+    }
+    // Demo fallback
+    setFormConfig({
+      id: 'demo',
+      type: isFeedback ? 'feedback' : 'registration',
+      title: isFeedback ? 'Event Feedback' : 'Event Registration',
+      description: isFeedback ? 'We would love to hear your thoughts on this event!' : 'Register to secure your spot for this exciting event.',
+      eventDate: '',
+      brandName: 'IWC Concepts',
+      accentColor: '#E4600A',
+      accentColor2: '#F5B800',
+      fields: [],
+      speakers: [],
+      emailConfig: { enabled: false },
+    })
+  }, [searchParams])
+
+  function validate() {
+    const errs = {}
+    formConfig.fields.forEach(f => {
+      const v = formData[f.id]
+      if (f.required) {
+        if (!v || (Array.isArray(v) && v.length === 0)) errs[f.id] = 'This field is required'
+        if (f.type === 'whatsapp' && (!v?.number || v.number.trim() === '')) errs[f.id] = 'Please enter your WhatsApp number'
+        if (f.type === 'email' && v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) errs[f.id] = 'Please enter a valid email address'
+      }
+    })
+    return errs
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    const errs = validate()
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs)
+      formRef.current?.querySelector('[data-error]')?.scrollIntoView({ behavior: 'smooth' })
+      return
+    }
+    setErrors({})
+    setSubmitting(true)
+    setSubmitError('')
+
+    try {
+      // Store locally
+      if (formConfig.id !== 'demo') addSubmission(formConfig.id, formData)
+
+      // Build human-readable summary for email
+      const summary = formConfig.fields.map(f => {
+        const v = formData[f.id]
+        let display = ''
+        if (f.type === 'whatsapp') display = `${v?.code || ''} ${v?.number || ''}`
+        else if (Array.isArray(v)) display = v.join(', ')
+        else display = v || '(not answered)'
+        return `${f.label}: ${display}`
+      }).join('\n')
+
+      // Get participant name & email for email vars
+      const nameFld = formConfig.fields.find(f => f.type === 'full_name' || f.label?.toLowerCase().includes('name'))
+      const emailFld = formConfig.fields.find(f => f.type === 'email')
+      const participantName = nameFld ? (formData[nameFld.id] || '') : ''
+      const participantEmail = emailFld ? (formData[emailFld.id] || '') : ''
+
+      const cfg = formConfig.emailConfig
+      if (cfg?.enabled && cfg.serviceId && cfg.publicKey) {
+        // Confirmation to participant
+        if (cfg.confirmTemplateId && participantEmail) {
+          await sendEmailJS(cfg.serviceId, cfg.confirmTemplateId, {
+            to_name: participantName,
+            to_email: participantEmail,
+            event_title: formConfig.title,
+            event_date: formatDate(formConfig.eventDate),
+            brand_name: formConfig.brandName,
+            confirmation_message: cfg.confirmationMessage || 'You are registered!',
+          }, cfg.publicKey)
+        }
+        // Notification to admin
+        if (cfg.notifyTemplateId && cfg.adminEmail) {
+          await sendEmailJS(cfg.serviceId, cfg.notifyTemplateId, {
+            to_email: cfg.adminEmail,
+            event_title: formConfig.title,
+            participant_name: participantName,
+            participant_email: participantEmail,
+            submission_data: summary,
+            timestamp: new Date().toLocaleString(),
+          }, cfg.publicKey)
+        }
+      }
+
+      setSubmitted(true)
+    } catch (err) {
+      setSubmitError('Something went wrong. Please try again.')
+      console.error(err)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (!formConfig) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#0a0614', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontFamily: "'Montserrat',sans-serif" }}>
+        <div>Loading form...</div>
+      </div>
+    )
+  }
+
+  const { accentColor: acc, accentColor2: acc2, title, description, eventDate, brandName, fields, speakers, emailConfig } = formConfig
+
+  if (submitted) {
+    return (
+      <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#0a0614,#1a0a2e)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Montserrat',sans-serif", padding: 20 }}>
+        <div style={{ textAlign: 'center', maxWidth: 440 }}>
+          <div style={{ fontSize: 72, marginBottom: 18 }}>{isFeedback ? '🙏' : '🎉'}</div>
+          <div style={{ fontSize: 26, fontWeight: 900, color: 'white', marginBottom: 12 }}>
+            {isFeedback ? 'Thank You!' : "You're Registered!"}
+          </div>
+          <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', lineHeight: 1.7, marginBottom: 24 }}>
+            {emailConfig?.confirmationMessage || (isFeedback ? 'Your feedback has been received. We truly appreciate your time.' : `We look forward to seeing you at ${title}!`)}
+          </div>
+          {!isFeedback && eventDate && (
+            <div style={{ background: `${acc}22`, border: `1px solid ${acc}55`, borderRadius: 12, padding: '14px 20px', marginBottom: 24, color: 'white', fontSize: 12 }}>
+              📅 {formatDate(eventDate)}
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+            {!isFeedback && eventDate && (
+              <a href={`data:text/calendar;charset=utf8,BEGIN:VCALENDAR%0AVERSION:2.0%0ABEGIN:VEVENT%0ADTSTART:${eventDate.replace(/[-:]/g, '').replace('T', 'T')}00Z%0ASUMMARY:${encodeURIComponent(title)}%0AEND:VEVENT%0AEND:VCALENDAR`} download="event.ics" style={{ background: `linear-gradient(135deg,${acc},${acc2})`, color: 'white', borderRadius: 10, padding: '11px 22px', textDecoration: 'none', fontWeight: 700, fontSize: 12 }}>
+                📅 Add to Calendar
+              </a>
+            )}
+            <button onClick={() => window.location.reload()} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: 10, padding: '11px 22px', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+              ← Back to Form
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg,#08040f 0%,#130826 50%,#0a0614 100%)', fontFamily: "'Montserrat',sans-serif", color: 'white' }}>
+      {/* Brand header */}
+      <div style={{ background: `linear-gradient(135deg, ${acc}18, ${acc2}10)`, borderBottom: `3px solid ${acc}`, padding: '18px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 44, height: 44, background: `linear-gradient(135deg,${acc},${acc2})`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
+            {isFeedback ? '⭐' : '📝'}
+          </div>
+          <div>
+            <div style={{ fontWeight: 900, fontSize: 15 }}>{title}</div>
+            <div style={{ fontSize: 9, color: acc, letterSpacing: 2, textTransform: 'uppercase' }}>{brandName}</div>
+          </div>
+        </div>
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
+          {isFeedback ? 'Share your experience' : 'Secure your spot'}
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 620, margin: '0 auto', padding: '28px 20px 60px' }}>
+        {/* Countdown */}
+        {!isFeedback && eventDate && <Countdown eventDate={eventDate} accentColor={acc} accentColor2={acc2} />}
+
+        {/* Event description */}
+        {description && (
+          <div style={{ background: `${acc}12`, border: `1px solid ${acc}30`, borderRadius: 12, padding: '14px 18px', marginBottom: 24, fontSize: 13, lineHeight: 1.7, color: 'rgba(255,255,255,0.8)' }}>
+            {description}
+          </div>
+        )}
+
+        {/* Date/time */}
+        {eventDate && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 20, fontWeight: 600 }}>
+            <span style={{ color: acc }}>📅</span> {formatDate(eventDate)}
+          </div>
+        )}
+
+        {/* Speakers preview */}
+        {speakers?.length > 0 && (
+          <div style={{ marginBottom: 28 }}>
+            <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2.5, color: acc, textTransform: 'uppercase', marginBottom: 12 }}>Speakers & Guests</div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {speakers.filter(s => s.name).map((sp, i) => (
+                <div key={i} style={{ background: `${acc}15`, border: `1px solid ${acc}35`, borderRadius: 10, padding: '10px 14px', minWidth: 120 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: `linear-gradient(135deg,${acc},${acc2})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, marginBottom: 7 }}>👤</div>
+                  <div style={{ fontSize: 12, fontWeight: 700 }}>{sp.name}</div>
+                  {sp.title && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>{sp.title}</div>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Form */}
+        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: '28px 24px' }}>
+          <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 6 }}>{isFeedback ? '⭐ Share Your Review' : '📝 Registration Form'}</div>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginBottom: 24 }}>
+            {isFeedback ? 'Your feedback helps us improve every event.' : 'All fields marked * are required.'}
+          </div>
+
+          <form ref={formRef} onSubmit={handleSubmit}>
+            {fields.map(f => (
+              <FormField
+                key={f.id}
+                field={f}
+                value={formData[f.id]}
+                onChange={v => setFormData(p => ({ ...p, [f.id]: v }))}
+                accent={acc}
+                errors={errors}
+              />
+            ))}
+
+            {fields.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '30px', color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>
+                This form has no fields configured yet.
+              </div>
+            )}
+
+            {submitError && (
+              <div style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#f87171', marginBottom: 16 }}>⚠ {submitError}</div>
+            )}
+
+            {fields.length > 0 && (
+              <button type="submit" disabled={submitting} style={{
+                width: '100%', background: submitting ? 'rgba(255,255,255,0.1)' : `linear-gradient(135deg,${acc},${acc2})`,
+                border: 'none', borderRadius: 12, color: submitting ? 'rgba(255,255,255,0.5)' : '#1a0a00',
+                fontSize: 14, fontWeight: 900, padding: '14px', cursor: submitting ? 'not-allowed' : 'pointer',
+                marginTop: 8, letterSpacing: 0.5,
+              }}>
+                {submitting ? '⏳ Submitting...' : (isFeedback ? '⭐ Submit Feedback' : '🎉 Complete Registration')}
+              </button>
+            )}
+          </form>
+        </div>
+
+        {/* Footer */}
+        <div style={{ textAlign: 'center', marginTop: 28, fontSize: 10, color: 'rgba(255,255,255,0.25)' }}>
+          Powered by <strong style={{ color: acc }}>IWC Concepts</strong> · Your registration is secure
+        </div>
+      </div>
+    </div>
+  )
+}
