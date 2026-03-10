@@ -183,7 +183,9 @@ const FLYER_TEMPLATES = [
       roundRect(ctx, baseX + sqW * 0.1, baseY + sqH * 0.14, sqW * 0.92, sqW * 1.02, 12); ctx.fill()
 
       // Host photo circle
-      const photoR = w * 0.22 * (s.hostPhotoSize / 100)
+      const sp0 = s.speakers[0]
+      const sp0CircleScale = ((sp0 && sp0.circleSize) || 100) / 100
+      const photoR = w * 0.22 * (s.hostPhotoSize / 100) * sp0CircleScale
       const photoCX = baseX + sqW * 0.38
       const photoCY = baseY + sqH * 0.52
       ctx.save()
@@ -281,17 +283,18 @@ const FLYER_TEMPLATES = [
         ctx.fillStyle = i % 2 === 0 ? s.accentColor2 : s.accentColor
         roundRect(ctx, cx2 + spR * 0.55, spCY - spR * 0.35, sq * 0.9, sq * 0.9, 4); ctx.fill()
 
-        drawSpeakerCircle(ctx, sp, cx2, spCY, spR * ((sp.circleSize || 100) / 100), sp.name ? s.accentColor : '#ccc')
+        const spRi = spR * ((sp.circleSize || 100) / 100)
+        drawSpeakerCircle(ctx, sp, cx2, spCY, spRi, sp.name ? s.accentColor : '#ccc')
 
         if (sp.name) {
           const scale = w / 1080
           ctx.font = `700 ${w * 0.022}px 'Montserrat', Arial`
           ctx.fillStyle = '#1a1a2e'; ctx.textAlign = 'center'
-          ctx.fillText(sp.name, cx2, spCY + spR + 28 * scale)
+          ctx.fillText(sp.name, cx2, spCY + spRi + 28 * scale)
 
           ctx.font = `400 ${w * 0.016}px 'Montserrat', Arial`; ctx.fillStyle = '#555'
           const titleParts = sp.title ? sp.title.split('&') : []
-          titleParts.forEach((part, pi) => ctx.fillText(part.trim(), cx2, spCY + spR + 46 * scale + pi * 18 * scale))
+          titleParts.forEach((part, pi) => ctx.fillText(part.trim(), cx2, spCY + spRi + 46 * scale + pi * 18 * scale))
           ctx.textAlign = 'left'
         }
       }
@@ -468,13 +471,14 @@ const FLYER_TEMPLATES = [
         const sp = s.speakers[i]
         if (!sp || (!sp.name && !sp.image)) continue
         const scx = spStartX + i * spGap2
-        drawSpeakerCircle(ctx, sp, scx, spCY, spR2 * ((sp.circleSize || 100) / 100), sp.name ? s.accentColor : '#555')
+        const spR2i = spR2 * ((sp.circleSize || 100) / 100)
+        drawSpeakerCircle(ctx, sp, scx, spCY, spR2i, sp.name ? s.accentColor : '#555')
         if (sp.name) {
           const scale = w / 1080
           ctx.font = `700 ${w * 0.019}px 'Montserrat', Arial`; ctx.fillStyle = 'white'
-          ctx.textAlign = 'center'; ctx.fillText(sp.name, scx, spCY + spR2 + 24 * scale)
+          ctx.textAlign = 'center'; ctx.fillText(sp.name, scx, spCY + spR2i + 24 * scale)
           ctx.font = `400 ${w * 0.014}px 'Montserrat', Arial`; ctx.fillStyle = hexToRgba(s.accentColor, 0.85)
-          ctx.fillText(sp.title || '', scx, spCY + spR2 + 40 * scale)
+          ctx.fillText(sp.title || '', scx, spCY + spR2i + 40 * scale)
           ctx.textAlign = 'left'
         }
       }
