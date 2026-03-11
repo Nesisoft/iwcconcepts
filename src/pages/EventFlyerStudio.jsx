@@ -63,17 +63,31 @@ const EVENT_COLORS = [
   { c: '#1A1A2E', n: 'Dark' }, { c: '#555555', n: 'Gray' },
 ]
 
-const FONT_OPTIONS = ['Montserrat', 'Playfair Display', 'Georgia', 'Arial', 'Lato']
+const FONT_OPTIONS = [
+  // Sans-serif
+  'Montserrat', 'Lato', 'Oswald', 'Raleway',
+  // Serif
+  'Playfair Display', 'Cormorant Garamond', 'Cinzel', 'Georgia',
+  // Script / Calligraphy
+  'Great Vibes', 'Sacramento', 'Dancing Script', 'Pacifico',
+  // Display
+  'Bebas Neue', 'Arial',
+]
 
 function FontSelect({ value, onChange }) {
   return (
-    <select value={value} onChange={e => onChange(e.target.value)} style={{
-      background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-      borderRadius: 6, color: 'white', fontSize: 10, padding: '5px 8px', width: '100%',
-      fontFamily: "'Montserrat',sans-serif", marginBottom: 5,
-    }}>
-      {FONT_OPTIONS.map(f => <option key={f} value={f} style={{ background: '#1a0d2e' }}>{f}</option>)}
-    </select>
+    <div style={{ marginBottom: 5 }}>
+      <select value={value} onChange={e => onChange(e.target.value)} style={{
+        background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+        borderRadius: 6, color: 'white', fontSize: 10, padding: '5px 8px', width: '100%',
+        fontFamily: `'${value}', sans-serif`,
+      }}>
+        {FONT_OPTIONS.map(f => <option key={f} value={f} style={{ background: '#1a0d2e', fontFamily: `'${f}', sans-serif` }}>{f}</option>)}
+      </select>
+      <div style={{ fontFamily: `'${value}', sans-serif`, fontSize: 15, color: 'rgba(255,255,255,0.7)', padding: '4px 2px', letterSpacing: 0.5 }}>
+        The quick brown fox
+      </div>
+    </div>
   )
 }
 
