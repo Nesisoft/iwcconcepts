@@ -18,16 +18,18 @@ const SWATCH_COLORS = [
 ]
 
 const FIELD_TYPES = [
-  { type: 'section',    icon: '📌', label: 'Section / Divider' },
-  { type: 'full_name',  icon: '👤', label: 'Full Name' },
-  { type: 'email',      icon: '✉️', label: 'Email' },
-  { type: 'whatsapp',   icon: '📱', label: 'WhatsApp' },
-  { type: 'radio',      icon: '🔘', label: 'Single Choice' },
-  { type: 'checkbox',   icon: '☑️', label: 'Multi-Choice' },
-  { type: 'text',       icon: '📝', label: 'Short Text' },
-  { type: 'textarea',   icon: '📄', label: 'Long Answer' },
-  { type: 'rating',     icon: '⭐', label: 'Star Rating' },
-  { type: 'picture',    icon: '🖼️', label: 'Photo Upload' },
+  { type: 'section',        icon: '📌', label: 'Section / Divider' },
+  { type: 'full_name',      icon: '👤', label: 'Full Name' },
+  { type: 'email',          icon: '✉️', label: 'Email' },
+  { type: 'whatsapp',       icon: '📱', label: 'WhatsApp' },
+  { type: 'radio',          icon: '🔘', label: 'Single Choice' },
+  { type: 'checkbox',       icon: '☑️', label: 'Multi-Choice' },
+  { type: 'text',           icon: '📝', label: 'Short Text' },
+  { type: 'textarea',       icon: '📄', label: 'Long Answer' },
+  { type: 'rating',         icon: '⭐', label: 'Star Rating' },
+  { type: 'rating_matrix',  icon: '📊', label: 'Rating Matrix' },
+  { type: 'ranking',        icon: '🔢', label: 'Ranking' },
+  { type: 'picture',        icon: '🖼️', label: 'Photo Upload' },
 ]
 
 function makeDefaultForm(type) {
@@ -103,7 +105,7 @@ function Toggle({ label, checked, onChange }) {
 
 // ── Field Editor Modal ─────────────────────────────────────────────────────
 function FieldEditorModal({ field, onSave, onClose }) {
-  const [f, setF] = useState({ ...field, options: field.options ? [...field.options] : [] })
+  const [f, setF] = useState({ ...field, options: field.options ? [...field.options] : [], items: field.items ? [...field.items] : [] })
   const [newOpt, setNewOpt] = useState('')
   const set = (k, v) => setF(p => ({ ...p, [k]: v }))
 
@@ -168,6 +170,46 @@ function FieldEditorModal({ field, onSave, onClose }) {
             <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
               <input style={inp({ flex: 1 })} value={newOpt} placeholder="New option..." onChange={e => setNewOpt(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newOpt.trim()) { set('options', [...f.options, newOpt.trim()]); setNewOpt('') } }} />
               <button onClick={() => { if (newOpt.trim()) { set('options', [...f.options, newOpt.trim()]); setNewOpt('') } }} style={{ background: ACC, border: 'none', borderRadius: 6, color: 'white', padding: '0 12px', cursor: 'pointer', fontWeight: 700 }}>+</button>
+            </div>
+          </div>
+        )}
+
+        {f.type === 'rating_matrix' && (
+          <>
+            <Field label="Scale Description (shown below matrix)">
+              <input style={inp()} value={f.scaleLabel || ''} onChange={e => set('scaleLabel', e.target.value)} placeholder="e.g. 1 = Very weak, 5 = Very strong" />
+            </Field>
+            <Field label="Scale Max (number of columns, 2–10)">
+              <input type="number" style={inp()} min={2} max={10} value={f.scaleMax || 5} onChange={e => set('scaleMax', Number(e.target.value))} />
+            </Field>
+            <div style={{ marginBottom: 12 }}>
+              <Label>Row Items</Label>
+              {f.items.map((item, i) => (
+                <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 5 }}>
+                  <input style={inp({ flex: 1 })} value={item} onChange={e => { const it = [...f.items]; it[i] = e.target.value; set('items', it) }} />
+                  <button onClick={() => set('items', f.items.filter((_, j) => j !== i))} style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 6, color: '#f87171', padding: '0 10px', cursor: 'pointer', fontSize: 14 }}>✕</button>
+                </div>
+              ))}
+              <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                <input style={inp({ flex: 1 })} value={newOpt} placeholder="Add row item..." onChange={e => setNewOpt(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newOpt.trim()) { set('items', [...f.items, newOpt.trim()]); setNewOpt('') } }} />
+                <button onClick={() => { if (newOpt.trim()) { set('items', [...f.items, newOpt.trim()]); setNewOpt('') } }} style={{ background: ACC, border: 'none', borderRadius: 6, color: 'white', padding: '0 12px', cursor: 'pointer', fontWeight: 700 }}>+</button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {f.type === 'ranking' && (
+          <div style={{ marginBottom: 12 }}>
+            <Label>Items to Rank (in default order)</Label>
+            {f.items.map((item, i) => (
+              <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 5 }}>
+                <input style={inp({ flex: 1 })} value={item} onChange={e => { const it = [...f.items]; it[i] = e.target.value; set('items', it) }} />
+                <button onClick={() => set('items', f.items.filter((_, j) => j !== i))} style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 6, color: '#f87171', padding: '0 10px', cursor: 'pointer', fontSize: 14 }}>✕</button>
+              </div>
+            ))}
+            <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+              <input style={inp({ flex: 1 })} value={newOpt} placeholder="Add item..." onChange={e => setNewOpt(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newOpt.trim()) { set('items', [...f.items, newOpt.trim()]); setNewOpt('') } }} />
+              <button onClick={() => { if (newOpt.trim()) { set('items', [...f.items, newOpt.trim()]); setNewOpt('') } }} style={{ background: ACC, border: 'none', borderRadius: 6, color: 'white', padding: '0 12px', cursor: 'pointer', fontWeight: 700 }}>+</button>
             </div>
           </div>
         )}
@@ -269,6 +311,9 @@ export default function FormBuilder() {
       placeholder: '', required: false,
       options: (type === 'radio' || type === 'checkbox') ? ['Option 1', 'Option 2'] : [],
       description: type === 'section' ? '' : undefined,
+      items: (type === 'rating_matrix' || type === 'ranking') ? ['Item 1', 'Item 2', 'Item 3'] : undefined,
+      scaleMax: type === 'rating_matrix' ? 5 : undefined,
+      scaleLabel: type === 'rating_matrix' ? '1 = Very weak, 5 = Very strong' : undefined,
       defaultCountryCode: type === 'whatsapp' ? '+233' : undefined,
       accept: type === 'picture' ? 'image/*' : undefined,
       maxSizeMB: type === 'picture' ? 5 : undefined,
@@ -583,6 +628,8 @@ export default function FormBuilder() {
                           <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>
                             {ft?.label} {f.required && <span style={{ color: '#f87171' }}>• Required</span>}
                             {f.options?.length > 0 && <span> • {f.options.join(', ')}</span>}
+                            {f.items?.length > 0 && (f.type === 'rating_matrix' || f.type === 'ranking') && <span> • {f.items.length} items</span>}
+                            {f.type === 'rating_matrix' && f.scaleLabel && <span> · {f.scaleLabel}</span>}
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>{moveButtons}</div>

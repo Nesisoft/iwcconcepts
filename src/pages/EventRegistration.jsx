@@ -65,6 +65,95 @@ function StarRating({ value, onChange, accent }) {
   )
 }
 
+// ── Rating Matrix ──────────────────────────────────────────────────────────
+function RatingMatrixField({ field, value, onChange, accent }) {
+  const scale = Array.from({ length: field.scaleMax || 5 }, (_, i) => i + 1)
+  const current = value || {}
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      {/* Header row */}
+      <div style={{ display: 'grid', gridTemplateColumns: `1fr repeat(${scale.length}, 44px)`, gap: 4, marginBottom: 6, alignItems: 'center' }}>
+        <div />
+        {scale.map(s => (
+          <div key={s} style={{ textAlign: 'center', fontSize: 11, fontWeight: 800, color: accent }}>{s}</div>
+        ))}
+      </div>
+      {/* Item rows */}
+      {(field.items || []).map(item => (
+        <div key={item} style={{ display: 'grid', gridTemplateColumns: `1fr repeat(${scale.length}, 44px)`, gap: 4, alignItems: 'center', marginBottom: 10 }}>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', paddingRight: 8, lineHeight: 1.4 }}>{item}</div>
+          {scale.map(s => {
+            const selected = current[item] === s
+            return (
+              <div key={s} style={{ display: 'flex', justifyContent: 'center' }}>
+                <div onClick={() => onChange({ ...current, [item]: s })} style={{
+                  width: 22, height: 22, borderRadius: '50%',
+                  border: `2px solid ${selected ? accent : 'rgba(255,255,255,0.25)'}`,
+                  background: selected ? accent : 'transparent',
+                  cursor: 'pointer', transition: 'all 0.15s',
+                }} />
+              </div>
+            )
+          })}
+        </div>
+      ))}
+      {field.scaleLabel && (
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 6 }}>{field.scaleLabel}</div>
+      )}
+    </div>
+  )
+}
+
+// ── Ranking ────────────────────────────────────────────────────────────────
+function RankingField({ field, value, onChange }) {
+  const items = value || field.items || []
+
+  useEffect(() => {
+    if (!value) onChange([...(field.items || [])])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const [draggingIdx, setDraggingIdx] = useState(null)
+
+  function handleDragOver(e, i) {
+    e.preventDefault()
+    if (draggingIdx === null || draggingIdx === i) return
+    const next = [...items]
+    const [moved] = next.splice(draggingIdx, 1)
+    next.splice(i, 0, moved)
+    onChange(next)
+    setDraggingIdx(i)
+  }
+
+  return (
+    <div>
+      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>
+        Drag items to set your order — 1 = highest priority
+      </div>
+      {items.map((item, i) => (
+        <div
+          key={item}
+          draggable
+          onDragStart={() => setDraggingIdx(i)}
+          onDragOver={e => handleDragOver(e, i)}
+          onDragEnd={() => setDraggingIdx(null)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            background: draggingIdx === i ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.05)',
+            border: `1px solid ${draggingIdx === i ? '#8B5CF6' : 'rgba(255,255,255,0.1)'}`,
+            borderRadius: 8, padding: '10px 14px', marginBottom: 6,
+            cursor: 'grab', userSelect: 'none', transition: 'background 0.15s, border-color 0.15s',
+          }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 900, color: '#8B5CF6', minWidth: 22, textAlign: 'center' }}>{i + 1}</div>
+          <div style={{ flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.85)' }}>{item}</div>
+          <div style={{ fontSize: 16, color: 'rgba(255,255,255,0.25)', letterSpacing: 2 }}>⠿</div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── WhatsApp field ─────────────────────────────────────────────────────────
 function WhatsAppField({ field, value, onChange, accent }) {
   const selected = value?.code || field.defaultCountryCode || '+233'
@@ -165,6 +254,14 @@ function FormField({ field, value, onChange, accent, errors }) {
 
       {field.type === 'rating' && (
         <StarRating value={value || 0} onChange={onChange} accent={accent} />
+      )}
+
+      {field.type === 'rating_matrix' && (
+        <RatingMatrixField field={field} value={value} onChange={onChange} accent={accent} />
+      )}
+
+      {field.type === 'ranking' && (
+        <RankingField field={field} value={value} onChange={onChange} />
       )}
 
       {field.type === 'picture' && (
@@ -278,6 +375,10 @@ export default function EventRegistration() {
         if (f.type === 'whatsapp' && (!v?.number || v.number.trim() === '')) errs[f.id] = 'Please enter your WhatsApp number'
         if (f.type === 'email' && v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) errs[f.id] = 'Please enter a valid email address'
         if (f.type === 'picture' && !v?.preview) errs[f.id] = 'Please upload a photo'
+        if (f.type === 'rating_matrix') {
+          const rated = Object.keys(v || {}).length
+          if (rated < (f.items || []).length) errs[f.id] = 'Please rate all items'
+        }
       }
     })
     return errs
@@ -306,6 +407,8 @@ export default function EventRegistration() {
           const v = formData[f.id]
           let display = ''
           if (f.type === 'whatsapp') display = `${v?.code || ''} ${v?.number || ''}`
+          else if (f.type === 'rating_matrix') display = Object.entries(v || {}).map(([k, r]) => `${k}: ${r}`).join('; ')
+          else if (f.type === 'ranking') display = (Array.isArray(v) ? v : []).map((item, i) => `${i + 1}. ${item}`).join(', ')
           else if (Array.isArray(v)) display = v.join(', ')
           else display = v || '(not answered)'
           return `${f.label}: ${display}`
