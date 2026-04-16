@@ -271,6 +271,7 @@ export default function EventRegistration() {
   function validate() {
     const errs = {}
     formConfig.fields.forEach(f => {
+      if (f.type === 'section') return
       const v = formData[f.id]
       if (f.required) {
         if (!v || (Array.isArray(v) && v.length === 0)) errs[f.id] = 'This field is required'
@@ -299,14 +300,16 @@ export default function EventRegistration() {
       if (formConfig.id !== 'demo') await addSubmission(formConfig.id, formData)
 
       // Build human-readable summary for email
-      const summary = formConfig.fields.map(f => {
-        const v = formData[f.id]
-        let display = ''
-        if (f.type === 'whatsapp') display = `${v?.code || ''} ${v?.number || ''}`
-        else if (Array.isArray(v)) display = v.join(', ')
-        else display = v || '(not answered)'
-        return `${f.label}: ${display}`
-      }).join('\n')
+      const summary = formConfig.fields
+        .filter(f => f.type !== 'section')
+        .map(f => {
+          const v = formData[f.id]
+          let display = ''
+          if (f.type === 'whatsapp') display = `${v?.code || ''} ${v?.number || ''}`
+          else if (Array.isArray(v)) display = v.join(', ')
+          else display = v || '(not answered)'
+          return `${f.label}: ${display}`
+        }).join('\n')
 
       // Get participant name & email for email vars
       const nameFld = formConfig.fields.find(f => f.type === 'full_name' || f.label?.toLowerCase().includes('name'))
@@ -457,16 +460,33 @@ export default function EventRegistration() {
           </div>
 
           <form ref={formRef} onSubmit={handleSubmit}>
-            {fields.map(f => (
-              <FormField
-                key={f.id}
-                field={f}
-                value={formData[f.id]}
-                onChange={v => setFormData(p => ({ ...p, [f.id]: v }))}
-                accent={acc}
-                errors={errors}
-              />
-            ))}
+            {fields.map(f => {
+              if (f.type === 'section') {
+                return (
+                  <div key={f.id} style={{ marginTop: 28, marginBottom: 20 }}>
+                    <div style={{ height: 1, background: `linear-gradient(90deg, ${acc}70, transparent)`, marginBottom: 14 }} />
+                    <div style={{ fontSize: 13, fontWeight: 900, color: acc, letterSpacing: 0.3, marginBottom: f.description ? 6 : 0 }}>
+                      {f.label}
+                    </div>
+                    {f.description && (
+                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', lineHeight: 1.65, marginTop: 4 }}>
+                        {f.description}
+                      </div>
+                    )}
+                  </div>
+                )
+              }
+              return (
+                <FormField
+                  key={f.id}
+                  field={f}
+                  value={formData[f.id]}
+                  onChange={v => setFormData(p => ({ ...p, [f.id]: v }))}
+                  accent={acc}
+                  errors={errors}
+                />
+              )
+            })}
 
             {fields.length === 0 && (
               <div style={{ textAlign: 'center', padding: '30px', color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>

@@ -18,6 +18,7 @@ const SWATCH_COLORS = [
 ]
 
 const FIELD_TYPES = [
+  { type: 'section',    icon: '📌', label: 'Section / Divider' },
   { type: 'full_name',  icon: '👤', label: 'Full Name' },
   { type: 'email',      icon: '✉️', label: 'Email' },
   { type: 'whatsapp',   icon: '📱', label: 'WhatsApp' },
@@ -109,15 +110,28 @@ function FieldEditorModal({ field, onSave, onClose }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
       <div style={{ background: '#1a0e30', border: `1px solid ${ACC}`, borderRadius: 14, padding: 24, width: 420, maxHeight: '80vh', overflowY: 'auto' }}>
-        <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 18, color: ACC2 }}>Edit Field</div>
+        <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 18, color: ACC2 }}>
+          {f.type === 'section' ? 'Edit Section' : 'Edit Field'}
+        </div>
 
-        <Field label="Label"><input style={inp()} value={f.label} onChange={e => set('label', e.target.value)} /></Field>
+        {f.type === 'section' ? (
+          <>
+            <Field label="Section Title">
+              <input style={inp()} value={f.label} onChange={e => set('label', e.target.value)} placeholder="e.g. SECTION A — Personal Details" />
+            </Field>
+            <Field label="Section Description (optional)">
+              <textarea style={inp({ resize: 'vertical', lineHeight: 1.6 })} rows={3} value={f.description || ''} onChange={e => set('description', e.target.value)} placeholder="Briefly describe what this section covers…" />
+            </Field>
+          </>
+        ) : (
+          <>
+            <Field label="Label"><input style={inp()} value={f.label} onChange={e => set('label', e.target.value)} /></Field>
 
-        {['text', 'email', 'full_name', 'textarea', 'whatsapp'].includes(f.type) && (
-          <Field label="Placeholder"><input style={inp()} value={f.placeholder || ''} onChange={e => set('placeholder', e.target.value)} /></Field>
-        )}
+            {['text', 'email', 'full_name', 'textarea', 'whatsapp'].includes(f.type) && (
+              <Field label="Placeholder"><input style={inp()} value={f.placeholder || ''} onChange={e => set('placeholder', e.target.value)} /></Field>
+            )}
 
-        <Toggle label="Required" checked={f.required} onChange={e => set('required', e.target.checked)} />
+            <Toggle label="Required" checked={f.required} onChange={e => set('required', e.target.checked)} />
 
         {f.type === 'picture' && (
           <>
@@ -156,6 +170,8 @@ function FieldEditorModal({ field, onSave, onClose }) {
               <button onClick={() => { if (newOpt.trim()) { set('options', [...f.options, newOpt.trim()]); setNewOpt('') } }} style={{ background: ACC, border: 'none', borderRadius: 6, color: 'white', padding: '0 12px', cursor: 'pointer', fontWeight: 700 }}>+</button>
             </div>
           </div>
+        )}
+          </>
         )}
 
         <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
@@ -248,8 +264,11 @@ export default function FormBuilder() {
 
   function addField(type) {
     const newField = {
-      id: uid(), type, label: FIELD_TYPES.find(t => t.type === type)?.label || 'Field',
-      placeholder: '', required: false, options: type === 'radio' || type === 'checkbox' ? ['Option 1', 'Option 2'] : [],
+      id: uid(), type,
+      label: type === 'section' ? 'New Section' : (FIELD_TYPES.find(t => t.type === type)?.label || 'Field'),
+      placeholder: '', required: false,
+      options: (type === 'radio' || type === 'checkbox') ? ['Option 1', 'Option 2'] : [],
+      description: type === 'section' ? '' : undefined,
       defaultCountryCode: type === 'whatsapp' ? '+233' : undefined,
       accept: type === 'picture' ? 'image/*' : undefined,
       maxSizeMB: type === 'picture' ? 5 : undefined,
@@ -532,6 +551,30 @@ export default function FormBuilder() {
 
                   {form.fields.map((f, i) => {
                     const ft = FIELD_TYPES.find(t => t.type === f.type)
+                    const isSection = f.type === 'section'
+                    const moveButtons = (
+                      <>
+                        <button onClick={() => moveField(i, -1)} disabled={i === 0} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 5, color: 'white', width: 26, height: 26, cursor: 'pointer', fontSize: 12, opacity: i === 0 ? 0.3 : 1 }}>↑</button>
+                        <button onClick={() => moveField(i, 1)} disabled={i === form.fields.length - 1} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 5, color: 'white', width: 26, height: 26, cursor: 'pointer', fontSize: 12, opacity: i === form.fields.length - 1 ? 0.3 : 1 }}>↓</button>
+                        <button onClick={() => setEditingField(f)} style={{ background: `rgba(139,92,246,0.2)`, border: 'none', borderRadius: 5, color: ACC2, padding: '0 10px', height: 26, cursor: 'pointer', fontSize: 10, fontWeight: 700 }}>Edit</button>
+                        <button onClick={() => setF('fields', form.fields.filter(x => x.id !== f.id))} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: 5, color: '#f87171', width: 26, height: 26, cursor: 'pointer', fontSize: 12 }}>✕</button>
+                      </>
+                    )
+
+                    if (isSection) {
+                      return (
+                        <div key={f.id} style={{ background: 'rgba(139,92,246,0.08)', border: `1px solid rgba(139,92,246,0.3)`, borderRadius: 10, padding: '12px 14px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ width: 32, textAlign: 'center', fontSize: 18, flexShrink: 0 }}>📌</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 800, color: ACC2, marginBottom: 2 }}>{f.label}</div>
+                            {f.description && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', lineHeight: 1.5 }}>{f.description}</div>}
+                            <div style={{ fontSize: 8, fontWeight: 700, color: ACC, letterSpacing: 1.5, textTransform: 'uppercase', marginTop: 3 }}>Section Divider</div>
+                          </div>
+                          <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>{moveButtons}</div>
+                        </div>
+                      )
+                    }
+
                     return (
                       <div key={f.id} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '12px 14px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ width: 32, textAlign: 'center', fontSize: 18, flexShrink: 0 }}>{ft?.icon || '📝'}</div>
@@ -542,12 +585,7 @@ export default function FormBuilder() {
                             {f.options?.length > 0 && <span> • {f.options.join(', ')}</span>}
                           </div>
                         </div>
-                        <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
-                          <button onClick={() => moveField(i, -1)} disabled={i === 0} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 5, color: 'white', width: 26, height: 26, cursor: 'pointer', fontSize: 12, opacity: i === 0 ? 0.3 : 1 }}>↑</button>
-                          <button onClick={() => moveField(i, 1)} disabled={i === form.fields.length - 1} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 5, color: 'white', width: 26, height: 26, cursor: 'pointer', fontSize: 12, opacity: i === form.fields.length - 1 ? 0.3 : 1 }}>↓</button>
-                          <button onClick={() => setEditingField(f)} style={{ background: `rgba(139,92,246,0.2)`, border: 'none', borderRadius: 5, color: ACC2, padding: '0 10px', height: 26, cursor: 'pointer', fontSize: 10, fontWeight: 700 }}>Edit</button>
-                          <button onClick={() => setF('fields', form.fields.filter(x => x.id !== f.id))} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: 5, color: '#f87171', width: 26, height: 26, cursor: 'pointer', fontSize: 12 }}>✕</button>
-                        </div>
+                        <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>{moveButtons}</div>
                       </div>
                     )
                   })}
