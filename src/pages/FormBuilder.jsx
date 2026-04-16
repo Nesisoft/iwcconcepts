@@ -18,15 +18,19 @@ const SWATCH_COLORS = [
 ]
 
 const FIELD_TYPES = [
-  { type: 'full_name',  icon: '👤', label: 'Full Name' },
-  { type: 'email',      icon: '✉️', label: 'Email' },
-  { type: 'whatsapp',   icon: '📱', label: 'WhatsApp' },
-  { type: 'radio',      icon: '🔘', label: 'Single Choice' },
-  { type: 'checkbox',   icon: '☑️', label: 'Multi-Choice' },
-  { type: 'text',       icon: '📝', label: 'Short Text' },
-  { type: 'textarea',   icon: '📄', label: 'Long Answer' },
-  { type: 'rating',     icon: '⭐', label: 'Star Rating' },
-  { type: 'picture',    icon: '🖼️', label: 'Photo Upload' },
+  { type: 'section',        icon: '📌', label: 'Section / Divider' },
+  { type: 'full_name',      icon: '👤', label: 'Full Name' },
+  { type: 'email',          icon: '✉️', label: 'Email' },
+  { type: 'whatsapp',       icon: '📱', label: 'WhatsApp' },
+  { type: 'radio',          icon: '🔘', label: 'Single Choice' },
+  { type: 'checkbox',       icon: '☑️', label: 'Multi-Choice' },
+  { type: 'text',           icon: '📝', label: 'Short Text' },
+  { type: 'textarea',       icon: '📄', label: 'Long Answer' },
+  { type: 'rating',         icon: '⭐', label: 'Star Rating' },
+  { type: 'rating_matrix',  icon: '📊', label: 'Rating Matrix' },
+  { type: 'ranking',        icon: '🔢', label: 'Ranking' },
+  { type: 'scale',          icon: '📏', label: 'Scale / NPS' },
+  { type: 'picture',        icon: '🖼️', label: 'Photo Upload' },
 ]
 
 function makeDefaultForm(type) {
@@ -102,22 +106,35 @@ function Toggle({ label, checked, onChange }) {
 
 // ── Field Editor Modal ─────────────────────────────────────────────────────
 function FieldEditorModal({ field, onSave, onClose }) {
-  const [f, setF] = useState({ ...field, options: field.options ? [...field.options] : [] })
+  const [f, setF] = useState({ ...field, options: field.options ? [...field.options] : [], items: field.items ? [...field.items] : [] })
   const [newOpt, setNewOpt] = useState('')
   const set = (k, v) => setF(p => ({ ...p, [k]: v }))
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
       <div style={{ background: '#1a0e30', border: `1px solid ${ACC}`, borderRadius: 14, padding: 24, width: 420, maxHeight: '80vh', overflowY: 'auto' }}>
-        <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 18, color: ACC2 }}>Edit Field</div>
+        <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 18, color: ACC2 }}>
+          {f.type === 'section' ? 'Edit Section' : 'Edit Field'}
+        </div>
 
-        <Field label="Label"><input style={inp()} value={f.label} onChange={e => set('label', e.target.value)} /></Field>
+        {f.type === 'section' ? (
+          <>
+            <Field label="Section Title">
+              <input style={inp()} value={f.label} onChange={e => set('label', e.target.value)} placeholder="e.g. SECTION A — Personal Details" />
+            </Field>
+            <Field label="Section Description (optional)">
+              <textarea style={inp({ resize: 'vertical', lineHeight: 1.6 })} rows={3} value={f.description || ''} onChange={e => set('description', e.target.value)} placeholder="Briefly describe what this section covers…" />
+            </Field>
+          </>
+        ) : (
+          <>
+            <Field label="Label"><input style={inp()} value={f.label} onChange={e => set('label', e.target.value)} /></Field>
 
-        {['text', 'email', 'full_name', 'textarea', 'whatsapp'].includes(f.type) && (
-          <Field label="Placeholder"><input style={inp()} value={f.placeholder || ''} onChange={e => set('placeholder', e.target.value)} /></Field>
-        )}
+            {['text', 'email', 'full_name', 'textarea', 'whatsapp'].includes(f.type) && (
+              <Field label="Placeholder"><input style={inp()} value={f.placeholder || ''} onChange={e => set('placeholder', e.target.value)} /></Field>
+            )}
 
-        <Toggle label="Required" checked={f.required} onChange={e => set('required', e.target.checked)} />
+            <Toggle label="Required" checked={f.required} onChange={e => set('required', e.target.checked)} />
 
         {f.type === 'picture' && (
           <>
@@ -156,6 +173,67 @@ function FieldEditorModal({ field, onSave, onClose }) {
               <button onClick={() => { if (newOpt.trim()) { set('options', [...f.options, newOpt.trim()]); setNewOpt('') } }} style={{ background: ACC, border: 'none', borderRadius: 6, color: 'white', padding: '0 12px', cursor: 'pointer', fontWeight: 700 }}>+</button>
             </div>
           </div>
+        )}
+
+        {f.type === 'rating_matrix' && (
+          <>
+            <Field label="Scale Description (shown below matrix)">
+              <input style={inp()} value={f.scaleLabel || ''} onChange={e => set('scaleLabel', e.target.value)} placeholder="e.g. 1 = Very weak, 5 = Very strong" />
+            </Field>
+            <Field label="Scale Max (number of columns, 2–10)">
+              <input type="number" style={inp()} min={2} max={10} value={f.scaleMax || 5} onChange={e => set('scaleMax', Number(e.target.value))} />
+            </Field>
+            <div style={{ marginBottom: 12 }}>
+              <Label>Row Items</Label>
+              {f.items.map((item, i) => (
+                <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 5 }}>
+                  <input style={inp({ flex: 1 })} value={item} onChange={e => { const it = [...f.items]; it[i] = e.target.value; set('items', it) }} />
+                  <button onClick={() => set('items', f.items.filter((_, j) => j !== i))} style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 6, color: '#f87171', padding: '0 10px', cursor: 'pointer', fontSize: 14 }}>✕</button>
+                </div>
+              ))}
+              <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                <input style={inp({ flex: 1 })} value={newOpt} placeholder="Add row item..." onChange={e => setNewOpt(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newOpt.trim()) { set('items', [...f.items, newOpt.trim()]); setNewOpt('') } }} />
+                <button onClick={() => { if (newOpt.trim()) { set('items', [...f.items, newOpt.trim()]); setNewOpt('') } }} style={{ background: ACC, border: 'none', borderRadius: 6, color: 'white', padding: '0 12px', cursor: 'pointer', fontWeight: 700 }}>+</button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {f.type === 'scale' && (
+          <>
+            <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+              <Field label="Min value">
+                <input type="number" style={inp()} min={0} max={99} value={f.scaleMin ?? 1} onChange={e => set('scaleMin', Number(e.target.value))} />
+              </Field>
+              <Field label="Max value">
+                <input type="number" style={inp()} min={1} max={100} value={f.scaleMax ?? 10} onChange={e => set('scaleMax', Number(e.target.value))} />
+              </Field>
+            </div>
+            <Field label={`Label for ${f.scaleMin ?? 1} (optional)`}>
+              <input style={inp()} value={f.scaleLabelMin || ''} onChange={e => set('scaleLabelMin', e.target.value)} placeholder="e.g. Not at all serious" />
+            </Field>
+            <Field label={`Label for ${f.scaleMax ?? 10} (optional)`}>
+              <input style={inp()} value={f.scaleLabelMax || ''} onChange={e => set('scaleLabelMax', e.target.value)} placeholder="e.g. Extremely serious" />
+            </Field>
+          </>
+        )}
+
+        {f.type === 'ranking' && (
+          <div style={{ marginBottom: 12 }}>
+            <Label>Items to Rank (in default order)</Label>
+            {f.items.map((item, i) => (
+              <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 5 }}>
+                <input style={inp({ flex: 1 })} value={item} onChange={e => { const it = [...f.items]; it[i] = e.target.value; set('items', it) }} />
+                <button onClick={() => set('items', f.items.filter((_, j) => j !== i))} style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 6, color: '#f87171', padding: '0 10px', cursor: 'pointer', fontSize: 14 }}>✕</button>
+              </div>
+            ))}
+            <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+              <input style={inp({ flex: 1 })} value={newOpt} placeholder="Add item..." onChange={e => setNewOpt(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newOpt.trim()) { set('items', [...f.items, newOpt.trim()]); setNewOpt('') } }} />
+              <button onClick={() => { if (newOpt.trim()) { set('items', [...f.items, newOpt.trim()]); setNewOpt('') } }} style={{ background: ACC, border: 'none', borderRadius: 6, color: 'white', padding: '0 12px', cursor: 'pointer', fontWeight: 700 }}>+</button>
+            </div>
+          </div>
+        )}
+          </>
         )}
 
         <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
@@ -248,8 +326,17 @@ export default function FormBuilder() {
 
   function addField(type) {
     const newField = {
-      id: uid(), type, label: FIELD_TYPES.find(t => t.type === type)?.label || 'Field',
-      placeholder: '', required: false, options: type === 'radio' || type === 'checkbox' ? ['Option 1', 'Option 2'] : [],
+      id: uid(), type,
+      label: type === 'section' ? 'New Section' : (FIELD_TYPES.find(t => t.type === type)?.label || 'Field'),
+      placeholder: '', required: false,
+      options: (type === 'radio' || type === 'checkbox') ? ['Option 1', 'Option 2'] : [],
+      description: type === 'section' ? '' : undefined,
+      items: (type === 'rating_matrix' || type === 'ranking') ? ['Item 1', 'Item 2', 'Item 3'] : undefined,
+      scaleMin: type === 'scale' ? 1 : (type === 'rating_matrix' ? 1 : undefined),
+      scaleMax: type === 'scale' ? 10 : (type === 'rating_matrix' ? 5 : undefined),
+      scaleLabel: type === 'rating_matrix' ? '1 = Very weak, 5 = Very strong' : undefined,
+      scaleLabelMin: type === 'scale' ? '' : undefined,
+      scaleLabelMax: type === 'scale' ? '' : undefined,
       defaultCountryCode: type === 'whatsapp' ? '+233' : undefined,
       accept: type === 'picture' ? 'image/*' : undefined,
       maxSizeMB: type === 'picture' ? 5 : undefined,
@@ -532,6 +619,30 @@ export default function FormBuilder() {
 
                   {form.fields.map((f, i) => {
                     const ft = FIELD_TYPES.find(t => t.type === f.type)
+                    const isSection = f.type === 'section'
+                    const moveButtons = (
+                      <>
+                        <button onClick={() => moveField(i, -1)} disabled={i === 0} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 5, color: 'white', width: 26, height: 26, cursor: 'pointer', fontSize: 12, opacity: i === 0 ? 0.3 : 1 }}>↑</button>
+                        <button onClick={() => moveField(i, 1)} disabled={i === form.fields.length - 1} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 5, color: 'white', width: 26, height: 26, cursor: 'pointer', fontSize: 12, opacity: i === form.fields.length - 1 ? 0.3 : 1 }}>↓</button>
+                        <button onClick={() => setEditingField(f)} style={{ background: `rgba(139,92,246,0.2)`, border: 'none', borderRadius: 5, color: ACC2, padding: '0 10px', height: 26, cursor: 'pointer', fontSize: 10, fontWeight: 700 }}>Edit</button>
+                        <button onClick={() => setF('fields', form.fields.filter(x => x.id !== f.id))} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: 5, color: '#f87171', width: 26, height: 26, cursor: 'pointer', fontSize: 12 }}>✕</button>
+                      </>
+                    )
+
+                    if (isSection) {
+                      return (
+                        <div key={f.id} style={{ background: 'rgba(139,92,246,0.08)', border: `1px solid rgba(139,92,246,0.3)`, borderRadius: 10, padding: '12px 14px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ width: 32, textAlign: 'center', fontSize: 18, flexShrink: 0 }}>📌</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 800, color: ACC2, marginBottom: 2 }}>{f.label}</div>
+                            {f.description && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', lineHeight: 1.5 }}>{f.description}</div>}
+                            <div style={{ fontSize: 8, fontWeight: 700, color: ACC, letterSpacing: 1.5, textTransform: 'uppercase', marginTop: 3 }}>Section Divider</div>
+                          </div>
+                          <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>{moveButtons}</div>
+                        </div>
+                      )
+                    }
+
                     return (
                       <div key={f.id} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '12px 14px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ width: 32, textAlign: 'center', fontSize: 18, flexShrink: 0 }}>{ft?.icon || '📝'}</div>
@@ -540,14 +651,12 @@ export default function FormBuilder() {
                           <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>
                             {ft?.label} {f.required && <span style={{ color: '#f87171' }}>• Required</span>}
                             {f.options?.length > 0 && <span> • {f.options.join(', ')}</span>}
+                            {f.items?.length > 0 && (f.type === 'rating_matrix' || f.type === 'ranking') && <span> • {f.items.length} items</span>}
+                            {f.type === 'rating_matrix' && f.scaleLabel && <span> · {f.scaleLabel}</span>}
+                            {f.type === 'scale' && <span> • {f.scaleMin ?? 1}–{f.scaleMax ?? 10}</span>}
                           </div>
                         </div>
-                        <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
-                          <button onClick={() => moveField(i, -1)} disabled={i === 0} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 5, color: 'white', width: 26, height: 26, cursor: 'pointer', fontSize: 12, opacity: i === 0 ? 0.3 : 1 }}>↑</button>
-                          <button onClick={() => moveField(i, 1)} disabled={i === form.fields.length - 1} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: 5, color: 'white', width: 26, height: 26, cursor: 'pointer', fontSize: 12, opacity: i === form.fields.length - 1 ? 0.3 : 1 }}>↓</button>
-                          <button onClick={() => setEditingField(f)} style={{ background: `rgba(139,92,246,0.2)`, border: 'none', borderRadius: 5, color: ACC2, padding: '0 10px', height: 26, cursor: 'pointer', fontSize: 10, fontWeight: 700 }}>Edit</button>
-                          <button onClick={() => setF('fields', form.fields.filter(x => x.id !== f.id))} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: 5, color: '#f87171', width: 26, height: 26, cursor: 'pointer', fontSize: 12 }}>✕</button>
-                        </div>
+                        <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>{moveButtons}</div>
                       </div>
                     )
                   })}

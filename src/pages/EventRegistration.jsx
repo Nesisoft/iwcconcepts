@@ -65,6 +65,127 @@ function StarRating({ value, onChange, accent }) {
   )
 }
 
+// ── Rating Matrix ──────────────────────────────────────────────────────────
+function RatingMatrixField({ field, value, onChange, accent }) {
+  const scale = Array.from({ length: field.scaleMax || 5 }, (_, i) => i + 1)
+  const current = value || {}
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      {/* Header row */}
+      <div style={{ display: 'grid', gridTemplateColumns: `1fr repeat(${scale.length}, 44px)`, gap: 4, marginBottom: 6, alignItems: 'center' }}>
+        <div />
+        {scale.map(s => (
+          <div key={s} style={{ textAlign: 'center', fontSize: 11, fontWeight: 800, color: accent }}>{s}</div>
+        ))}
+      </div>
+      {/* Item rows */}
+      {(field.items || []).map(item => (
+        <div key={item} style={{ display: 'grid', gridTemplateColumns: `1fr repeat(${scale.length}, 44px)`, gap: 4, alignItems: 'center', marginBottom: 10 }}>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', paddingRight: 8, lineHeight: 1.4 }}>{item}</div>
+          {scale.map(s => {
+            const selected = current[item] === s
+            return (
+              <div key={s} style={{ display: 'flex', justifyContent: 'center' }}>
+                <div onClick={() => onChange({ ...current, [item]: s })} style={{
+                  width: 22, height: 22, borderRadius: '50%',
+                  border: `2px solid ${selected ? accent : 'rgba(255,255,255,0.25)'}`,
+                  background: selected ? accent : 'transparent',
+                  cursor: 'pointer', transition: 'all 0.15s',
+                }} />
+              </div>
+            )
+          })}
+        </div>
+      ))}
+      {field.scaleLabel && (
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 6 }}>{field.scaleLabel}</div>
+      )}
+    </div>
+  )
+}
+
+// ── Ranking ────────────────────────────────────────────────────────────────
+function RankingField({ field, value, onChange }) {
+  const items = value || field.items || []
+
+  useEffect(() => {
+    if (!value) onChange([...(field.items || [])])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const [draggingIdx, setDraggingIdx] = useState(null)
+
+  function handleDragOver(e, i) {
+    e.preventDefault()
+    if (draggingIdx === null || draggingIdx === i) return
+    const next = [...items]
+    const [moved] = next.splice(draggingIdx, 1)
+    next.splice(i, 0, moved)
+    onChange(next)
+    setDraggingIdx(i)
+  }
+
+  return (
+    <div>
+      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>
+        Drag items to set your order — 1 = highest priority
+      </div>
+      {items.map((item, i) => (
+        <div
+          key={item}
+          draggable
+          onDragStart={() => setDraggingIdx(i)}
+          onDragOver={e => handleDragOver(e, i)}
+          onDragEnd={() => setDraggingIdx(null)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            background: draggingIdx === i ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.05)',
+            border: `1px solid ${draggingIdx === i ? '#8B5CF6' : 'rgba(255,255,255,0.1)'}`,
+            borderRadius: 8, padding: '10px 14px', marginBottom: 6,
+            cursor: 'grab', userSelect: 'none', transition: 'background 0.15s, border-color 0.15s',
+          }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 900, color: '#8B5CF6', minWidth: 22, textAlign: 'center' }}>{i + 1}</div>
+          <div style={{ flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.85)' }}>{item}</div>
+          <div style={{ fontSize: 16, color: 'rgba(255,255,255,0.25)', letterSpacing: 2 }}>⠿</div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Scale / NPS ────────────────────────────────────────────────────────────
+function ScaleField({ field, value, onChange, accent }) {
+  const min = field.scaleMin ?? 1
+  const max = field.scaleMax ?? 10
+  const nums = Array.from({ length: max - min + 1 }, (_, i) => i + min)
+  return (
+    <div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {nums.map(n => {
+          const sel = value === n
+          return (
+            <div key={n} onClick={() => onChange(n)} style={{
+              width: 40, height: 40, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 13, fontWeight: 800, cursor: 'pointer',
+              background: sel ? accent : 'rgba(255,255,255,0.06)',
+              border: `2px solid ${sel ? accent : 'rgba(255,255,255,0.18)'}`,
+              color: sel ? '#fff' : 'rgba(255,255,255,0.7)',
+              transition: 'all 0.15s',
+            }}>{n}</div>
+          )
+        })}
+      </div>
+      {(field.scaleLabelMin || field.scaleLabelMax) && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>
+          <span>{field.scaleLabelMin && `${min} = ${field.scaleLabelMin}`}</span>
+          <span>{field.scaleLabelMax && `${max} = ${field.scaleLabelMax}`}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── WhatsApp field ─────────────────────────────────────────────────────────
 function WhatsAppField({ field, value, onChange, accent }) {
   const selected = value?.code || field.defaultCountryCode || '+233'
@@ -165,6 +286,18 @@ function FormField({ field, value, onChange, accent, errors }) {
 
       {field.type === 'rating' && (
         <StarRating value={value || 0} onChange={onChange} accent={accent} />
+      )}
+
+      {field.type === 'rating_matrix' && (
+        <RatingMatrixField field={field} value={value} onChange={onChange} accent={accent} />
+      )}
+
+      {field.type === 'ranking' && (
+        <RankingField field={field} value={value} onChange={onChange} />
+      )}
+
+      {field.type === 'scale' && (
+        <ScaleField field={field} value={value} onChange={onChange} accent={accent} />
       )}
 
       {field.type === 'picture' && (
@@ -271,12 +404,17 @@ export default function EventRegistration() {
   function validate() {
     const errs = {}
     formConfig.fields.forEach(f => {
+      if (f.type === 'section') return
       const v = formData[f.id]
       if (f.required) {
         if (!v || (Array.isArray(v) && v.length === 0)) errs[f.id] = 'This field is required'
         if (f.type === 'whatsapp' && (!v?.number || v.number.trim() === '')) errs[f.id] = 'Please enter your WhatsApp number'
         if (f.type === 'email' && v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) errs[f.id] = 'Please enter a valid email address'
         if (f.type === 'picture' && !v?.preview) errs[f.id] = 'Please upload a photo'
+        if (f.type === 'rating_matrix') {
+          const rated = Object.keys(v || {}).length
+          if (rated < (f.items || []).length) errs[f.id] = 'Please rate all items'
+        }
       }
     })
     return errs
@@ -299,14 +437,19 @@ export default function EventRegistration() {
       if (formConfig.id !== 'demo') await addSubmission(formConfig.id, formData)
 
       // Build human-readable summary for email
-      const summary = formConfig.fields.map(f => {
-        const v = formData[f.id]
-        let display = ''
-        if (f.type === 'whatsapp') display = `${v?.code || ''} ${v?.number || ''}`
-        else if (Array.isArray(v)) display = v.join(', ')
-        else display = v || '(not answered)'
-        return `${f.label}: ${display}`
-      }).join('\n')
+      const summary = formConfig.fields
+        .filter(f => f.type !== 'section')
+        .map(f => {
+          const v = formData[f.id]
+          let display = ''
+          if (f.type === 'whatsapp') display = `${v?.code || ''} ${v?.number || ''}`
+          else if (f.type === 'rating_matrix') display = Object.entries(v || {}).map(([k, r]) => `${k}: ${r}`).join('; ')
+          else if (f.type === 'ranking') display = (Array.isArray(v) ? v : []).map((item, i) => `${i + 1}. ${item}`).join(', ')
+          else if (f.type === 'scale') display = v != null ? String(v) : '(not answered)'
+          else if (Array.isArray(v)) display = v.join(', ')
+          else display = v || '(not answered)'
+          return `${f.label}: ${display}`
+        }).join('\n')
 
       // Get participant name & email for email vars
       const nameFld = formConfig.fields.find(f => f.type === 'full_name' || f.label?.toLowerCase().includes('name'))
@@ -457,16 +600,33 @@ export default function EventRegistration() {
           </div>
 
           <form ref={formRef} onSubmit={handleSubmit}>
-            {fields.map(f => (
-              <FormField
-                key={f.id}
-                field={f}
-                value={formData[f.id]}
-                onChange={v => setFormData(p => ({ ...p, [f.id]: v }))}
-                accent={acc}
-                errors={errors}
-              />
-            ))}
+            {fields.map(f => {
+              if (f.type === 'section') {
+                return (
+                  <div key={f.id} style={{ marginTop: 28, marginBottom: 20 }}>
+                    <div style={{ height: 1, background: `linear-gradient(90deg, ${acc}70, transparent)`, marginBottom: 14 }} />
+                    <div style={{ fontSize: 13, fontWeight: 900, color: acc, letterSpacing: 0.3, marginBottom: f.description ? 6 : 0 }}>
+                      {f.label}
+                    </div>
+                    {f.description && (
+                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', lineHeight: 1.65, marginTop: 4 }}>
+                        {f.description}
+                      </div>
+                    )}
+                  </div>
+                )
+              }
+              return (
+                <FormField
+                  key={f.id}
+                  field={f}
+                  value={formData[f.id]}
+                  onChange={v => setFormData(p => ({ ...p, [f.id]: v }))}
+                  accent={acc}
+                  errors={errors}
+                />
+              )
+            })}
 
             {fields.length === 0 && (
               <div style={{ textAlign: 'center', padding: '30px', color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>
