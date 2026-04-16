@@ -154,6 +154,38 @@ function RankingField({ field, value, onChange }) {
   )
 }
 
+// ── Scale / NPS ────────────────────────────────────────────────────────────
+function ScaleField({ field, value, onChange, accent }) {
+  const min = field.scaleMin ?? 1
+  const max = field.scaleMax ?? 10
+  const nums = Array.from({ length: max - min + 1 }, (_, i) => i + min)
+  return (
+    <div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {nums.map(n => {
+          const sel = value === n
+          return (
+            <div key={n} onClick={() => onChange(n)} style={{
+              width: 40, height: 40, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 13, fontWeight: 800, cursor: 'pointer',
+              background: sel ? accent : 'rgba(255,255,255,0.06)',
+              border: `2px solid ${sel ? accent : 'rgba(255,255,255,0.18)'}`,
+              color: sel ? '#fff' : 'rgba(255,255,255,0.7)',
+              transition: 'all 0.15s',
+            }}>{n}</div>
+          )
+        })}
+      </div>
+      {(field.scaleLabelMin || field.scaleLabelMax) && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>
+          <span>{field.scaleLabelMin && `${min} = ${field.scaleLabelMin}`}</span>
+          <span>{field.scaleLabelMax && `${max} = ${field.scaleLabelMax}`}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── WhatsApp field ─────────────────────────────────────────────────────────
 function WhatsAppField({ field, value, onChange, accent }) {
   const selected = value?.code || field.defaultCountryCode || '+233'
@@ -262,6 +294,10 @@ function FormField({ field, value, onChange, accent, errors }) {
 
       {field.type === 'ranking' && (
         <RankingField field={field} value={value} onChange={onChange} />
+      )}
+
+      {field.type === 'scale' && (
+        <ScaleField field={field} value={value} onChange={onChange} accent={accent} />
       )}
 
       {field.type === 'picture' && (
@@ -409,6 +445,7 @@ export default function EventRegistration() {
           if (f.type === 'whatsapp') display = `${v?.code || ''} ${v?.number || ''}`
           else if (f.type === 'rating_matrix') display = Object.entries(v || {}).map(([k, r]) => `${k}: ${r}`).join('; ')
           else if (f.type === 'ranking') display = (Array.isArray(v) ? v : []).map((item, i) => `${i + 1}. ${item}`).join(', ')
+          else if (f.type === 'scale') display = v != null ? String(v) : '(not answered)'
           else if (Array.isArray(v)) display = v.join(', ')
           else display = v || '(not answered)'
           return `${f.label}: ${display}`

@@ -29,6 +29,7 @@ const FIELD_TYPES = [
   { type: 'rating',         icon: '⭐', label: 'Star Rating' },
   { type: 'rating_matrix',  icon: '📊', label: 'Rating Matrix' },
   { type: 'ranking',        icon: '🔢', label: 'Ranking' },
+  { type: 'scale',          icon: '📏', label: 'Scale / NPS' },
   { type: 'picture',        icon: '🖼️', label: 'Photo Upload' },
 ]
 
@@ -198,6 +199,25 @@ function FieldEditorModal({ field, onSave, onClose }) {
           </>
         )}
 
+        {f.type === 'scale' && (
+          <>
+            <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+              <Field label="Min value">
+                <input type="number" style={inp()} min={0} max={99} value={f.scaleMin ?? 1} onChange={e => set('scaleMin', Number(e.target.value))} />
+              </Field>
+              <Field label="Max value">
+                <input type="number" style={inp()} min={1} max={100} value={f.scaleMax ?? 10} onChange={e => set('scaleMax', Number(e.target.value))} />
+              </Field>
+            </div>
+            <Field label={`Label for ${f.scaleMin ?? 1} (optional)`}>
+              <input style={inp()} value={f.scaleLabelMin || ''} onChange={e => set('scaleLabelMin', e.target.value)} placeholder="e.g. Not at all serious" />
+            </Field>
+            <Field label={`Label for ${f.scaleMax ?? 10} (optional)`}>
+              <input style={inp()} value={f.scaleLabelMax || ''} onChange={e => set('scaleLabelMax', e.target.value)} placeholder="e.g. Extremely serious" />
+            </Field>
+          </>
+        )}
+
         {f.type === 'ranking' && (
           <div style={{ marginBottom: 12 }}>
             <Label>Items to Rank (in default order)</Label>
@@ -312,8 +332,11 @@ export default function FormBuilder() {
       options: (type === 'radio' || type === 'checkbox') ? ['Option 1', 'Option 2'] : [],
       description: type === 'section' ? '' : undefined,
       items: (type === 'rating_matrix' || type === 'ranking') ? ['Item 1', 'Item 2', 'Item 3'] : undefined,
-      scaleMax: type === 'rating_matrix' ? 5 : undefined,
+      scaleMin: type === 'scale' ? 1 : (type === 'rating_matrix' ? 1 : undefined),
+      scaleMax: type === 'scale' ? 10 : (type === 'rating_matrix' ? 5 : undefined),
       scaleLabel: type === 'rating_matrix' ? '1 = Very weak, 5 = Very strong' : undefined,
+      scaleLabelMin: type === 'scale' ? '' : undefined,
+      scaleLabelMax: type === 'scale' ? '' : undefined,
       defaultCountryCode: type === 'whatsapp' ? '+233' : undefined,
       accept: type === 'picture' ? 'image/*' : undefined,
       maxSizeMB: type === 'picture' ? 5 : undefined,
@@ -630,6 +653,7 @@ export default function FormBuilder() {
                             {f.options?.length > 0 && <span> • {f.options.join(', ')}</span>}
                             {f.items?.length > 0 && (f.type === 'rating_matrix' || f.type === 'ranking') && <span> • {f.items.length} items</span>}
                             {f.type === 'rating_matrix' && f.scaleLabel && <span> · {f.scaleLabel}</span>}
+                            {f.type === 'scale' && <span> • {f.scaleMin ?? 1}–{f.scaleMax ?? 10}</span>}
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>{moveButtons}</div>
