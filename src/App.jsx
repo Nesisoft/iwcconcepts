@@ -17,6 +17,7 @@ import DatabaseSetup from './pages/DatabaseSetup'
 
 // Public Lady Adel site — placeholder while sections are being built
 import LadyAdelPlaceholder from './pages/LadyAdelPlaceholder'
+import WhatsAppButton from './components/layout/WhatsAppButton'
 
 function PrivateRoute({ element }) {
   return <ProtectedRoute>{element}</ProtectedRoute>
@@ -25,16 +26,27 @@ function PrivateRoute({ element }) {
 /**
  * Toggles a body class so public (Lady Adel) pages get the light
  * cream theme and studio/admin pages keep the dark theme defined
- * in global.css.
+ * in global.css. Also renders the floating WhatsApp button on
+ * every public page.
  */
 const PUBLIC_PATHS = ['/lady-adel', '/catch-up', '/programmes', '/training', '/contact']
-function ThemeSwitch() {
+function useIsPublicRoute() {
   const location = useLocation()
+  return PUBLIC_PATHS.some(p => location.pathname === p || location.pathname.startsWith(p + '/'))
+}
+
+function ThemeSwitch() {
+  const isPublic = useIsPublicRoute()
   useEffect(() => {
-    const isPublic = PUBLIC_PATHS.some(p => location.pathname === p || location.pathname.startsWith(p + '/'))
     document.body.classList.toggle('site-public', isPublic)
-  }, [location.pathname])
+  }, [isPublic])
   return null
+}
+
+function PublicChrome() {
+  const isPublic = useIsPublicRoute()
+  if (!isPublic) return null
+  return <WhatsAppButton />
 }
 
 export default function App() {
@@ -43,6 +55,7 @@ export default function App() {
     <HashRouter>
       <AuthProvider>
         <ThemeSwitch />
+        <PublicChrome />
         <Routes>
           {/* Root → Lady Adel public profile */}
           <Route path="/" element={<Navigate to="/lady-adel" replace />} />
