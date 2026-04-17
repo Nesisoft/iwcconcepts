@@ -136,7 +136,7 @@ export default function DatabaseSetup() {
     <div style={{ minHeight: '100vh', background: DARK, fontFamily: "'Montserrat',sans-serif", color: 'white' }}>
       {/* Header */}
       <header style={{ background: 'linear-gradient(135deg,#1a0d2e,#2d1654)', borderBottom: `2px solid ${ACC}`, padding: '14px 28px', display: 'flex', alignItems: 'center', gap: 16 }}>
-        <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: ACC, fontSize: 20, cursor: 'pointer', lineHeight: 1 }}>←</button>
+        <button onClick={() => navigate('/studio')} style={{ background: 'none', border: 'none', color: ACC, fontSize: 20, cursor: 'pointer', lineHeight: 1 }}>←</button>
         <div style={{ width: 36, height: 36, background: `linear-gradient(135deg,${ACC},#e8c060)`, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🗄️</div>
         <div>
           <div style={{ fontSize: 14, fontWeight: 800 }}>Database Setup</div>

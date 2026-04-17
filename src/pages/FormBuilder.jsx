@@ -422,7 +422,7 @@ export default function FormBuilder() {
       {/* Header */}
       <header style={{ background: 'linear-gradient(135deg,#120820,#1e0d38)', borderBottom: `2px solid ${ACC}`, padding: '11px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={() => navigate('/')} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 7, color: 'white', padding: '6px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
+          <button onClick={() => navigate('/studio')} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 7, color: 'white', padding: '6px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = ACC; e.currentTarget.style.color = ACC }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'; e.currentTarget.style.color = 'white' }}
           >← Dashboard</button>
@@ -483,7 +483,7 @@ export default function FormBuilder() {
                 </div>
                 <div style={{ display: 'flex', gap: 5, marginTop: 8 }}>
                   <button onClick={e => { e.stopPropagation(); loadForm(f.id) }} style={{ flex: 1, background: 'rgba(139,92,246,0.2)', border: 'none', borderRadius: 6, color: ACC2, fontSize: 9, fontWeight: 700, padding: '5px', cursor: 'pointer' }}>Edit</button>
-                  <button onClick={e => { e.stopPropagation(); navigate(`/event-dashboard?formId=${f.id}`) }} style={{ flex: 1, background: 'rgba(16,185,129,0.15)', border: 'none', borderRadius: 6, color: '#34d399', fontSize: 9, fontWeight: 700, padding: '5px', cursor: 'pointer' }}>Dashboard</button>
+                  <button onClick={e => { e.stopPropagation(); navigate(`/studio/event-dashboard?formId=${f.id}`) }} style={{ flex: 1, background: 'rgba(16,185,129,0.15)', border: 'none', borderRadius: 6, color: '#34d399', fontSize: 9, fontWeight: 700, padding: '5px', cursor: 'pointer' }}>Dashboard</button>
                   <button onClick={e => { e.stopPropagation(); handleDelete(f.id) }} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: 6, color: '#f87171', fontSize: 9, fontWeight: 700, padding: '5px 8px', cursor: 'pointer' }}>✕</button>
                 </div>
               </div>
@@ -509,7 +509,7 @@ export default function FormBuilder() {
                 </div>
                 <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{submissionCount} submission{submissionCount !== 1 ? 's' : ''} · {form.fields.length} fields</div>
               </div>
-              <button onClick={() => navigate(`/event-dashboard?formId=${form.id}`)} style={{ background: 'rgba(16,185,129,0.2)', border: '1px solid rgba(16,185,129,0.35)', borderRadius: 7, color: '#34d399', fontSize: 10, fontWeight: 700, padding: '6px 12px', cursor: 'pointer' }}>📊 View Dashboard</button>
+              <button onClick={() => navigate(`/studio/event-dashboard?formId=${form.id}`)} style={{ background: 'rgba(16,185,129,0.2)', border: '1px solid rgba(16,185,129,0.35)', borderRadius: 7, color: '#34d399', fontSize: 10, fontWeight: 700, padding: '6px 12px', cursor: 'pointer' }}>📊 View Dashboard</button>
             </div>
 
             {/* Tabs */}

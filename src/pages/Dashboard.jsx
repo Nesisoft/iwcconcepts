@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext'
 const tools = [
   {
     id: 'quote-studio',
-    path: '/quote-studio',
+    path: '/studio/quote-studio',
     icon: '💬',
     title: 'Quote Card Studio',
     desc: 'Design branded quote cards for social media with custom templates, typography, profile photos, and platform icons.',
@@ -16,7 +16,7 @@ const tools = [
   },
   {
     id: 'flyer-studio',
-    path: '/flyer-studio',
+    path: '/studio/flyer-studio',
     icon: '📣',
     title: 'Event Flyer Studio',
     desc: 'Generate professional event flyers for day-by-day programs, speaker grids, and announcement graphics.',
@@ -26,7 +26,7 @@ const tools = [
   },
   {
     id: 'form-builder',
-    path: '/form-builder',
+    path: '/studio/form-builder',
     icon: '📋',
     title: 'Form Builder',
     desc: 'Build branded registration and feedback forms with countdown timers, speaker previews, email confirmations, and shareable links.',
@@ -36,7 +36,7 @@ const tools = [
   },
   {
     id: 'event-dashboard',
-    path: '/event-dashboard',
+    path: '/studio/event-dashboard',
     icon: '📊',
     title: 'Event Dashboard',
     desc: 'Manage event submissions in real-time, track registrations, manage speaker lineups, checklists, and generate email reminders.',
@@ -46,7 +46,7 @@ const tools = [
   },
   {
     id: 'db-setup',
-    path: '/db-setup',
+    path: '/studio/db-setup',
     icon: '🗄️',
     title: 'Database Setup',
     desc: 'Connect Supabase for cloud persistence. Access your forms, submissions, and speaker data from any device or browser.',
@@ -105,7 +105,7 @@ export default function Dashboard() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
-            onClick={() => navigate('/db-setup')}
+            onClick={() => navigate('/studio/db-setup')}
             title={cloud ? 'Supabase connected — click to manage' : 'Set up cloud database'}
             style={{ display: 'flex', alignItems: 'center', gap: 7, background: cloud ? 'rgba(46,204,113,0.1)' : 'rgba(255,255,255,0.06)', border: `1px solid ${cloud ? 'rgba(46,204,113,0.35)' : 'rgba(255,255,255,0.12)'}`, borderRadius: 18, padding: '5px 13px', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: cloud ? '#2ECC71' : 'rgba(255,255,255,0.45)', fontFamily: "'Montserrat',sans-serif" }}
           >

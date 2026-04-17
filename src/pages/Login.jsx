@@ -16,7 +16,7 @@ export default function Login() {
   const [loading, setLoading]   = useState(false)
   const [showPwd, setShowPwd]   = useState(false)
 
-  const from = location.state?.from?.pathname || '/'
+  const from = location.state?.from?.pathname || '/studio'
 
   async function handleSubmit(e) {
     e.preventDefault()

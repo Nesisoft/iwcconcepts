@@ -740,7 +740,7 @@ export default function EventDashboard() {
       {/* Header */}
       <header style={S.header}>
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/studio')}
           style={{ background: 'none', border: 'none', color: '#C9A84C', fontSize: 18, cursor: 'pointer', padding: '0 4px 0 0' }}
         >←</button>
         <div style={{
@@ -756,7 +756,7 @@ export default function EventDashboard() {
           <div style={{ fontSize: 9, color: '#C9A84C', letterSpacing: 2, textTransform: 'uppercase' }}>Live Event Management</div>
         </div>
         <div style={{ flex: 1 }} />
-        <button style={S.btn('#C9A84C', 'outline')} onClick={() => navigate('/form-builder')}>
+        <button style={S.btn('#C9A84C', 'outline')} onClick={() => navigate('/studio/form-builder')}>
           ← Form Builder
         </button>
         <button style={S.btn('#C9A84C', 'outline')} onClick={() => navigate('/speakers')}>
@@ -776,7 +776,7 @@ export default function EventDashboard() {
           <div style={{ fontSize: 40, marginBottom: 16 }}>📋</div>
           <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>No forms yet</div>
           <div style={{ fontSize: 13, marginBottom: 24 }}>Create a registration or feedback form first</div>
-          <button style={S.btn('#C9A84C')} onClick={() => navigate('/form-builder')}>Open Form Builder</button>
+          <button style={S.btn('#C9A84C')} onClick={() => navigate('/studio/form-builder')}>Open Form Builder</button>
         </div>
       )}
 
