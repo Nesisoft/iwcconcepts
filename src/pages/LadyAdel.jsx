@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import Navbar from '../components/layout/Navbar'
 import Footer from '../components/layout/Footer'
 import HeroSection from '../components/sections/HeroSection'
+import AboutSection from '../components/sections/AboutSection'
 
 /**
  * /lady-adel — main profile page.
@@ -13,7 +14,6 @@ import HeroSection from '../components/sections/HeroSection'
  */
 
 const PLACEHOLDER_SECTIONS = [
-  { id: 'about',         label: 'About Lady Adel',                step: 'Step 4' },
   { id: 'services',      label: 'Services',                        step: 'Step 5' },
   { id: 'catch-up',      label: 'Catch Up Spotlight',              step: 'Step 6' },
   { id: 'testimonials',  label: 'Testimonials & Impact',           step: 'Step 7' },
@@ -45,6 +45,7 @@ export default function LadyAdel() {
       <Navbar />
 
       <HeroSection />
+      <AboutSection />
 
       {/* Placeholder anchors for sections not yet built — keeps the
           navbar's smooth-scroll and scroll-spy functional. */}
