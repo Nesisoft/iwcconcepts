@@ -8,6 +8,7 @@ import ServicesSection from '../components/sections/ServicesSection'
 import CatchUpSpotlight from '../components/sections/CatchUpSpotlight'
 import TestimonialsSection from '../components/sections/TestimonialsSection'
 import MediaSection from '../components/sections/MediaSection'
+import ProgrammeSection from '../components/sections/ProgrammeSection'
 
 /**
  * /lady-adel — main profile page.
@@ -18,7 +19,6 @@ import MediaSection from '../components/sections/MediaSection'
  */
 
 const PLACEHOLDER_SECTIONS = [
-  { id: 'programme',     label: 'The Entrepreneur Programme',      step: 'Step 9' },
   { id: 'contact',       label: 'Contact & Enquiry',               step: 'Step 10' },
 ]
 
@@ -50,6 +50,7 @@ export default function LadyAdel() {
       <CatchUpSpotlight />
       <TestimonialsSection />
       <MediaSection />
+      <ProgrammeSection />
 
       {/* Placeholder anchors for sections not yet built — keeps the
           navbar's smooth-scroll and scroll-spy functional. */}
