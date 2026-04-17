@@ -4,6 +4,7 @@ import Navbar from '../components/layout/Navbar'
 import Footer from '../components/layout/Footer'
 import HeroSection from '../components/sections/HeroSection'
 import AboutSection from '../components/sections/AboutSection'
+import ServicesSection from '../components/sections/ServicesSection'
 
 /**
  * /lady-adel — main profile page.
@@ -14,7 +15,6 @@ import AboutSection from '../components/sections/AboutSection'
  */
 
 const PLACEHOLDER_SECTIONS = [
-  { id: 'services',      label: 'Services',                        step: 'Step 5' },
   { id: 'catch-up',      label: 'Catch Up Spotlight',              step: 'Step 6' },
   { id: 'testimonials',  label: 'Testimonials & Impact',           step: 'Step 7' },
   { id: 'media',         label: 'Media — Podcast & Content',       step: 'Step 8' },
@@ -46,6 +46,7 @@ export default function LadyAdel() {
 
       <HeroSection />
       <AboutSection />
+      <ServicesSection />
 
       {/* Placeholder anchors for sections not yet built — keeps the
           navbar's smooth-scroll and scroll-spy functional. */}
