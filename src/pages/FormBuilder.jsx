@@ -370,8 +370,10 @@ export default function FormBuilder() {
   }
 
   async function generateShortLink(type) {
-    const url = getShareUrl(type)
-    if (!url) return
+    if (!form) return
+    // Use ID-only URL — loads from DB, avoids huge encoded payloads that block shorteners
+    const base = window.location.href.split('#')[0]
+    const url = `${base}#/${type === 'feedback' ? 'feedback' : 'register'}?id=${form.id}`
     setShortLoading(l => ({ ...l, [type]: true }))
     try {
       const res = await fetch(`/api/shorten?url=${encodeURIComponent(url)}`)
