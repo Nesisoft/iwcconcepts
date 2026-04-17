@@ -136,7 +136,7 @@ export default function CatchUpSpotlight() {
 
               <div className="spot__upcoming-ctas">
                 <CTAButton to="/catch-up" variant="primary" size="lg">
-                  Register for the next episode — it&rsquo;s free
+                  Register — it&rsquo;s free
                 </CTAButton>
                 <CTAButton to="/catch-up" variant="outline-light" size="lg" arrow={false}>
                   Learn more
@@ -284,7 +284,7 @@ export default function CatchUpSpotlight() {
         /* Upcoming episode — focal card */
         .spot__upcoming {
           position: relative;
-          padding: 28px 24px 30px;
+          padding: 26px 18px 28px;
           background: linear-gradient(160deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));
           border: 1px solid rgba(255, 255, 255, 0.12);
           border-radius: 24px;
@@ -325,12 +325,13 @@ export default function CatchUpSpotlight() {
 
         .spot__upcoming-grid {
           display: grid;
-          grid-template-columns: 1fr;
+          grid-template-columns: minmax(0, 1fr);
           gap: 36px;
           align-items: center;
         }
+        .spot__upcoming-grid > * { min-width: 0; }
         @media (min-width: 980px) {
-          .spot__upcoming-grid { grid-template-columns: 1.3fr 1fr; gap: 48px; }
+          .spot__upcoming-grid { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 48px; }
         }
 
         .spot__upcoming-eyebrow {
@@ -370,10 +371,21 @@ export default function CatchUpSpotlight() {
           color: rgba(255, 255, 255, 0.82);
         }
         .spot__upcoming-list svg { color: var(--gold); flex-shrink: 0; }
+        .spot__upcoming-list li span { min-width: 0; word-break: break-word; }
         .spot__upcoming-ctas {
           display: flex;
+          flex-direction: column;
           flex-wrap: wrap;
           gap: 12px;
+        }
+        .spot__upcoming-ctas .cta {
+          white-space: normal;
+          text-align: center;
+          line-height: 1.25;
+        }
+        @media (min-width: 520px) {
+          .spot__upcoming-ctas { flex-direction: row; }
+          .spot__upcoming-ctas .cta { white-space: nowrap; }
         }
 
         /* Countdown */
@@ -418,10 +430,10 @@ export default function CatchUpSpotlight() {
         }
         .spot__past-grid {
           display: grid;
-          grid-template-columns: 1fr;
+          grid-template-columns: minmax(0, 1fr);
           gap: 18px;
         }
-        @media (min-width: 700px)  { .spot__past-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 700px)  { .spot__past-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
         .spot__ep {
           padding: 26px 24px;
@@ -472,16 +484,16 @@ export default function CatchUpSpotlight() {
         .spot__voices { margin-top: 72px; }
         .spot__voices-grid {
           display: grid;
-          grid-template-columns: 1fr;
+          grid-template-columns: minmax(0, 1fr);
           gap: 18px;
         }
-        @media (min-width: 720px)  { .spot__voices-grid { grid-template-columns: repeat(2, 1fr); } }
-        @media (min-width: 1080px) { .spot__voices-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (min-width: 720px)  { .spot__voices-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (min-width: 1080px) { .spot__voices-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 
         /* Final CTA */
         .spot__final {
           margin-top: 72px;
-          padding: 30px 26px;
+          padding: 28px 22px;
           border-radius: 22px;
           background:
             radial-gradient(ellipse at 0% 0%, rgba(201, 168, 76, 0.25), transparent 65%),
@@ -490,7 +502,13 @@ export default function CatchUpSpotlight() {
           display: flex;
           flex-direction: column;
           gap: 22px;
-          align-items: flex-start;
+          align-items: stretch;
+        }
+        .spot__final > div { min-width: 0; }
+        .spot__final .cta { white-space: normal; text-align: center; line-height: 1.25; }
+        @media (min-width: 520px) {
+          .spot__final { align-items: flex-start; }
+          .spot__final .cta { white-space: nowrap; }
         }
         @media (min-width: 768px) {
           .spot__final { flex-direction: row; align-items: center; justify-content: space-between; padding: 36px 44px; }
