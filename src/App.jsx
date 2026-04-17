@@ -15,7 +15,8 @@ import EventFeedback from './pages/EventFeedback'
 import EventDashboard from './pages/EventDashboard'
 import DatabaseSetup from './pages/DatabaseSetup'
 
-// Public Lady Adel site — placeholder while sections are being built
+// Public Lady Adel site
+import LadyAdel from './pages/LadyAdel'
 import LadyAdelPlaceholder from './pages/LadyAdelPlaceholder'
 import WhatsAppButton from './components/layout/WhatsAppButton'
 
@@ -60,8 +61,8 @@ export default function App() {
           {/* Root → Lady Adel public profile */}
           <Route path="/" element={<Navigate to="/lady-adel" replace />} />
 
-          {/* Public — Lady Adel site (placeholders until sections are built) */}
-          <Route path="/lady-adel"  element={<LadyAdelPlaceholder page="lady-adel" />} />
+          {/* Public — Lady Adel site */}
+          <Route path="/lady-adel"  element={<LadyAdel />} />
           <Route path="/catch-up"   element={<LadyAdelPlaceholder page="catch-up" />} />
           <Route path="/programmes" element={<LadyAdelPlaceholder page="programmes" />} />
           <Route path="/training"   element={<LadyAdelPlaceholder page="training" />} />
