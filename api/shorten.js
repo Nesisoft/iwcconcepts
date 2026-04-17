@@ -4,11 +4,16 @@ export default async function handler(req, res) {
 
   try {
     const response = await fetch(
-      `https://is.gd/create.php?format=json&url=${encodeURIComponent(url)}`
+      `https://tinyurl.com/api-create.php?url=${encodeURIComponent(url)}`
     )
-    const data = await response.json()
-    res.status(200).json(data)
+    const text = await response.text()
+    const shorturl = text.trim()
+    if (shorturl.startsWith('http')) {
+      res.status(200).json({ shorturl })
+    } else {
+      res.status(502).json({ errormessage: shorturl || 'TinyURL could not shorten this URL' })
+    }
   } catch {
-    res.status(502).json({ error: 'Failed to reach is.gd' })
+    res.status(502).json({ errormessage: 'Failed to reach TinyURL' })
   }
 }
