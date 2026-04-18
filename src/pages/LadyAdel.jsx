@@ -9,18 +9,15 @@ import CatchUpSpotlight from '../components/sections/CatchUpSpotlight'
 import TestimonialsSection from '../components/sections/TestimonialsSection'
 import MediaSection from '../components/sections/MediaSection'
 import ProgrammeSection from '../components/sections/ProgrammeSection'
+import ContactSection from '../components/sections/ContactSection'
 
 /**
  * /lady-adel — main profile page.
  *
- * Composes the nine sections from the plan. Sections are being added
- * incrementally; unbuilt sections render as anchor placeholders so the
- * navbar's smooth-scroll + scroll-spy keep working from day one.
+ * Composes the full set of sections from the plan (Hero → About →
+ * Services → Catch Up → Testimonials → Media → Programme → Contact →
+ * Footer). All navbar anchors are live.
  */
-
-const PLACEHOLDER_SECTIONS = [
-  { id: 'contact',       label: 'Contact & Enquiry',               step: 'Step 10' },
-]
 
 export default function LadyAdel() {
   const location = useLocation()
@@ -51,41 +48,9 @@ export default function LadyAdel() {
       <TestimonialsSection />
       <MediaSection />
       <ProgrammeSection />
-
-      {/* Placeholder anchors for sections not yet built — keeps the
-          navbar's smooth-scroll and scroll-spy functional. */}
-      {PLACEHOLDER_SECTIONS.map(({ id, label, step }) => (
-        <section key={id} id={id} className="la-placeholder">
-          <div className="site-container">
-            <span className="eyebrow">{step}</span>
-            <h2>{label}</h2>
-            <p>This section will be built next. Navigation anchors already work.</p>
-          </div>
-        </section>
-      ))}
+      <ContactSection />
 
       <Footer />
-
-      <style>{`
-        .la-placeholder {
-          padding: 72px 0;
-          text-align: center;
-          border-top: 1px solid rgba(13, 33, 55, 0.06);
-        }
-        .la-placeholder:nth-child(even) { background: var(--white); }
-        .la-placeholder h2 {
-          font-family: var(--font-display);
-          font-weight: 900;
-          font-size: clamp(28px, 4vw, 40px);
-          color: var(--navy);
-          margin: 10px 0 8px;
-        }
-        .la-placeholder p {
-          font-size: 14px;
-          color: rgba(13, 33, 55, 0.55);
-        }
-        .la-placeholder .eyebrow { color: var(--gold-dark); }
-      `}</style>
     </>
   )
 }
