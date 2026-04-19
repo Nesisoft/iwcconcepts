@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import Navbar from '../components/layout/Navbar'
 import Footer from '../components/layout/Footer'
@@ -66,6 +66,31 @@ const BENEFITS = [
   { title: 'Accountability structure',       line: 'Check-ins, goal tracking and progress reviews — so momentum is measured, not hoped for.' },
   { title: 'Certificate of completion',      line: 'A recognised participation certificate from IWC Concepts — something tangible for your LinkedIn and your wall.' },
 ]
+
+// Business-stage options for the Apply form
+const BUSINESS_STAGE = [
+  'Idea stage',
+  '0–1 year',
+  '1–3 years',
+  '3+ years',
+  'Transitioning from employment',
+]
+
+// Pre-filled WhatsApp number for the success-state handoff CTA.
+// TODO: replace with the real business WhatsApp once confirmed.
+const WHATSAPP_NUMBER = '233000000000'
+
+// Initial form state — all fields reset to empty
+const INITIAL_APPLY = {
+  name: '', email: '', whatsapp: '',
+  country: '', organisation: '',
+  stage: '', sector: '', website: '',
+  problem: '', goal: '', why: '',
+}
+const INITIAL_WAITLIST = {
+  name: '', email: '', whatsapp: '',
+  country: '', about: '',
+}
 
 // Cohort timeline — 4-step flow from application to start
 const TIMELINE = [
@@ -226,7 +251,8 @@ export default function ProgrammesPage() {
         <WalkAwayBand />
         <FacultyBand />
         <TimelineBand />
-        {/* Further bands added in Steps 12.5–12.6 */}
+        <ApplyBand />
+        {/* Further bands added in Step 12.6 */}
       </main>
       <Footer />
     </>
@@ -1051,5 +1077,588 @@ function TimelineBand() {
         }
       `}</style>
     </section>
+  )
+}
+
+// ---- Application / Waitlist form --------------------------------------------
+
+function ApplyBand() {
+  const [mode, setMode] = useState('apply')       // 'apply' | 'waitlist'
+  const [apply, setApply]       = useState(INITIAL_APPLY)
+  const [waitlist, setWaitlist] = useState(INITIAL_WAITLIST)
+  const [errors, setErrors] = useState({})
+  const [status, setStatus] = useState('idle')    // 'idle' | 'submitting' | 'success' | 'error'
+
+  const isApply = mode === 'apply'
+  const values  = isApply ? apply : waitlist
+  const setVals = isApply ? setApply : setWaitlist
+
+  function switchMode(next) {
+    if (next === mode) return
+    setMode(next)
+    setErrors({})
+    setStatus('idle')
+  }
+
+  function handleChange(e) {
+    const { name, value } = e.target
+    setVals(v => ({ ...v, [name]: value }))
+    if (errors[name]) setErrors(er => ({ ...er, [name]: null }))
+  }
+
+  function validate() {
+    const er = {}
+    if (!values.name.trim())  er.name  = 'Please enter your name.'
+    if (!values.email.trim()) er.email = 'We need an email to reach you.'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) er.email = 'That email does not look right.'
+
+    if (isApply) {
+      if (!values.whatsapp.trim()) er.whatsapp = 'WhatsApp helps us move fast on the interview.'
+      if (!values.problem.trim())  er.problem  = 'Tell us the problem your business solves.'
+      if (!values.goal.trim())     er.goal     = 'Share your #1 goal for the next 12 months.'
+      if (!values.why.trim())      er.why      = 'Tell us why this cohort, why now.'
+    }
+    return er
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    const er = validate()
+    if (Object.keys(er).length > 0) { setErrors(er); return }
+    setStatus('submitting')
+    try {
+      // TODO: wire to real backend (e.g. Formspree/Resend/custom endpoint).
+      // eslint-disable-next-line no-console
+      console.info(`[ProgrammesPage] ${mode} submitted`, values)
+      await new Promise(r => setTimeout(r, 600))
+      setStatus('success')
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(`[ProgrammesPage] ${mode} submission failed`, err)
+      setStatus('error')
+    }
+  }
+
+  function reset() {
+    setStatus('idle')
+    setErrors({})
+    if (isApply) setApply(INITIAL_APPLY)
+    else setWaitlist(INITIAL_WAITLIST)
+  }
+
+  return (
+    <section className="pp-apply" id="apply">
+      <div className="site-container">
+        <SectionHeader
+          eyebrow={isApply ? 'Apply for the Cohort' : 'Join the Waitlist'}
+          title={
+            isApply
+              ? <>Start your <em>application</em></>
+              : <>Join the <em>waitlist</em></>
+          }
+          subtitle={
+            isApply
+              ? "Applications are reviewed rolling — no deadline. The long version below takes 10–15 minutes and tells us everything we need to schedule the interview."
+              : "Not ready to commit? Leave your details and we'll tell you when applications open for the next cohort — or when a seat frees up in the current one."
+          }
+        />
+
+        {/* Toggle */}
+        <div className="pp-apply__toggle" role="tablist" aria-label="Application mode">
+          <button
+            type="button" role="tab"
+            aria-selected={isApply}
+            className={`pp-apply__tab ${isApply ? 'is-active' : ''}`}
+            onClick={() => switchMode('apply')}
+          >
+            <span className="pp-apply__tab-label">Apply now</span>
+            <span className="pp-apply__tab-hint">Full application · 10–15 min</span>
+          </button>
+          <button
+            type="button" role="tab"
+            aria-selected={!isApply}
+            className={`pp-apply__tab ${!isApply ? 'is-active' : ''}`}
+            onClick={() => switchMode('waitlist')}
+          >
+            <span className="pp-apply__tab-label">Join waitlist</span>
+            <span className="pp-apply__tab-hint">Short form · under 1 min</span>
+          </button>
+        </div>
+
+        <div className="pp-apply__form-wrap">
+          {status === 'success' ? (
+            <SuccessState mode={mode} onReset={reset} />
+          ) : (
+            <form className="pp-apply__form" noValidate onSubmit={handleSubmit}>
+              {isApply ? (
+                <>
+                  <FormGroup title="About you">
+                    <Field
+                      label="Full name" name="name" required
+                      value={values.name} error={errors.name}
+                      onChange={handleChange} autoComplete="name"
+                    />
+                    <Field
+                      label="Email address" name="email" type="email" required
+                      value={values.email} error={errors.email}
+                      onChange={handleChange} autoComplete="email"
+                    />
+                    <Field
+                      label="WhatsApp number" name="whatsapp" type="tel" required
+                      hint="Include country code, e.g. +233 55 000 0000"
+                      value={values.whatsapp} error={errors.whatsapp}
+                      onChange={handleChange} autoComplete="tel"
+                    />
+                    <Field
+                      label="Country / City" name="country"
+                      hint="Helps us plan cohort timezones"
+                      value={values.country} error={errors.country}
+                      onChange={handleChange} autoComplete="country-name"
+                    />
+                  </FormGroup>
+
+                  <FormGroup title="About your business">
+                    <Field
+                      label="Organisation / Business name" name="organisation"
+                      hint="Leave blank if you are still in idea stage"
+                      value={values.organisation} error={errors.organisation}
+                      onChange={handleChange} autoComplete="organization"
+                    />
+                    <SelectField
+                      label="Business stage" name="stage"
+                      placeholder="Pick the stage that fits"
+                      options={BUSINESS_STAGE}
+                      value={values.stage} error={errors.stage}
+                      onChange={handleChange}
+                    />
+                    <Field
+                      label="Business sector" name="sector"
+                      hint="Freeform — e.g. fintech, fashion, agribusiness, coaching"
+                      value={values.sector} error={errors.sector}
+                      onChange={handleChange}
+                    />
+                    <Field
+                      label="Website or primary social" name="website" type="url"
+                      hint="Optional — any link where we can learn more"
+                      value={values.website} error={errors.website}
+                      onChange={handleChange}
+                      placeholder="https://…"
+                    />
+                  </FormGroup>
+
+                  <FormGroup title="Your story">
+                    <TextAreaField
+                      label="What problem does your business solve?" name="problem" required
+                      rows={3}
+                      value={values.problem} error={errors.problem}
+                      onChange={handleChange}
+                    />
+                    <TextAreaField
+                      label="Your #1 goal for the next 12 months" name="goal" required
+                      rows={3}
+                      value={values.goal} error={errors.goal}
+                      onChange={handleChange}
+                    />
+                    <TextAreaField
+                      label="Why this cohort, why now?" name="why" required
+                      rows={3}
+                      value={values.why} error={errors.why}
+                      onChange={handleChange}
+                    />
+                  </FormGroup>
+                </>
+              ) : (
+                <FormGroup title="Short form">
+                  <Field
+                    label="Full name" name="name" required
+                    value={values.name} error={errors.name}
+                    onChange={handleChange} autoComplete="name"
+                  />
+                  <Field
+                    label="Email address" name="email" type="email" required
+                    value={values.email} error={errors.email}
+                    onChange={handleChange} autoComplete="email"
+                  />
+                  <Field
+                    label="WhatsApp number" name="whatsapp" type="tel"
+                    hint="Optional — for updates when a seat frees up"
+                    value={values.whatsapp} error={errors.whatsapp}
+                    onChange={handleChange} autoComplete="tel"
+                  />
+                  <Field
+                    label="Country" name="country"
+                    value={values.country} error={errors.country}
+                    onChange={handleChange} autoComplete="country-name"
+                  />
+                  <TextAreaField
+                    label="Tell us a little about your business" name="about"
+                    rows={3}
+                    hint="A sentence or two is enough"
+                    value={values.about} error={errors.about}
+                    onChange={handleChange}
+                  />
+                </FormGroup>
+              )}
+
+              <button
+                type="submit"
+                className="pp-apply__submit"
+                disabled={status === 'submitting'}
+              >
+                {status === 'submitting'
+                  ? (isApply ? 'Sending your application…' : 'Adding you to the list…')
+                  : (isApply ? 'Submit application' : 'Join the waitlist')}
+                {status !== 'submitting' && (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                  </svg>
+                )}
+              </button>
+
+              <p className="pp-apply__privacy">
+                We only use your details to review your application and contact
+                you about the programme. No third-party sharing, no newsletters
+                you did not ask for.
+              </p>
+
+              {status === 'error' && (
+                <p className="pp-apply__error" role="alert">
+                  Something went wrong sending your {isApply ? 'application' : 'waitlist request'}.
+                  Please try again — or reach us on WhatsApp.
+                </p>
+              )}
+            </form>
+          )}
+        </div>
+      </div>
+
+      <style>{`
+        .pp-apply { background: var(--cream); color: var(--ink); padding: 100px 0 110px; }
+
+        /* Toggle */
+        .pp-apply__toggle {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+          max-width: 620px;
+          margin: 0 auto 32px;
+          padding: 8px;
+          background: var(--white);
+          border: 1px solid rgba(13, 33, 55, 0.1);
+          border-radius: 999px;
+          box-shadow: 0 12px 28px rgba(13, 33, 55, 0.06);
+        }
+        @media (min-width: 520px) { .pp-apply__toggle { gap: 6px; } }
+
+        .pp-apply__tab {
+          appearance: none;
+          border: 0;
+          background: transparent;
+          padding: 10px 14px;
+          border-radius: 999px;
+          cursor: pointer;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 2px;
+          color: var(--navy);
+          transition: background 0.22s ease, color 0.22s ease, box-shadow 0.22s ease;
+          min-width: 0;
+        }
+        .pp-apply__tab:focus-visible {
+          outline: none;
+          box-shadow: 0 0 0 3px rgba(91, 45, 142, 0.3);
+        }
+        .pp-apply__tab.is-active {
+          background: linear-gradient(135deg, var(--purple), var(--navy));
+          color: var(--white);
+          box-shadow: 0 10px 22px rgba(91, 45, 142, 0.28);
+        }
+        .pp-apply__tab-label {
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: 1.6px;
+          text-transform: uppercase;
+        }
+        .pp-apply__tab-hint {
+          font-size: 10.5px;
+          letter-spacing: 0.5px;
+          opacity: 0.7;
+        }
+
+        /* Form container */
+        .pp-apply__form-wrap {
+          max-width: 720px;
+          margin: 0 auto;
+          padding: 28px 22px;
+          background: var(--white);
+          border: 1px solid rgba(13, 33, 55, 0.08);
+          border-radius: var(--radius-lg);
+          box-shadow: 0 22px 60px rgba(13, 33, 55, 0.08);
+          min-width: 0;
+        }
+        @media (min-width: 768px) { .pp-apply__form-wrap { padding: 40px 44px; } }
+
+        .pp-apply__form { display: flex; flex-direction: column; gap: 28px; }
+
+        .pp-apply__submit {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          background: var(--orange);
+          color: var(--white);
+          border: 0;
+          border-radius: 999px;
+          padding: 15px 28px;
+          font-size: 13px;
+          font-weight: 800;
+          letter-spacing: 1.5px;
+          text-transform: uppercase;
+          cursor: pointer;
+          box-shadow: 0 12px 28px rgba(224, 90, 30, 0.28);
+          transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+          margin-top: 6px;
+        }
+        .pp-apply__submit:hover:not(:disabled) {
+          background: var(--orange-dark);
+          transform: translateY(-2px);
+          box-shadow: 0 18px 36px rgba(224, 90, 30, 0.38);
+        }
+        .pp-apply__submit:disabled { opacity: 0.65; cursor: not-allowed; }
+
+        .pp-apply__privacy { font-size: 11.5px; line-height: 1.55; color: rgba(13, 33, 55, 0.55); }
+        .pp-apply__error {
+          padding: 12px 14px;
+          border-radius: 10px;
+          background: rgba(224, 90, 30, 0.08);
+          border: 1px solid rgba(224, 90, 30, 0.3);
+          color: var(--orange-dark);
+          font-size: 13px;
+        }
+      `}</style>
+    </section>
+  )
+}
+
+// ---- Form helpers -----------------------------------------------------------
+
+function FormGroup({ title, children }) {
+  return (
+    <fieldset className="pp-grp">
+      <legend>{title}</legend>
+      <div className="pp-grp__rows">{children}</div>
+      <style>{`
+        .pp-grp { border: 0; padding: 0; margin: 0; }
+        .pp-grp legend {
+          display: block;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          color: var(--purple);
+          margin-bottom: 14px;
+          padding-bottom: 10px;
+          border-bottom: 1px solid rgba(91, 45, 142, 0.15);
+          width: 100%;
+        }
+        .pp-grp__rows { display: flex; flex-direction: column; gap: 16px; }
+      `}</style>
+    </fieldset>
+  )
+}
+
+function SuccessState({ mode, onReset }) {
+  const isApply = mode === 'apply'
+  return (
+    <div className="pp-succ" role="status" aria-live="polite">
+      <div className="pp-succ__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="4 12 10 18 20 6" />
+        </svg>
+      </div>
+      <h3>{isApply ? 'Your application is in.' : "You're on the waitlist."}</h3>
+      <p>
+        {isApply
+          ? "We'll review it in the next few days and reach out by email or WhatsApp to schedule a short interview call."
+          : "We'll be in touch the moment applications open for the next cohort — or when a seat frees up in this one."}
+      </p>
+      <div className="pp-succ__ctas">
+        <CTAButton
+          href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
+            isApply
+              ? "Hi Lady Adel — I just submitted my application for the Purposeful Entrepreneur Programme."
+              : "Hi Lady Adel — I just joined the waitlist for the Purposeful Entrepreneur Programme."
+          )}`}
+          variant="primary"
+          size="md"
+          external
+          arrow={false}
+        >
+          Message on WhatsApp
+        </CTAButton>
+        <button type="button" className="pp-succ__reset" onClick={onReset}>
+          {isApply ? 'Submit another application' : 'Add someone else'}
+        </button>
+      </div>
+
+      <style>{`
+        .pp-succ { text-align: center; padding: 20px 4px; }
+        .pp-succ__icon {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 64px; height: 64px;
+          margin-bottom: 18px;
+          border-radius: 50%;
+          background: rgba(91, 45, 142, 0.12);
+          color: var(--purple);
+        }
+        .pp-succ__icon svg { width: 28px; height: 28px; }
+        .pp-succ h3 {
+          font-family: var(--font-display);
+          font-weight: 800;
+          font-size: clamp(22px, 3vw, 28px);
+          color: var(--navy);
+          margin-bottom: 10px;
+        }
+        .pp-succ p {
+          max-width: 480px;
+          margin: 0 auto 24px;
+          font-size: 14px;
+          line-height: 1.65;
+          color: rgba(13, 33, 55, 0.72);
+        }
+        .pp-succ__ctas {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
+        }
+        @media (min-width: 520px) { .pp-succ__ctas { flex-direction: row; justify-content: center; } }
+        .pp-succ__reset {
+          background: transparent;
+          border: 0;
+          cursor: pointer;
+          color: var(--purple);
+          font-weight: 800;
+          font-size: 13px;
+          text-decoration: underline;
+          text-underline-offset: 3px;
+        }
+      `}</style>
+    </div>
+  )
+}
+
+// ---- Field primitives (duplicated locally per-page by design) ---------------
+
+function Field({ label, name, type = 'text', required, hint, value, error, onChange, ...rest }) {
+  const id = `pp-${name}`
+  return (
+    <div className={`pp-fld ${error ? 'is-invalid' : ''}`}>
+      <label htmlFor={id}>{label}{required && <span aria-hidden="true"> *</span>}</label>
+      <input
+        id={id} name={name} type={type}
+        required={required}
+        value={value}
+        onChange={onChange}
+        aria-invalid={!!error}
+        aria-describedby={error ? `${id}-err` : hint ? `${id}-hint` : undefined}
+        {...rest}
+      />
+      {error
+        ? <span className="pp-fld__err" id={`${id}-err`}>{error}</span>
+        : hint ? <span className="pp-fld__hint" id={`${id}-hint`}>{hint}</span> : null}
+      <FieldStyles />
+    </div>
+  )
+}
+
+function SelectField({ label, name, value, error, onChange, options, placeholder, required }) {
+  const id = `pp-${name}`
+  return (
+    <div className={`pp-fld pp-fld--sel ${error ? 'is-invalid' : ''}`}>
+      <label htmlFor={id}>{label}{required && <span aria-hidden="true"> *</span>}</label>
+      <select
+        id={id} name={name}
+        value={value} onChange={onChange}
+        aria-invalid={!!error}
+        aria-describedby={error ? `${id}-err` : undefined}
+      >
+        <option value="" disabled>{placeholder}</option>
+        {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+      </select>
+      {error && <span className="pp-fld__err" id={`${id}-err`}>{error}</span>}
+      <FieldStyles />
+    </div>
+  )
+}
+
+function TextAreaField({ label, name, required, hint, rows = 4, value, error, onChange }) {
+  const id = `pp-${name}`
+  return (
+    <div className={`pp-fld ${error ? 'is-invalid' : ''}`}>
+      <label htmlFor={id}>{label}{required && <span aria-hidden="true"> *</span>}</label>
+      <textarea
+        id={id} name={name} rows={rows}
+        required={required}
+        value={value}
+        onChange={onChange}
+        aria-invalid={!!error}
+        aria-describedby={error ? `${id}-err` : hint ? `${id}-hint` : undefined}
+      />
+      {error
+        ? <span className="pp-fld__err" id={`${id}-err`}>{error}</span>
+        : hint ? <span className="pp-fld__hint" id={`${id}-hint`}>{hint}</span> : null}
+      <FieldStyles />
+    </div>
+  )
+}
+
+function FieldStyles() {
+  return (
+    <style>{`
+      .pp-fld { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+      .pp-fld label {
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 1.6px;
+        text-transform: uppercase;
+        color: var(--navy);
+      }
+      .pp-fld label span { color: var(--orange); }
+      .pp-fld input, .pp-fld select, .pp-fld textarea {
+        width: 100%;
+        font: inherit;
+        font-size: 15px;
+        color: var(--navy);
+        padding: 12px 14px;
+        border: 1.5px solid rgba(13, 33, 55, 0.15);
+        border-radius: 12px;
+        background: var(--white);
+        transition: border-color 0.18s ease, box-shadow 0.18s ease;
+      }
+      .pp-fld textarea { resize: vertical; min-height: 88px; line-height: 1.5; }
+      .pp-fld input:focus, .pp-fld select:focus, .pp-fld textarea:focus {
+        outline: none;
+        border-color: var(--purple);
+        box-shadow: 0 0 0 3px rgba(91, 45, 142, 0.18);
+      }
+      .pp-fld__hint { font-size: 11.5px; color: rgba(13, 33, 55, 0.55); }
+      .pp-fld__err  { font-size: 12px; color: var(--orange); font-weight: 700; }
+      .pp-fld.is-invalid input,
+      .pp-fld.is-invalid select,
+      .pp-fld.is-invalid textarea {
+        border-color: var(--orange);
+        box-shadow: 0 0 0 3px rgba(224, 90, 30, 0.12);
+      }
+      .pp-fld--sel select {
+        appearance: none;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'><path d='M1 1l5 5 5-5' stroke='%230D2137' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+        background-repeat: no-repeat;
+        background-position: right 14px center;
+        padding-right: 38px;
+      }
+    `}</style>
   )
 }
