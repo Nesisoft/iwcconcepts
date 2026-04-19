@@ -19,6 +19,7 @@ import DatabaseSetup from './pages/DatabaseSetup'
 import LadyAdel from './pages/LadyAdel'
 import LadyAdelPlaceholder from './pages/LadyAdelPlaceholder'
 import CatchUpPage from './pages/CatchUpPage'
+import ProgrammesPage from './pages/ProgrammesPage'
 import WhatsAppButton from './components/layout/WhatsAppButton'
 
 function PrivateRoute({ element }) {
@@ -65,7 +66,7 @@ export default function App() {
           {/* Public — Lady Adel site */}
           <Route path="/lady-adel"  element={<LadyAdel />} />
           <Route path="/catch-up"   element={<CatchUpPage />} />
-          <Route path="/programmes" element={<LadyAdelPlaceholder page="programmes" />} />
+          <Route path="/programmes" element={<ProgrammesPage />} />
           <Route path="/training"   element={<LadyAdelPlaceholder page="training" />} />
           <Route path="/contact"    element={<LadyAdelPlaceholder page="contact" />} />
 
