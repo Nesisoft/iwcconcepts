@@ -67,6 +67,30 @@ const BENEFITS = [
   { title: 'Certificate of completion',      line: 'A recognised participation certificate from IWC Concepts — something tangible for your LinkedIn and your wall.' },
 ]
 
+// FAQ — 5 items, mirrors the plan (also used on /lady-adel#programme)
+const FAQ = [
+  {
+    q: 'Who is this programme for?',
+    a: 'Entrepreneurs, startups, growing business owners and faith-driven professionals who want to build with purpose and strategy — not just inspiration. See the "Who It Is For" section above for the five archetypes we build each cohort around.',
+  },
+  {
+    q: 'How many people are in each cohort?',
+    a: 'Cohorts are limited to between 10 and 30 founders to protect personal attention and the quality of peer engagement. Exact numbers are confirmed during the application review so we can keep the mix balanced across sectors and stages.',
+  },
+  {
+    q: 'Is it online or in-person?',
+    a: 'Primarily online via Zoom — weekly live sessions of 1.5 to 2 hours — with the possibility of in-person intensive sessions for cohorts based in the same region (typically Accra or Lagos). All sessions are recorded for cohort members.',
+  },
+  {
+    q: 'What does the programme cost?',
+    a: 'Fees are available on application. This lets us confirm fit, tailor what is included for your stage of business and offer the most relevant tier — rather than publishing a number that suits no one exactly. Payment plans are available.',
+  },
+  {
+    q: 'When does the next cohort start?',
+    a: 'Applications are open on a rolling basis. Once a cohort fills, the next start date is announced and successful applicants are notified directly — apply early as spots fill fast and interviews are scheduled as applications come in.',
+  },
+]
+
 // Business-stage options for the Apply form
 const BUSINESS_STAGE = [
   'Idea stage',
@@ -252,7 +276,8 @@ export default function ProgrammesPage() {
         <FacultyBand />
         <TimelineBand />
         <ApplyBand />
-        {/* Further bands added in Step 12.6 */}
+        <FAQBand />
+        <FinalCTABand />
       </main>
       <Footer />
     </>
@@ -1660,5 +1685,257 @@ function FieldStyles() {
         padding-right: 38px;
       }
     `}</style>
+  )
+}
+
+// ---- FAQ --------------------------------------------------------------------
+
+function FAQBand() {
+  const [openIdx, setOpenIdx] = useState(0)
+  return (
+    <section className="pp-faq">
+      <div className="pp-faq__bg" aria-hidden="true">
+        <span className="pp-faq__orb pp-faq__orb--purple" />
+        <span className="pp-faq__orb pp-faq__orb--gold" />
+      </div>
+      <div className="site-container pp-faq__inner">
+        <SectionHeader
+          tone="light"
+          eyebrow="Frequently Asked"
+          title={<>Questions answered <em>before</em> you apply.</>}
+          subtitle="The five most common questions. If yours is not here, message us on WhatsApp and we will answer directly."
+        />
+
+        <ul className="pp-faq__list">
+          {FAQ.map((item, i) => {
+            const open = openIdx === i
+            return (
+              <li key={i} className={`pp-fq ${open ? 'is-open' : ''}`}>
+                <button
+                  type="button"
+                  className="pp-fq__q"
+                  aria-expanded={open}
+                  onClick={() => setOpenIdx(open ? -1 : i)}
+                >
+                  <span>{item.q}</span>
+                  <span className="pp-fq__icon" aria-hidden="true">{open ? '−' : '+'}</span>
+                </button>
+                <div className="pp-fq__a" role="region" aria-hidden={!open}>
+                  <p>{item.a}</p>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+
+      <style>{`
+        .pp-faq {
+          position: relative;
+          padding: 100px 0 110px;
+          background:
+            radial-gradient(ellipse at 85% 0%, rgba(91, 45, 142, 0.38) 0%, transparent 55%),
+            radial-gradient(ellipse at 15% 100%, rgba(201, 168, 76, 0.16) 0%, transparent 55%),
+            linear-gradient(160deg, #0D2137 0%, #14294a 55%, #1a0d2e 100%);
+          color: var(--white);
+          overflow: hidden;
+          isolation: isolate;
+        }
+        .pp-faq__bg { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+        .pp-faq__orb { position: absolute; border-radius: 50%; filter: blur(110px); opacity: 0.4; }
+        .pp-faq__orb--purple { width: 460px; height: 460px; top: -160px; right: -140px; background: radial-gradient(circle, rgba(122, 71, 184, 0.5), transparent 70%); }
+        .pp-faq__orb--gold   { width: 420px; height: 420px; bottom: -160px; left: -140px; background: radial-gradient(circle, rgba(201, 168, 76, 0.35), transparent 70%); }
+        .pp-faq__inner { position: relative; z-index: 1; }
+
+        .pp-faq__list {
+          list-style: none;
+          max-width: 820px;
+          margin: 0 auto;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .pp-fq {
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.09);
+          border-radius: 14px;
+          overflow: hidden;
+          transition: border-color 0.2s ease, background 0.2s ease;
+        }
+        .pp-fq.is-open {
+          border-color: rgba(201, 168, 76, 0.42);
+          background: rgba(255, 255, 255, 0.05);
+        }
+        .pp-fq__q {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          padding: 18px 22px;
+          background: transparent;
+          border: 0;
+          cursor: pointer;
+          color: var(--white);
+          font-family: var(--font-display);
+          font-size: 16px;
+          font-weight: 700;
+          text-align: left;
+          letter-spacing: -0.1px;
+          min-width: 0;
+        }
+        .pp-fq__q:focus-visible {
+          outline: none;
+          box-shadow: inset 0 0 0 2px rgba(201, 168, 76, 0.4);
+          border-radius: 14px;
+        }
+        .pp-fq__icon {
+          flex-shrink: 0;
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(201, 168, 76, 0.15);
+          color: var(--gold);
+          font-size: 18px;
+          font-weight: 700;
+          line-height: 1;
+        }
+        .pp-fq__a {
+          max-height: 0;
+          overflow: hidden;
+          transition: max-height 0.3s ease;
+        }
+        .pp-fq.is-open .pp-fq__a { max-height: 400px; }
+        .pp-fq__a p {
+          padding: 0 22px 20px;
+          font-size: 14px;
+          line-height: 1.7;
+          color: rgba(255, 255, 255, 0.78);
+        }
+      `}</style>
+    </section>
+  )
+}
+
+// ---- Final CTA --------------------------------------------------------------
+
+function FinalCTABand() {
+  return (
+    <section className="pp-final">
+      <div className="site-container">
+        <div className="pp-final__card">
+          <div className="pp-final__copy">
+            <span className="pp-final__eyebrow">
+              <span className="pp-final__dot" aria-hidden="true" />
+              Applications reviewed rolling
+            </span>
+            <h3>Apply before the next cohort fills.</h3>
+            <p>
+              Seats are confirmed on a first-complete, first-interviewed basis.
+              If the programme is a fit for your business right now, the next
+              15 minutes are the best time to start your application.
+            </p>
+          </div>
+          <div className="pp-final__ctas">
+            <CTAButton href="#apply" variant="gold" size="lg">
+              Start your application
+            </CTAButton>
+            <CTAButton to="/lady-adel#contact" variant="outline-light" size="lg" arrow={false}>
+              Ask a question first
+            </CTAButton>
+          </div>
+        </div>
+      </div>
+
+      <style>{`
+        .pp-final {
+          padding: 72px 0 120px;
+          background:
+            radial-gradient(ellipse at 10% 0%, rgba(224, 90, 30, 0.28) 0%, transparent 55%),
+            radial-gradient(ellipse at 90% 100%, rgba(201, 168, 76, 0.2) 0%, transparent 55%),
+            linear-gradient(160deg, #0D2137 0%, #14294a 55%, #1a0d2e 100%);
+          color: var(--white);
+        }
+        .pp-final__card {
+          padding: 34px 26px;
+          border-radius: 22px;
+          background:
+            radial-gradient(ellipse at 0% 0%, rgba(201, 168, 76, 0.25), transparent 60%),
+            linear-gradient(135deg, rgba(91, 45, 142, 0.55), rgba(13, 33, 55, 0.6));
+          border: 1px solid rgba(201, 168, 76, 0.32);
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+          align-items: stretch;
+        }
+        .pp-final__card > * { min-width: 0; }
+        @media (min-width: 960px) {
+          .pp-final__card {
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            padding: 44px 52px;
+            gap: 40px;
+          }
+        }
+
+        .pp-final__eyebrow {
+          display: inline-flex;
+          align-items: center;
+          gap: 9px;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 2.4px;
+          text-transform: uppercase;
+          color: var(--orange);
+          padding: 6px 13px;
+          background: rgba(224, 90, 30, 0.14);
+          border: 1px solid rgba(224, 90, 30, 0.36);
+          border-radius: 999px;
+          margin-bottom: 14px;
+        }
+        .pp-final__dot {
+          width: 7px; height: 7px;
+          background: var(--orange);
+          border-radius: 50%;
+          animation: ppFinalPulse 1.8s infinite;
+        }
+        @keyframes ppFinalPulse {
+          0%   { box-shadow: 0 0 0 0 rgba(224, 90, 30, 0.7); }
+          70%  { box-shadow: 0 0 0 8px rgba(224, 90, 30, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(224, 90, 30, 0); }
+        }
+
+        .pp-final__copy { max-width: 620px; }
+        .pp-final h3 {
+          font-family: var(--font-display);
+          font-weight: 800;
+          font-size: clamp(24px, 3.4vw, 32px);
+          color: var(--white);
+          letter-spacing: -0.3px;
+          margin-bottom: 10px;
+        }
+        .pp-final p {
+          font-size: 14.5px;
+          line-height: 1.7;
+          color: rgba(255, 255, 255, 0.78);
+        }
+
+        .pp-final__ctas {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .pp-final__ctas .cta { white-space: normal; text-align: center; line-height: 1.25; }
+        @media (min-width: 520px) {
+          .pp-final__ctas { flex-direction: row; flex-wrap: wrap; }
+          .pp-final__ctas .cta { white-space: nowrap; }
+        }
+        @media (min-width: 960px) { .pp-final__ctas { flex-direction: column; align-items: stretch; } }
+      `}</style>
+    </section>
   )
 }
