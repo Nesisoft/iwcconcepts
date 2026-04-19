@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import Navbar from '../components/layout/Navbar'
 import Footer from '../components/layout/Footer'
+import SectionHeader from '../components/ui/SectionHeader'
 import CTAButton from '../components/ui/CTAButton'
 
 /**
@@ -30,6 +31,106 @@ const PROGRAMME = {
   nextCohortStart: 'Rolling admission',                   // PLACEHOLDER: confirm start date once a cohort fills
 }
 
+// Who it's for — 5 archetypes (expanded from the plan with a recognition line)
+const AUDIENCE = [
+  {
+    title: 'You have an idea ready to build',
+    line:  'You have turned the same business idea over for months — now you want a structured path from concept to first paying customer.',
+  },
+  {
+    title: 'You are in your first 1–3 years',
+    line:  'You have launched, you are making some revenue, but the foundations still feel fragile. You want the fundamentals locked in before you scale.',
+  },
+  {
+    title: 'You have hit a growth ceiling',
+    line:  'Revenue has plateaued, the team is stretched and the old playbook has stopped working. You need new frameworks, not louder effort.',
+  },
+  {
+    title: 'You want faith and business aligned',
+    line:  'You are done splitting Monday from Sunday. You want a business strategy that honours your calling without apologising for either.',
+  },
+  {
+    title: 'You are leaving employment for entrepreneurship',
+    line:  'You have a salary, a plan and a growing conviction it is time. You want a runway, a roadmap and people who have done the jump before.',
+  },
+]
+
+// Curriculum — 8 weekly modules (PLACEHOLDER: indicative, not the final schedule)
+const CURRICULUM = [
+  {
+    week: 'W1',
+    title: 'Foundations & Purpose',
+    points: [
+      'Clarify your business vision, mission and non-negotiables',
+      'Diagnose where you are today — honestly',
+      'Set a measurable 12-week outcome',
+    ],
+  },
+  {
+    week: 'W2',
+    title: 'Finance & Numbers',
+    points: [
+      'Read your P&L, cash flow and runway with confidence',
+      'Price for profit — not for panic',
+      'Build a 12-month financial model you can defend',
+    ],
+  },
+  {
+    week: 'W3',
+    title: 'Brand & Positioning',
+    points: [
+      'Sharpen your niche until the right buyer self-identifies',
+      'Write the one-line positioning statement',
+      'Audit and upgrade the customer-facing surface area',
+    ],
+  },
+  {
+    week: 'W4',
+    title: 'Sales & Growth',
+    points: [
+      'Design a repeatable outbound + inbound motion',
+      'Handle objections and close with conviction',
+      'Build the pipeline metrics that actually predict revenue',
+    ],
+  },
+  {
+    week: 'W5',
+    title: 'Leadership & Team',
+    points: [
+      'Lead yourself before you lead anyone else',
+      'Hire your next 2–3 roles with a scorecard, not vibes',
+      'Run a weekly rhythm that keeps the team aligned',
+    ],
+  },
+  {
+    week: 'W6',
+    title: 'Systems & Operations',
+    points: [
+      'Map and document the core revenue workflow',
+      'Choose the tools that remove friction, not add it',
+      'Build dashboards for the 3 numbers that matter most',
+    ],
+  },
+  {
+    week: 'W7',
+    title: 'Scaling & Capital',
+    points: [
+      'Decide whether to bootstrap, borrow or raise — with clarity',
+      'Prepare the documents investors or lenders actually read',
+      'Sequence growth without breaking the business',
+    ],
+  },
+  {
+    week: 'W8',
+    title: 'Pitch Day · Business Review',
+    points: [
+      'Present your business to the cohort and faculty panel',
+      'Receive structured written and live feedback',
+      'Leave with a 90-day post-programme action plan',
+    ],
+  },
+]
+
 // ---- Page -------------------------------------------------------------------
 
 export default function ProgrammesPage() {
@@ -44,7 +145,9 @@ export default function ProgrammesPage() {
       <Navbar />
       <main>
         <ProgrammesHero />
-        {/* Further bands added in Steps 12.2–12.6 */}
+        <WhoItsForBand />
+        <CurriculumBand />
+        {/* Further bands added in Steps 12.3–12.6 */}
       </main>
       <Footer />
     </>
@@ -230,6 +333,230 @@ function ProgrammesHero() {
           letter-spacing: 2.4px;
           text-transform: uppercase;
           color: rgba(255, 255, 255, 0.5);
+        }
+      `}</style>
+    </section>
+  )
+}
+
+// ---- Who It's For -----------------------------------------------------------
+
+function WhoItsForBand() {
+  return (
+    <section className="pp-who site-section">
+      <div className="site-container">
+        <SectionHeader
+          eyebrow="Who It Is For"
+          title={<>Built for founders at a <em>specific moment</em> in the journey.</>}
+          subtitle="This programme is deliberately selective. If one of the five profiles below reads like your own life, you are exactly who we built it for."
+        />
+
+        <ul className="pp-who__grid">
+          {AUDIENCE.map((a, i) => (
+            <li key={a.title} className="pp-who__card">
+              <span className="pp-who__n">{String(i + 1).padStart(2, '0')}</span>
+              <h3>{a.title}</h3>
+              <p className="pp-who__line">
+                <span className="pp-who__prefix">You&rsquo;ll recognise yourself if…</span>
+                {a.line}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <style>{`
+        .pp-who { background: var(--cream); color: var(--ink); }
+
+        .pp-who__grid {
+          list-style: none;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 16px;
+        }
+        @media (min-width: 720px)  { .pp-who__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; } }
+        @media (min-width: 1080px) { .pp-who__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+        .pp-who__card {
+          position: relative;
+          padding: 24px 22px 26px;
+          background: var(--white);
+          border: 1px solid rgba(13, 33, 55, 0.08);
+          border-radius: var(--radius-lg);
+          box-shadow: 0 12px 28px rgba(13, 33, 55, 0.05);
+          transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+          min-width: 0;
+        }
+        .pp-who__card:hover {
+          transform: translateY(-3px);
+          border-color: rgba(201, 168, 76, 0.42);
+          box-shadow: 0 22px 48px rgba(13, 33, 55, 0.09);
+        }
+        /* 5-across never happens, but keep the 5th card centred on the 3-col row */
+        @media (min-width: 1080px) {
+          .pp-who__card:nth-child(4) { grid-column: 1 / span 1; }
+        }
+
+        .pp-who__n {
+          display: inline-block;
+          font-family: var(--font-display);
+          font-style: italic;
+          font-weight: 900;
+          font-size: 15px;
+          letter-spacing: 1.5px;
+          color: var(--gold-dark);
+          margin-bottom: 10px;
+        }
+        .pp-who__card h3 {
+          font-family: var(--font-display);
+          font-weight: 800;
+          font-size: 19px;
+          color: var(--navy);
+          line-height: 1.25;
+          letter-spacing: -0.3px;
+          margin-bottom: 10px;
+        }
+        .pp-who__line {
+          font-size: 14px;
+          line-height: 1.65;
+          color: rgba(13, 33, 55, 0.74);
+        }
+        .pp-who__prefix {
+          display: block;
+          font-size: 10.5px;
+          font-weight: 800;
+          letter-spacing: 1.8px;
+          text-transform: uppercase;
+          color: var(--purple);
+          margin-bottom: 6px;
+        }
+      `}</style>
+    </section>
+  )
+}
+
+// ---- Curriculum -------------------------------------------------------------
+
+function CurriculumBand() {
+  return (
+    <section className="pp-curric site-section">
+      <div className="site-container">
+        <SectionHeader
+          eyebrow="Curriculum"
+          title={<>Eight weeks. <em>One disciplined</em> path.</>}
+          subtitle="A deliberate sequence — foundations before finance, finance before growth, growth before scaling. Each week is a live session with pre-work, frameworks and a tangible outcome."
+        />
+
+        <div className="pp-curric__note" role="note">
+          <strong>Indicative schedule.</strong>
+          The week-by-week outline below is the standard cohort structure.
+          Final session dates, guest faculty and focus areas are confirmed
+          for each cohort after applications close.
+        </div>
+
+        <ol className="pp-curric__grid">
+          {CURRICULUM.map(mod => (
+            <li key={mod.week} className="pp-mod">
+              <span className="pp-mod__week">{mod.week}</span>
+              <h3>{mod.title}</h3>
+              <ul className="pp-mod__points">
+                {mod.points.map(p => (
+                  <li key={p}>
+                    <span className="pp-mod__bullet" aria-hidden="true" />
+                    <span>{p}</span>
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <style>{`
+        .pp-curric { background: var(--white); color: var(--ink); }
+
+        .pp-curric__note {
+          max-width: 760px;
+          margin: 0 auto 40px;
+          padding: 14px 18px;
+          background: rgba(201, 168, 76, 0.1);
+          border: 1px dashed rgba(201, 168, 76, 0.5);
+          border-radius: 12px;
+          font-size: 13px;
+          line-height: 1.6;
+          color: rgba(13, 33, 55, 0.78);
+          text-align: center;
+        }
+        .pp-curric__note strong { color: var(--navy); margin-right: 4px; }
+
+        .pp-curric__grid {
+          list-style: none;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 16px;
+          counter-reset: none;
+        }
+        @media (min-width: 720px)  { .pp-curric__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (min-width: 1080px) { .pp-curric__grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+        .pp-mod {
+          position: relative;
+          padding: 22px 22px 24px;
+          background: var(--cream);
+          border: 1px solid rgba(13, 33, 55, 0.08);
+          border-radius: var(--radius-lg);
+          min-width: 0;
+          transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .pp-mod:hover {
+          transform: translateY(-3px);
+          border-color: rgba(91, 45, 142, 0.32);
+          box-shadow: 0 18px 38px rgba(13, 33, 55, 0.08);
+        }
+
+        .pp-mod__week {
+          align-self: flex-start;
+          padding: 5px 12px;
+          font-size: 10.5px;
+          font-weight: 800;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          color: var(--white);
+          background: linear-gradient(135deg, var(--purple), var(--navy));
+          border-radius: 999px;
+        }
+        .pp-mod h3 {
+          font-family: var(--font-display);
+          font-weight: 800;
+          font-size: 17px;
+          line-height: 1.25;
+          letter-spacing: -0.2px;
+          color: var(--navy);
+        }
+        .pp-mod__points {
+          list-style: none;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .pp-mod__points li {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          font-size: 13px;
+          line-height: 1.55;
+          color: rgba(13, 33, 55, 0.78);
+        }
+        .pp-mod__bullet {
+          flex-shrink: 0;
+          width: 6px;
+          height: 6px;
+          margin-top: 7px;
+          background: var(--gold);
+          border-radius: 50%;
         }
       `}</style>
     </section>
