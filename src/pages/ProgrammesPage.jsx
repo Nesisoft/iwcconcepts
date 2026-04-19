@@ -55,6 +55,54 @@ const AUDIENCE = [
   },
 ]
 
+// Walk-away benefits — same 7 items as the plan, condensed to a single line each
+// so the tone differs from the larger cards on /lady-adel#programme.
+const BENEFITS = [
+  { title: 'Structured curriculum',          line: 'Finance, brand, sales, leadership, systems and scaling — in the order a growing business needs them.' },
+  { title: 'Frameworks & templates',         line: 'Practical tools, worksheets and one-pagers you can lift straight into your business.' },
+  { title: 'Mentorship',                     line: 'Direct access to experienced entrepreneurs and industry experts for the questions your own team cannot answer yet.' },
+  { title: 'Strategic contacts',             line: 'Curated introductions to networks, investors and partners relevant to your sector — not a generic address book.' },
+  { title: 'Peer cohort',                    line: 'A small group of like-minded founders for real accountability, honest feedback and lasting collaboration.' },
+  { title: 'Accountability structure',       line: 'Check-ins, goal tracking and progress reviews — so momentum is measured, not hoped for.' },
+  { title: 'Certificate of completion',      line: 'A recognised participation certificate from IWC Concepts — something tangible for your LinkedIn and your wall.' },
+]
+
+// Faculty — PLACEHOLDER cards. Real lineup confirmed pre-launch.
+const FACULTY = [
+  {
+    initials: 'LA',
+    name:     'Apostle Adelaide (Lady Adel) Clottey',
+    role:     'Programme Lead · Founder, IWC Concepts',
+    bio:      'Ten years in banking and finance, now leading IWC Concepts. Anchors every cohort in the strategic, spiritual and financial frameworks that have shaped her own journey.',
+    accent:   'purple',
+    placeholder: false,
+  },
+  {
+    initials: '—',
+    name:     'Finance & Strategy Faculty',
+    role:     'To be announced',
+    bio:      'Senior operators who have run finance and strategy inside growth-stage African and diaspora businesses. Leads the Finance, Numbers and Scaling modules.',
+    accent:   'gold',
+    placeholder: true,
+  },
+  {
+    initials: '—',
+    name:     'Brand, Sales & Growth Faculty',
+    role:     'To be announced',
+    bio:      'Practitioners with live P&L responsibility for customer acquisition — not agency decks. Leads the Brand, Positioning, Sales and Growth modules.',
+    accent:   'orange',
+    placeholder: true,
+  },
+  {
+    initials: '—',
+    name:     'Leadership & Systems Faculty',
+    role:     'To be announced',
+    bio:      'Founders and operators who have scaled teams through the painful middle. Leads the Leadership, Team and Systems & Operations modules.',
+    accent:   'navy',
+    placeholder: true,
+  },
+]
+
 // Curriculum — 8 weekly modules (PLACEHOLDER: indicative, not the final schedule)
 const CURRICULUM = [
   {
@@ -147,7 +195,9 @@ export default function ProgrammesPage() {
         <ProgrammesHero />
         <WhoItsForBand />
         <CurriculumBand />
-        {/* Further bands added in Steps 12.3–12.6 */}
+        <WalkAwayBand />
+        <FacultyBand />
+        {/* Further bands added in Steps 12.4–12.6 */}
       </main>
       <Footer />
     </>
@@ -557,6 +607,252 @@ function CurriculumBand() {
           margin-top: 7px;
           background: var(--gold);
           border-radius: 50%;
+        }
+      `}</style>
+    </section>
+  )
+}
+
+// ---- What you walk away with ------------------------------------------------
+
+function WalkAwayBand() {
+  return (
+    <section className="pp-walk">
+      <div className="pp-walk__bg" aria-hidden="true">
+        <span className="pp-walk__orb pp-walk__orb--purple" />
+        <span className="pp-walk__orb pp-walk__orb--gold" />
+      </div>
+      <div className="site-container pp-walk__inner">
+        <SectionHeader
+          tone="light"
+          eyebrow="What You Walk Away With"
+          title={<>Seven things that <em>stay with you</em> after the cohort ends.</>}
+          subtitle="We optimise for what you can still use six months later — not for the high of the final session. Each item below is built into the programme by design."
+        />
+
+        <ul className="pp-walk__list">
+          {BENEFITS.map((b, i) => (
+            <li key={b.title} className="pp-walk__row">
+              <span className="pp-walk__n">{String(i + 1).padStart(2, '0')}</span>
+              <div className="pp-walk__body">
+                <h3>{b.title}</h3>
+                <p>{b.line}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <style>{`
+        .pp-walk {
+          position: relative;
+          padding: 100px 0 110px;
+          background:
+            radial-gradient(ellipse at 12% 0%, rgba(91, 45, 142, 0.38) 0%, transparent 55%),
+            radial-gradient(ellipse at 88% 100%, rgba(201, 168, 76, 0.16) 0%, transparent 55%),
+            linear-gradient(160deg, #0D2137 0%, #14294a 55%, #1a0d2e 100%);
+          color: var(--white);
+          overflow: hidden;
+          isolation: isolate;
+        }
+        .pp-walk__bg { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+        .pp-walk__orb { position: absolute; border-radius: 50%; filter: blur(110px); opacity: 0.45; }
+        .pp-walk__orb--purple { width: 500px; height: 500px; top: -180px; left: -160px; background: radial-gradient(circle, rgba(122, 71, 184, 0.5), transparent 70%); }
+        .pp-walk__orb--gold   { width: 420px; height: 420px; bottom: -160px; right: -140px; background: radial-gradient(circle, rgba(201, 168, 76, 0.35), transparent 70%); }
+        .pp-walk__inner { position: relative; z-index: 1; }
+
+        .pp-walk__list {
+          list-style: none;
+          max-width: 860px;
+          margin: 0 auto;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 2px;
+          border-top: 1px solid rgba(255, 255, 255, 0.1);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(255, 255, 255, 0.06);
+        }
+        .pp-walk__row {
+          display: grid;
+          grid-template-columns: 58px minmax(0, 1fr);
+          gap: 18px;
+          padding: 20px 22px;
+          background: linear-gradient(160deg, rgba(13, 33, 55, 0.65), rgba(13, 33, 55, 0.4));
+          align-items: start;
+          transition: background 0.22s ease, transform 0.22s ease;
+        }
+        .pp-walk__row:hover { background: linear-gradient(160deg, rgba(91, 45, 142, 0.35), rgba(13, 33, 55, 0.4)); }
+        @media (min-width: 720px) {
+          .pp-walk__row { grid-template-columns: 72px minmax(0, 1fr); padding: 24px 32px; gap: 22px; }
+        }
+
+        .pp-walk__n {
+          font-family: var(--font-display);
+          font-style: italic;
+          font-weight: 900;
+          font-size: 28px;
+          line-height: 1;
+          letter-spacing: -0.5px;
+          color: var(--gold);
+          padding-top: 2px;
+        }
+        @media (min-width: 720px) { .pp-walk__n { font-size: 34px; } }
+
+        .pp-walk__body { min-width: 0; }
+        .pp-walk__body h3 {
+          font-family: var(--font-display);
+          font-weight: 800;
+          font-size: 17px;
+          line-height: 1.25;
+          letter-spacing: -0.2px;
+          color: var(--white);
+          margin-bottom: 4px;
+        }
+        @media (min-width: 720px) { .pp-walk__body h3 { font-size: 19px; } }
+        .pp-walk__body p {
+          font-size: 13.5px;
+          line-height: 1.6;
+          color: rgba(255, 255, 255, 0.74);
+        }
+        @media (min-width: 720px) { .pp-walk__body p { font-size: 14.5px; } }
+      `}</style>
+    </section>
+  )
+}
+
+// ---- Faculty / mentors ------------------------------------------------------
+
+function FacultyBand() {
+  return (
+    <section className="pp-fac site-section">
+      <div className="site-container">
+        <SectionHeader
+          eyebrow="Faculty & Mentors"
+          title={<>A <em>multidisciplinary</em> faculty, one table.</>}
+          subtitle="Every cohort is led by Lady Adel and supported by a small panel of senior operators — finance, brand, sales, leadership, systems. Real practitioners with live P&L responsibility."
+        />
+
+        <div className="pp-fac__note" role="note">
+          <strong>Faculty panel — placeholder.</strong>
+          The three specialist tracks below are being finalised. Confirmed
+          faculty names, photos and session ownership will be announced to
+          applicants during the interview stage.
+        </div>
+
+        <ul className="pp-fac__grid">
+          {FACULTY.map(f => (
+            <li key={f.name} className={`pp-fac__card pp-fac__card--${f.accent}`}>
+              {f.placeholder && <span className="pp-fac__tbd">Placeholder</span>}
+              <div className="pp-fac__avatar" aria-hidden="true">
+                <span>{f.initials}</span>
+              </div>
+              <h3>{f.name}</h3>
+              <p className="pp-fac__role">{f.role}</p>
+              <p className="pp-fac__bio">{f.bio}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <style>{`
+        .pp-fac { background: var(--cream); color: var(--ink); }
+
+        .pp-fac__note {
+          max-width: 760px;
+          margin: 0 auto 40px;
+          padding: 14px 18px;
+          background: var(--white);
+          border: 1px dashed rgba(91, 45, 142, 0.4);
+          border-radius: 12px;
+          font-size: 13px;
+          line-height: 1.6;
+          color: rgba(13, 33, 55, 0.78);
+          text-align: center;
+        }
+        .pp-fac__note strong { color: var(--purple); margin-right: 4px; }
+
+        .pp-fac__grid {
+          list-style: none;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 18px;
+        }
+        @media (min-width: 720px)  { .pp-fac__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (min-width: 1080px) { .pp-fac__grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+        .pp-fac__card {
+          position: relative;
+          padding: 26px 22px 24px;
+          background: var(--white);
+          border: 1px solid rgba(13, 33, 55, 0.08);
+          border-radius: var(--radius-lg);
+          box-shadow: 0 12px 28px rgba(13, 33, 55, 0.06);
+          min-width: 0;
+          transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+        }
+        .pp-fac__card:hover {
+          transform: translateY(-4px);
+          border-color: rgba(201, 168, 76, 0.42);
+          box-shadow: 0 22px 48px rgba(13, 33, 55, 0.1);
+        }
+
+        .pp-fac__tbd {
+          position: absolute;
+          top: 14px;
+          right: 14px;
+          font-size: 9.5px;
+          font-weight: 800;
+          letter-spacing: 1.5px;
+          text-transform: uppercase;
+          color: var(--orange);
+          background: rgba(224, 90, 30, 0.1);
+          border: 1px solid rgba(224, 90, 30, 0.32);
+          padding: 3px 8px;
+          border-radius: 999px;
+        }
+
+        .pp-fac__avatar {
+          width: 64px;
+          height: 64px;
+          border-radius: 50%;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 16px;
+          font-family: var(--font-display);
+          font-weight: 900;
+          font-style: italic;
+          font-size: 22px;
+          letter-spacing: 1px;
+          color: var(--white);
+          box-shadow: inset 0 -8px 20px rgba(0, 0, 0, 0.18);
+        }
+        .pp-fac__card--purple .pp-fac__avatar { background: linear-gradient(135deg, var(--purple), var(--navy)); }
+        .pp-fac__card--gold   .pp-fac__avatar { background: linear-gradient(135deg, var(--gold), var(--gold-dark)); color: var(--navy); }
+        .pp-fac__card--orange .pp-fac__avatar { background: linear-gradient(135deg, var(--orange), var(--orange-dark)); }
+        .pp-fac__card--navy   .pp-fac__avatar { background: linear-gradient(135deg, #1a3a5f, var(--navy)); }
+
+        .pp-fac__card h3 {
+          font-family: var(--font-display);
+          font-weight: 800;
+          font-size: 16.5px;
+          line-height: 1.25;
+          letter-spacing: -0.2px;
+          color: var(--navy);
+          margin-bottom: 4px;
+        }
+        .pp-fac__role {
+          font-size: 11.5px;
+          font-weight: 800;
+          letter-spacing: 1.6px;
+          text-transform: uppercase;
+          color: var(--purple);
+          margin-bottom: 12px;
+        }
+        .pp-fac__bio {
+          font-size: 13px;
+          line-height: 1.6;
+          color: rgba(13, 33, 55, 0.74);
         }
       `}</style>
     </section>
