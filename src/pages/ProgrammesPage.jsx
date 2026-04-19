@@ -67,6 +67,34 @@ const BENEFITS = [
   { title: 'Certificate of completion',      line: 'A recognised participation certificate from IWC Concepts — something tangible for your LinkedIn and your wall.' },
 ]
 
+// Cohort timeline — 4-step flow from application to start
+const TIMELINE = [
+  {
+    step:    '01',
+    label:   'Apply',
+    title:   'Submit your application',
+    detail:  'Takes around 5–10 minutes. Tell us about your business, your stage and what you want from the cohort. No pitch deck required.',
+  },
+  {
+    step:    '02',
+    label:   'Interview',
+    title:   'Short interview call',
+    detail:  '20–30 minutes with the programme team. A two-way fit check — you learn what to expect, we confirm you are ready for this stage of the journey.',
+  },
+  {
+    step:    '03',
+    label:   'Onboarding',
+    title:   'Welcome & pre-work',
+    detail:  'Once confirmed, you receive the welcome pack, the Zoom schedule and the Week 1 pre-work so you walk into the first session already warm.',
+  },
+  {
+    step:    '04',
+    label:   'Cohort',
+    title:   'Cohort starts',
+    detail:  'Weekly live sessions with Lady Adel and the faculty panel. Frameworks, homework, accountability partners, peer review — the full 8–12 weeks.',
+  },
+]
+
 // Faculty — PLACEHOLDER cards. Real lineup confirmed pre-launch.
 const FACULTY = [
   {
@@ -197,7 +225,8 @@ export default function ProgrammesPage() {
         <CurriculumBand />
         <WalkAwayBand />
         <FacultyBand />
-        {/* Further bands added in Steps 12.4–12.6 */}
+        <TimelineBand />
+        {/* Further bands added in Steps 12.5–12.6 */}
       </main>
       <Footer />
     </>
@@ -853,6 +882,172 @@ function FacultyBand() {
           font-size: 13px;
           line-height: 1.6;
           color: rgba(13, 33, 55, 0.74);
+        }
+      `}</style>
+    </section>
+  )
+}
+
+// ---- Cohort timeline --------------------------------------------------------
+
+function TimelineBand() {
+  return (
+    <section className="pp-tl site-section">
+      <div className="site-container">
+        <SectionHeader
+          eyebrow="From Application to Cohort"
+          title={<>Four steps between <em>apply</em> and <em>start</em>.</>}
+          subtitle="We run on rolling admission — applications are reviewed as they come in, not batched. Most applicants move from application to the first live session in two to four weeks."
+        />
+
+        <ol className="pp-tl__list">
+          {TIMELINE.map((t, i) => (
+            <li key={t.step} className="pp-tl__item">
+              <div className="pp-tl__marker" aria-hidden="true">
+                <span className="pp-tl__dot" />
+                {i < TIMELINE.length - 1 && <span className="pp-tl__line" />}
+              </div>
+              <div className="pp-tl__card">
+                <div className="pp-tl__head">
+                  <span className="pp-tl__step">Step {t.step}</span>
+                  <span className="pp-tl__label">{t.label}</span>
+                </div>
+                <h3>{t.title}</h3>
+                <p>{t.detail}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+
+        <p className="pp-tl__note">
+          <span aria-hidden="true">●</span>
+          Rolling admission — once a cohort fills, the next start date is
+          announced and successful applicants are notified directly.
+          Apply early; seats go fast.
+        </p>
+      </div>
+
+      <style>{`
+        .pp-tl { background: var(--white); color: var(--ink); }
+
+        .pp-tl__list {
+          list-style: none;
+          max-width: 860px;
+          margin: 0 auto;
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+        }
+        .pp-tl__item {
+          display: grid;
+          grid-template-columns: 36px minmax(0, 1fr);
+          gap: 18px;
+          align-items: stretch;
+        }
+        @media (min-width: 720px) {
+          .pp-tl__item { grid-template-columns: 56px minmax(0, 1fr); gap: 24px; }
+        }
+
+        .pp-tl__marker {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding-top: 24px;
+        }
+        .pp-tl__dot {
+          width: 16px; height: 16px;
+          border-radius: 50%;
+          background: var(--gold);
+          border: 3px solid var(--white);
+          box-shadow: 0 0 0 2px var(--gold);
+          z-index: 1;
+        }
+        .pp-tl__line {
+          flex-grow: 1;
+          width: 2px;
+          background: linear-gradient(180deg, var(--gold) 0%, rgba(201, 168, 76, 0.2) 100%);
+          margin-top: -2px;
+        }
+
+        .pp-tl__card {
+          flex-grow: 1;
+          padding: 20px 22px 24px;
+          background: var(--cream);
+          border: 1px solid rgba(13, 33, 55, 0.08);
+          border-radius: var(--radius-lg);
+          margin-bottom: 16px;
+          transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+          min-width: 0;
+        }
+        .pp-tl__card:hover {
+          transform: translateY(-2px);
+          border-color: rgba(201, 168, 76, 0.4);
+          box-shadow: 0 18px 36px rgba(13, 33, 55, 0.07);
+        }
+        .pp-tl__item:last-child .pp-tl__card { margin-bottom: 0; }
+
+        .pp-tl__head {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+          margin-bottom: 8px;
+        }
+        .pp-tl__step {
+          font-family: var(--font-display);
+          font-style: italic;
+          font-weight: 700;
+          font-size: 12px;
+          letter-spacing: 1.5px;
+          color: var(--gold-dark);
+        }
+        .pp-tl__label {
+          padding: 3px 10px;
+          font-size: 10.5px;
+          font-weight: 800;
+          letter-spacing: 1.8px;
+          text-transform: uppercase;
+          color: var(--white);
+          background: var(--purple);
+          border-radius: 999px;
+        }
+        .pp-tl__card h3 {
+          font-family: var(--font-display);
+          font-weight: 800;
+          font-size: 18px;
+          line-height: 1.25;
+          letter-spacing: -0.2px;
+          color: var(--navy);
+          margin-bottom: 6px;
+        }
+        .pp-tl__card p {
+          font-size: 13.5px;
+          line-height: 1.65;
+          color: rgba(13, 33, 55, 0.74);
+        }
+
+        .pp-tl__note {
+          max-width: 720px;
+          margin: 40px auto 0;
+          padding: 14px 18px;
+          text-align: center;
+          font-size: 12.5px;
+          line-height: 1.65;
+          color: rgba(13, 33, 55, 0.72);
+          background: rgba(224, 90, 30, 0.06);
+          border: 1px solid rgba(224, 90, 30, 0.28);
+          border-radius: 999px;
+        }
+        .pp-tl__note span {
+          display: inline-block;
+          margin-right: 6px;
+          color: var(--orange);
+          animation: ppTlPulse 2s infinite;
+        }
+        @keyframes ppTlPulse {
+          0%, 100% { opacity: 1; }
+          50%      { opacity: 0.4; }
         }
       `}</style>
     </section>
