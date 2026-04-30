@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import Navbar from '../components/layout/Navbar'
 import Footer from '../components/layout/Footer'
@@ -30,6 +30,36 @@ import CTAButton from '../components/ui/CTAButton'
 // PLACEHOLDER: replace with the real Calendly / booking URL when ready.
 // Falls back to the contact section on the main profile page.
 const DISCOVERY_CALL_URL = '/lady-adel#contact'
+
+// PLACEHOLDER: replace with the real business numbers / inbox when confirmed.
+const WHATSAPP_NUMBER = '233000000000'
+const CONTACT_EMAIL   = 'training@iwcconcepts.com'
+
+// Focus-area chips (must align with TRACKS titles below)
+const FOCUS_AREAS = [
+  'Leadership & Management',
+  'Financial Acumen',
+  'Faith & Work',
+  'Team Effectiveness',
+  'Customer Service',
+  'Bespoke / Multi-track',
+]
+const AUDIENCE_SIZES = ['Under 10', '10–25', '25–60', '60+']
+const FORMATS = ['In-person', 'Online', 'Hybrid']
+
+const INITIAL_PROPOSAL = {
+  // About you
+  name: '', email: '', role: '', organisation: '',
+  phone: '', country: '',
+  // Engagement
+  focus: [],            // string[] — multi-select chips
+  audienceSize: '',
+  dates: '',
+  format: '',
+  location: '',
+  // Brief
+  objective: '', challenges: '', context: '',
+}
 
 const SNAPSHOT = {
   audience:  'Teams of 10–500',
@@ -212,7 +242,8 @@ export default function TrainingPage() {
         <WhoBand />
         <HowBand />
         <OutcomesBand />
-        {/* Further bands added in Steps 13.5–13.6 */}
+        <ProposalBand />
+        {/* Further bands added in Step 13.6 */}
       </main>
       <Footer />
     </>
@@ -1103,5 +1134,670 @@ function OutcomesBand() {
         .tp-trust__quote figcaption span { color: rgba(13, 33, 55, 0.6); }
       `}</style>
     </section>
+  )
+}
+
+// ---- Request a Proposal -----------------------------------------------------
+
+function ProposalBand() {
+  const [values, setValues] = useState(INITIAL_PROPOSAL)
+  const [errors, setErrors] = useState({})
+  const [status, setStatus] = useState('idle')   // 'idle' | 'submitting' | 'success' | 'error'
+
+  function handleChange(e) {
+    const { name, value } = e.target
+    setValues(v => ({ ...v, [name]: value }))
+    if (errors[name]) setErrors(er => ({ ...er, [name]: null }))
+  }
+
+  function toggleFocus(area) {
+    setValues(v => {
+      const next = v.focus.includes(area)
+        ? v.focus.filter(f => f !== area)
+        : [...v.focus, area]
+      return { ...v, focus: next }
+    })
+    if (errors.focus) setErrors(er => ({ ...er, focus: null }))
+  }
+
+  function validate() {
+    const er = {}
+    if (!values.name.trim())         er.name         = 'Please enter your name.'
+    if (!values.email.trim())        er.email        = 'We need a work email.'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) er.email = 'That email does not look right.'
+    if (!values.role.trim())         er.role         = 'Your role helps us pitch the proposal correctly.'
+    if (!values.organisation.trim()) er.organisation = 'Tell us where you work.'
+    if (values.focus.length === 0)   er.focus        = 'Pick at least one focus area.'
+    if (!values.objective.trim())    er.objective    = 'A line on the business objective is essential.'
+    return er
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    const er = validate()
+    if (Object.keys(er).length > 0) { setErrors(er); return }
+    setStatus('submitting')
+    try {
+      // TODO: wire to real backend (Formspree/Resend/internal endpoint).
+      // eslint-disable-next-line no-console
+      console.info('[TrainingPage] proposal submitted', values)
+      await new Promise(r => setTimeout(r, 600))
+      setStatus('success')
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[TrainingPage] submission failed', err)
+      setStatus('error')
+    }
+  }
+
+  function reset() {
+    setStatus('idle')
+    setErrors({})
+    setValues(INITIAL_PROPOSAL)
+  }
+
+  return (
+    <section className="tp-prop" id="proposal">
+      <div className="site-container">
+        <SectionHeader
+          eyebrow="Request a Proposal"
+          title={<>Tell us about your team &mdash; <em>we&rsquo;ll write the brief</em>.</>}
+          subtitle="A 10–12 minute form. Once it lands we'll review and come back within 2 working days with a proposal — or a request for a quick call if we need more context first."
+        />
+
+        <div className="tp-prop__wrap">
+          {status === 'success' ? (
+            <ProposalSuccess onReset={reset} values={values} />
+          ) : (
+            <form className="tp-prop__form" noValidate onSubmit={handleSubmit}>
+              <FormGroup title="About you">
+                <Field
+                  label="Full name" name="name" required
+                  value={values.name} error={errors.name}
+                  onChange={handleChange} autoComplete="name"
+                />
+                <Field
+                  label="Work email" name="email" type="email" required
+                  value={values.email} error={errors.email}
+                  onChange={handleChange} autoComplete="email"
+                />
+                <Field
+                  label="Role / job title" name="role" required
+                  hint="e.g. Group HR Director, L&D Lead, MD"
+                  value={values.role} error={errors.role}
+                  onChange={handleChange} autoComplete="organization-title"
+                />
+                <Field
+                  label="Organisation" name="organisation" required
+                  value={values.organisation} error={errors.organisation}
+                  onChange={handleChange} autoComplete="organization"
+                />
+                <Field
+                  label="Phone / WhatsApp" name="phone" type="tel"
+                  hint="Optional — speeds up scheduling the discovery call"
+                  value={values.phone} error={errors.phone}
+                  onChange={handleChange} autoComplete="tel"
+                />
+                <Field
+                  label="Country / City" name="country"
+                  value={values.country} error={errors.country}
+                  onChange={handleChange} autoComplete="country-name"
+                />
+              </FormGroup>
+
+              <FormGroup title="Engagement">
+                <ChipSelect
+                  label="Training focus area" required
+                  hint="Pick all that apply"
+                  options={FOCUS_AREAS}
+                  selected={values.focus}
+                  error={errors.focus}
+                  onToggle={toggleFocus}
+                />
+                <SelectField
+                  label="Audience size" name="audienceSize"
+                  placeholder="Pick a size band"
+                  options={AUDIENCE_SIZES}
+                  value={values.audienceSize} error={errors.audienceSize}
+                  onChange={handleChange}
+                />
+                <Field
+                  label="Preferred dates window" name="dates"
+                  hint="e.g. mid-March to early-April"
+                  value={values.dates} error={errors.dates}
+                  onChange={handleChange}
+                />
+                <RadioGroup
+                  label="Preferred format" name="format"
+                  options={FORMATS}
+                  value={values.format} error={errors.format}
+                  onChange={handleChange}
+                />
+                <Field
+                  label="Location / city" name="location"
+                  hint="If in-person or hybrid — where are we delivering?"
+                  value={values.location} error={errors.location}
+                  onChange={handleChange}
+                />
+              </FormGroup>
+
+              <FormGroup title="The brief">
+                <TextAreaField
+                  label="What is the business objective behind this training?"
+                  name="objective" required rows={3}
+                  value={values.objective} error={errors.objective}
+                  onChange={handleChange}
+                />
+                <TextAreaField
+                  label="Specific challenges or behaviours you want addressed"
+                  name="challenges" rows={3}
+                  hint="Optional — what is happening (or not happening) right now?"
+                  value={values.challenges} error={errors.challenges}
+                  onChange={handleChange}
+                />
+                <TextAreaField
+                  label="Anything else we should know"
+                  name="context" rows={3}
+                  hint="Indicative budget, internal deadlines, prior providers — useful context"
+                  value={values.context} error={errors.context}
+                  onChange={handleChange}
+                />
+              </FormGroup>
+
+              <button
+                type="submit"
+                className="tp-prop__submit"
+                disabled={status === 'submitting'}
+              >
+                {status === 'submitting' ? 'Sending your request…' : 'Send proposal request'}
+                {status !== 'submitting' && (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                  </svg>
+                )}
+              </button>
+
+              <p className="tp-prop__privacy">
+                We use your details only to scope this training engagement. No
+                third-party sharing, no marketing list. If we are not the right
+                fit we will say so directly.
+              </p>
+
+              {status === 'error' && (
+                <p className="tp-prop__error" role="alert">
+                  Something went wrong sending your request. Please try again
+                  — or email us directly at <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+                </p>
+              )}
+            </form>
+          )}
+        </div>
+      </div>
+
+      <style>{`
+        .tp-prop { background: var(--cream); color: var(--ink); padding: 100px 0 110px; }
+
+        .tp-prop__wrap {
+          max-width: 760px;
+          margin: 0 auto;
+          padding: 28px 22px;
+          background: var(--white);
+          border: 1px solid rgba(13, 33, 55, 0.08);
+          border-radius: var(--radius-lg);
+          box-shadow: 0 22px 60px rgba(13, 33, 55, 0.08);
+          min-width: 0;
+        }
+        @media (min-width: 768px) { .tp-prop__wrap { padding: 40px 44px; } }
+
+        .tp-prop__form { display: flex; flex-direction: column; gap: 28px; }
+
+        .tp-prop__submit {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          background: var(--orange);
+          color: var(--white);
+          border: 0;
+          border-radius: 999px;
+          padding: 15px 28px;
+          font-size: 13px;
+          font-weight: 800;
+          letter-spacing: 1.5px;
+          text-transform: uppercase;
+          cursor: pointer;
+          box-shadow: 0 12px 28px rgba(224, 90, 30, 0.28);
+          transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+          margin-top: 6px;
+        }
+        .tp-prop__submit:hover:not(:disabled) {
+          background: var(--orange-dark);
+          transform: translateY(-2px);
+          box-shadow: 0 18px 36px rgba(224, 90, 30, 0.38);
+        }
+        .tp-prop__submit:disabled { opacity: 0.65; cursor: not-allowed; }
+
+        .tp-prop__privacy { font-size: 11.5px; line-height: 1.6; color: rgba(13, 33, 55, 0.55); }
+        .tp-prop__error {
+          padding: 12px 14px;
+          border-radius: 10px;
+          background: rgba(224, 90, 30, 0.08);
+          border: 1px solid rgba(224, 90, 30, 0.3);
+          color: var(--orange-dark);
+          font-size: 13px;
+        }
+        .tp-prop__error a { color: var(--purple); font-weight: 700; }
+      `}</style>
+    </section>
+  )
+}
+
+// ---- Success state ----------------------------------------------------------
+
+function ProposalSuccess({ onReset, values }) {
+  const waMsg = encodeURIComponent(
+    `Hi Lady Adel — I just submitted a proposal request for ${values.organisation || 'our team'}.`
+  )
+  return (
+    <div className="tp-succ" role="status" aria-live="polite">
+      <div className="tp-succ__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="4 12 10 18 20 6" />
+        </svg>
+      </div>
+      <h3>Your request is in.</h3>
+      <p>
+        We&rsquo;ll review the brief and come back within 2 working days
+        — either with a proposal or a request for a short discovery call.
+        If your timeline is tight, the fastest path is a direct WhatsApp.
+      </p>
+      <div className="tp-succ__ctas">
+        <CTAButton
+          href={`https://wa.me/${WHATSAPP_NUMBER}?text=${waMsg}`}
+          variant="primary"
+          size="md"
+          external
+          arrow={false}
+        >
+          Message on WhatsApp
+        </CTAButton>
+        <CTAButton
+          href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Proposal request — ' + (values.organisation || ''))}`}
+          variant="ghost"
+          size="md"
+          arrow={false}
+        >
+          Email the team
+        </CTAButton>
+      </div>
+      <button type="button" className="tp-succ__reset" onClick={onReset}>
+        Submit another request
+      </button>
+
+      <style>{`
+        .tp-succ { text-align: center; padding: 20px 4px; }
+        .tp-succ__icon {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 64px; height: 64px;
+          margin-bottom: 18px;
+          border-radius: 50%;
+          background: rgba(91, 45, 142, 0.12);
+          color: var(--purple);
+        }
+        .tp-succ__icon svg { width: 28px; height: 28px; }
+        .tp-succ h3 {
+          font-family: var(--font-display);
+          font-weight: 800;
+          font-size: clamp(22px, 3vw, 28px);
+          color: var(--navy);
+          margin-bottom: 10px;
+        }
+        .tp-succ p {
+          max-width: 520px;
+          margin: 0 auto 24px;
+          font-size: 14px;
+          line-height: 1.65;
+          color: rgba(13, 33, 55, 0.72);
+        }
+        .tp-succ__ctas {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 18px;
+        }
+        @media (min-width: 520px) {
+          .tp-succ__ctas {
+            flex-direction: row;
+            justify-content: center;
+            flex-wrap: wrap;
+          }
+        }
+        .tp-succ__reset {
+          background: transparent;
+          border: 0;
+          cursor: pointer;
+          color: var(--purple);
+          font-weight: 800;
+          font-size: 13px;
+          text-decoration: underline;
+          text-underline-offset: 3px;
+        }
+      `}</style>
+    </div>
+  )
+}
+
+// ---- Form primitives (scoped tp- prefix) ------------------------------------
+
+function FormGroup({ title, children }) {
+  return (
+    <fieldset className="tp-grp">
+      <legend>{title}</legend>
+      <div className="tp-grp__rows">{children}</div>
+      <style>{`
+        .tp-grp { border: 0; padding: 0; margin: 0; }
+        .tp-grp legend {
+          display: block;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          color: var(--purple);
+          margin-bottom: 14px;
+          padding-bottom: 10px;
+          border-bottom: 1px solid rgba(91, 45, 142, 0.15);
+          width: 100%;
+        }
+        .tp-grp__rows { display: flex; flex-direction: column; gap: 16px; }
+      `}</style>
+    </fieldset>
+  )
+}
+
+function Field({ label, name, type = 'text', required, hint, value, error, onChange, ...rest }) {
+  const id = `tp-${name}`
+  return (
+    <div className={`tp-fld ${error ? 'is-invalid' : ''}`}>
+      <label htmlFor={id}>{label}{required && <span aria-hidden="true"> *</span>}</label>
+      <input
+        id={id} name={name} type={type}
+        required={required}
+        value={value}
+        onChange={onChange}
+        aria-invalid={!!error}
+        aria-describedby={error ? `${id}-err` : hint ? `${id}-hint` : undefined}
+        {...rest}
+      />
+      {error
+        ? <span className="tp-fld__err" id={`${id}-err`}>{error}</span>
+        : hint ? <span className="tp-fld__hint" id={`${id}-hint`}>{hint}</span> : null}
+      <FieldStyles />
+    </div>
+  )
+}
+
+function SelectField({ label, name, value, error, onChange, options, placeholder, required }) {
+  const id = `tp-${name}`
+  return (
+    <div className={`tp-fld tp-fld--sel ${error ? 'is-invalid' : ''}`}>
+      <label htmlFor={id}>{label}{required && <span aria-hidden="true"> *</span>}</label>
+      <select
+        id={id} name={name}
+        value={value} onChange={onChange}
+        aria-invalid={!!error}
+        aria-describedby={error ? `${id}-err` : undefined}
+      >
+        <option value="" disabled>{placeholder}</option>
+        {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+      </select>
+      {error && <span className="tp-fld__err" id={`${id}-err`}>{error}</span>}
+      <FieldStyles />
+    </div>
+  )
+}
+
+function TextAreaField({ label, name, required, hint, rows = 4, value, error, onChange }) {
+  const id = `tp-${name}`
+  return (
+    <div className={`tp-fld ${error ? 'is-invalid' : ''}`}>
+      <label htmlFor={id}>{label}{required && <span aria-hidden="true"> *</span>}</label>
+      <textarea
+        id={id} name={name} rows={rows}
+        required={required}
+        value={value}
+        onChange={onChange}
+        aria-invalid={!!error}
+        aria-describedby={error ? `${id}-err` : hint ? `${id}-hint` : undefined}
+      />
+      {error
+        ? <span className="tp-fld__err" id={`${id}-err`}>{error}</span>
+        : hint ? <span className="tp-fld__hint" id={`${id}-hint`}>{hint}</span> : null}
+      <FieldStyles />
+    </div>
+  )
+}
+
+function ChipSelect({ label, hint, required, options, selected, error, onToggle }) {
+  const errId = 'tp-focus-err'
+  return (
+    <div className={`tp-fld tp-chips ${error ? 'is-invalid' : ''}`}>
+      <span className="tp-fld__label-static">
+        {label}{required && <span aria-hidden="true" className="tp-fld__req"> *</span>}
+      </span>
+      <div
+        className="tp-chips__row"
+        role="group"
+        aria-label={label}
+        aria-describedby={error ? errId : undefined}
+      >
+        {options.map(opt => {
+          const on = selected.includes(opt)
+          return (
+            <button
+              key={opt}
+              type="button"
+              className={`tp-chips__btn ${on ? 'is-on' : ''}`}
+              aria-pressed={on}
+              onClick={() => onToggle(opt)}
+            >
+              <span className="tp-chips__check" aria-hidden="true">
+                {on
+                  ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><polyline points="4 12 10 18 20 6" /></svg>
+                  : null}
+              </span>
+              {opt}
+            </button>
+          )
+        })}
+      </div>
+      {error
+        ? <span className="tp-fld__err" id={errId}>{error}</span>
+        : hint ? <span className="tp-fld__hint">{hint}</span> : null}
+      <style>{`
+        .tp-chips__row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .tp-chips__btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 9px 14px;
+          font-size: 12.5px;
+          font-weight: 700;
+          color: var(--navy);
+          background: var(--white);
+          border: 1.5px solid rgba(13, 33, 55, 0.15);
+          border-radius: 999px;
+          cursor: pointer;
+          transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+          line-height: 1.2;
+        }
+        .tp-chips__btn:hover { border-color: rgba(91, 45, 142, 0.4); }
+        .tp-chips__btn:focus-visible {
+          outline: none;
+          box-shadow: 0 0 0 3px rgba(91, 45, 142, 0.2);
+        }
+        .tp-chips__btn.is-on {
+          background: linear-gradient(135deg, var(--purple), var(--navy));
+          color: var(--white);
+          border-color: transparent;
+          box-shadow: 0 8px 18px rgba(91, 45, 142, 0.28);
+        }
+        .tp-chips__check {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.18);
+          color: var(--white);
+        }
+        .tp-chips__btn:not(.is-on) .tp-chips__check {
+          background: rgba(13, 33, 55, 0.06);
+          color: transparent;
+        }
+        .tp-chips__check svg { width: 10px; height: 10px; }
+      `}</style>
+      <FieldStyles />
+    </div>
+  )
+}
+
+function RadioGroup({ label, name, options, value, error, onChange, required }) {
+  const errId = `tp-${name}-err`
+  return (
+    <div className={`tp-fld ${error ? 'is-invalid' : ''}`}>
+      <span className="tp-fld__label-static">
+        {label}{required && <span aria-hidden="true" className="tp-fld__req"> *</span>}
+      </span>
+      <div
+        className="tp-radio__row"
+        role="radiogroup"
+        aria-label={label}
+        aria-describedby={error ? errId : undefined}
+      >
+        {options.map(opt => {
+          const id = `tp-${name}-${opt.replace(/\s+/g, '-').toLowerCase()}`
+          const on = value === opt
+          return (
+            <label key={opt} htmlFor={id} className={`tp-radio ${on ? 'is-on' : ''}`}>
+              <input
+                id={id} type="radio"
+                name={name} value={opt}
+                checked={on}
+                onChange={onChange}
+              />
+              <span className="tp-radio__dot" aria-hidden="true" />
+              <span>{opt}</span>
+            </label>
+          )
+        })}
+      </div>
+      {error && <span className="tp-fld__err" id={errId}>{error}</span>}
+      <style>{`
+        .tp-radio__row {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        @media (min-width: 520px) {
+          .tp-radio__row { flex-direction: row; flex-wrap: wrap; gap: 10px; }
+        }
+        .tp-radio {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          padding: 11px 14px;
+          background: var(--white);
+          border: 1.5px solid rgba(13, 33, 55, 0.15);
+          border-radius: 12px;
+          cursor: pointer;
+          font-size: 13.5px;
+          color: var(--navy);
+          transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+          flex: 1 1 auto;
+          min-width: 0;
+        }
+        .tp-radio:hover { border-color: rgba(91, 45, 142, 0.32); }
+        .tp-radio.is-on {
+          border-color: var(--purple);
+          box-shadow: 0 0 0 3px rgba(91, 45, 142, 0.14);
+          background: rgba(91, 45, 142, 0.04);
+        }
+        .tp-radio input { position: absolute; opacity: 0; pointer-events: none; }
+        .tp-radio__dot {
+          flex-shrink: 0;
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          border: 2px solid rgba(13, 33, 55, 0.2);
+          background: var(--white);
+          position: relative;
+          transition: border-color 0.18s ease;
+        }
+        .tp-radio.is-on .tp-radio__dot { border-color: var(--purple); }
+        .tp-radio.is-on .tp-radio__dot::after {
+          content: '';
+          position: absolute;
+          inset: 3px;
+          border-radius: 50%;
+          background: var(--purple);
+        }
+      `}</style>
+      <FieldStyles />
+    </div>
+  )
+}
+
+function FieldStyles() {
+  return (
+    <style>{`
+      .tp-fld { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+      .tp-fld label, .tp-fld__label-static {
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 1.6px;
+        text-transform: uppercase;
+        color: var(--navy);
+      }
+      .tp-fld label span, .tp-fld__req { color: var(--orange); }
+      .tp-fld input, .tp-fld select, .tp-fld textarea {
+        width: 100%;
+        font: inherit;
+        font-size: 15px;
+        color: var(--navy);
+        padding: 12px 14px;
+        border: 1.5px solid rgba(13, 33, 55, 0.15);
+        border-radius: 12px;
+        background: var(--white);
+        transition: border-color 0.18s ease, box-shadow 0.18s ease;
+      }
+      .tp-fld textarea { resize: vertical; min-height: 88px; line-height: 1.5; }
+      .tp-fld input:focus, .tp-fld select:focus, .tp-fld textarea:focus {
+        outline: none;
+        border-color: var(--purple);
+        box-shadow: 0 0 0 3px rgba(91, 45, 142, 0.18);
+      }
+      .tp-fld__hint { font-size: 11.5px; color: rgba(13, 33, 55, 0.55); }
+      .tp-fld__err  { font-size: 12px; color: var(--orange); font-weight: 700; }
+      .tp-fld.is-invalid input,
+      .tp-fld.is-invalid select,
+      .tp-fld.is-invalid textarea {
+        border-color: var(--orange);
+        box-shadow: 0 0 0 3px rgba(224, 90, 30, 0.12);
+      }
+      .tp-fld--sel select {
+        appearance: none;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'><path d='M1 1l5 5 5-5' stroke='%230D2137' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+        background-repeat: no-repeat;
+        background-position: right 14px center;
+        padding-right: 38px;
+      }
+    `}</style>
   )
 }
