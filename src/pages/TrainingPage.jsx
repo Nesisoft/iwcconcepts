@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import Navbar from '../components/layout/Navbar'
 import Footer from '../components/layout/Footer'
+import SectionHeader from '../components/ui/SectionHeader'
 import CTAButton from '../components/ui/CTAButton'
 
 /**
@@ -37,6 +38,52 @@ const SNAPSHOT = {
   model:     'Bespoke or off-the-shelf',
 }
 
+// Training tracks — six core categories. Lengths are indicative.
+const TRACKS = [
+  {
+    accent: 'purple',
+    title:  'Leadership & Management Development',
+    line:   'Equip new and senior managers with the frameworks to lead themselves, lead their teams and lead through change — without losing the people on the way.',
+    length: '1–3 days · or 6-week series',
+    icon:   IconLeader,
+  },
+  {
+    accent: 'gold',
+    title:  'Financial Acumen for Non-Finance Leaders',
+    line:   'Read a P&L, defend a budget, ask the right questions in a finance meeting. Built for managers and directors whose decisions move money but whose training never covered it.',
+    length: '½-day · 1-day · 2-day',
+    icon:   IconChart,
+  },
+  {
+    accent: 'navy',
+    title:  'Faith & Work Integration',
+    line:   'For organisations and ministries that want their values, ethics and culture to actually show up Monday morning — not just in the strategy deck or the Sunday service.',
+    length: '½-day workshop · multi-week',
+    icon:   IconAnchor,
+  },
+  {
+    accent: 'orange',
+    title:  'Team Effectiveness & Communication',
+    line:   'Sharper meetings, clearer feedback, fewer breakdowns. A toolkit for cross-functional teams that have outgrown the founder-and-friends way of working.',
+    length: '1–2 days · quarterly cadence',
+    icon:   IconTeam,
+  },
+  {
+    accent: 'purple',
+    title:  'Customer Service Excellence',
+    line:   'Service standards your front-line will actually use under pressure. For teams in retail, hospitality, banking, healthcare and any setting where the customer experience is the brand.',
+    length: '½-day · 1-day',
+    icon:   IconHeart,
+  },
+  {
+    accent: 'gold',
+    title:  'Bespoke Curriculum',
+    line:   'A custom programme co-designed with your L&D or executive team — combining tracks above, your own KPIs and the specific behaviour change you need to see in 90 days.',
+    length: 'Scoped per engagement',
+    icon:   IconCustom,
+  },
+]
+
 // ---- Page -------------------------------------------------------------------
 
 export default function TrainingPage() {
@@ -51,7 +98,8 @@ export default function TrainingPage() {
       <Navbar />
       <main>
         <TrainingHero />
-        {/* Further bands added in Steps 13.2–13.6 */}
+        <TracksBand />
+        {/* Further bands added in Steps 13.3–13.6 */}
       </main>
       <Footer />
     </>
@@ -228,5 +276,209 @@ function TrainingHero() {
         }
       `}</style>
     </section>
+  )
+}
+
+// ---- Training tracks --------------------------------------------------------
+
+function TracksBand() {
+  return (
+    <section className="tp-tracks site-section">
+      <div className="site-container">
+        <SectionHeader
+          eyebrow="Training Tracks"
+          title={<>Six tracks. <em>One toolkit</em>.</>}
+          subtitle="Most engagements draw from one or two tracks; bespoke programmes blend several. Every track is led by Lady Adel and the IWC faculty, designed around the behaviour change your team actually needs."
+        />
+
+        <ul className="tp-tracks__grid">
+          {TRACKS.map(t => {
+            const Icon = t.icon
+            return (
+              <li key={t.title} className={`tp-track tp-track--${t.accent}`}>
+                <span className="tp-track__icon" aria-hidden="true"><Icon /></span>
+                <h3>{t.title}</h3>
+                <p>{t.line}</p>
+                <span className="tp-track__len">
+                  <span className="tp-track__len-dot" aria-hidden="true" />
+                  {t.length}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+
+        <p className="tp-tracks__note">
+          Don&rsquo;t see exactly what you need? Every track can be tailored — or
+          combined into a multi-track programme. The proposal form lets you
+          flag the focus areas that matter.
+        </p>
+      </div>
+
+      <style>{`
+        .tp-tracks { background: var(--white); color: var(--ink); }
+
+        .tp-tracks__grid {
+          list-style: none;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 18px;
+        }
+        @media (min-width: 720px)  { .tp-tracks__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (min-width: 1080px) { .tp-tracks__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+        .tp-track {
+          position: relative;
+          padding: 26px 24px 22px;
+          background: var(--cream);
+          border: 1px solid rgba(13, 33, 55, 0.08);
+          border-radius: var(--radius-lg);
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+          overflow: hidden;
+        }
+        .tp-track::before {
+          content: '';
+          position: absolute;
+          inset: 0 0 auto 0;
+          height: 3px;
+          background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+        }
+        .tp-track:hover {
+          transform: translateY(-4px);
+          border-color: rgba(13, 33, 55, 0.18);
+          box-shadow: 0 22px 48px rgba(13, 33, 55, 0.1);
+        }
+
+        /* Per-track accent colour pair (drives top stripe + icon chip) */
+        .tp-track--purple { --accent-a: var(--purple);     --accent-b: #7a47b8; }
+        .tp-track--gold   { --accent-a: var(--gold);       --accent-b: var(--gold-dark); }
+        .tp-track--orange { --accent-a: var(--orange);     --accent-b: var(--orange-dark); }
+        .tp-track--navy   { --accent-a: var(--navy);       --accent-b: #1a3a5f; }
+
+        .tp-track__icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 48px;
+          height: 48px;
+          border-radius: 14px;
+          background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+          color: var(--white);
+          box-shadow: 0 10px 22px rgba(13, 33, 55, 0.14);
+        }
+        .tp-track--gold .tp-track__icon { color: var(--navy); }
+        .tp-track__icon svg { width: 22px; height: 22px; }
+
+        .tp-track h3 {
+          font-family: var(--font-display);
+          font-weight: 800;
+          font-size: 17.5px;
+          line-height: 1.25;
+          letter-spacing: -0.2px;
+          color: var(--navy);
+        }
+        .tp-track p {
+          flex-grow: 1;
+          font-size: 13.5px;
+          line-height: 1.65;
+          color: rgba(13, 33, 55, 0.75);
+        }
+        .tp-track__len {
+          align-self: flex-start;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          margin-top: 4px;
+          padding: 6px 12px;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 1.4px;
+          text-transform: uppercase;
+          color: var(--navy);
+          background: var(--white);
+          border: 1px solid rgba(13, 33, 55, 0.1);
+          border-radius: 999px;
+        }
+        .tp-track__len-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: var(--accent-a);
+        }
+
+        .tp-tracks__note {
+          max-width: 680px;
+          margin: 36px auto 0;
+          text-align: center;
+          font-size: 13.5px;
+          line-height: 1.7;
+          color: rgba(13, 33, 55, 0.66);
+        }
+      `}</style>
+    </section>
+  )
+}
+
+// ---- Track icons ------------------------------------------------------------
+
+function IconLeader() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="7" r="3.2" />
+      <path d="M5 21v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1" />
+      <path d="M9 4l3-2 3 2" />
+    </svg>
+  )
+}
+function IconChart() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <line x1="3" y1="20" x2="21" y2="20" />
+      <rect x="6" y="11" width="3" height="7" rx="0.6" />
+      <rect x="11" y="7" width="3" height="11" rx="0.6" />
+      <rect x="16" y="14" width="3" height="4" rx="0.6" />
+      <polyline points="4 8 9 5 14 9 20 4" />
+    </svg>
+  )
+}
+function IconAnchor() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="5" r="2" />
+      <line x1="12" y1="7" x2="12" y2="20" />
+      <line x1="8" y1="11" x2="16" y2="11" />
+      <path d="M5 14a7 7 0 0 0 14 0" />
+      <line x1="3" y1="14" x2="5" y2="14" />
+      <line x1="19" y1="14" x2="21" y2="14" />
+    </svg>
+  )
+}
+function IconTeam() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="9" cy="8" r="3" />
+      <circle cx="17" cy="9" r="2.2" />
+      <path d="M3 19v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1" />
+      <path d="M15 19v-0.5a3.5 3.5 0 0 1 3.5-3.5H19a3 3 0 0 1 3 3v1" />
+    </svg>
+  )
+}
+function IconHeart() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 21s-7-4.5-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.5-9 9-9 9z" />
+    </svg>
+  )
+}
+function IconCustom() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
+    </svg>
   )
 }
