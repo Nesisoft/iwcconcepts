@@ -67,6 +67,58 @@ const AUDIENCES = [
   },
 ]
 
+// Outcomes — observable results we design every engagement around
+const OUTCOMES = [
+  {
+    metric: 'Sharper financial decisions',
+    line:   'Managers stop deferring numbers up the chain. They read the P&L, defend their budget and make calls that compound.',
+  },
+  {
+    metric: 'Stronger middle management',
+    line:   'The layer that usually leaks talent and momentum starts running its own one-on-ones, hires and weekly rhythms with confidence.',
+  },
+  {
+    metric: 'Aligned team rhythms',
+    line:   'Meetings get shorter and sharper. Teams agree what good looks like — then ship against it without the founder in every thread.',
+  },
+  {
+    metric: 'Measurable behaviour change',
+    line:   'We define the post-engagement signals up front. Stakeholders see real shifts in how people lead, decide and follow through.',
+  },
+  {
+    metric: 'Faith-aligned culture',
+    line:   'For values-led organisations: integrity, ethics and service stop being posters on the wall and start showing up in everyday work.',
+  },
+  {
+    metric: 'Lower churn, higher trust',
+    line:   'When people feel invested in, they stay. Engaged managers and equipped teams keep customers — and each other — for longer.',
+  },
+]
+
+// Sectors typically served (PLACEHOLDER — refine once formal case studies land)
+const SECTORS = [
+  'Banking & financial services',
+  'Telecommunications',
+  'FMCG & retail',
+  'Energy & utilities',
+  'Healthcare',
+  'Education',
+  'Hospitality',
+  'Public sector',
+  'NGO & development',
+  'Faith-based organisations',
+]
+
+// Pull-quote lifted from the main /lady-adel testimonials so the page does
+// not invent fresh quotes. Placeholder until a dedicated training case study
+// quote is approved.
+const PULL_QUOTE = {
+  body:    'Lady Adel led a two-day leadership intensive for our senior management team. The shift in language, posture and ownership was immediate. She combines corporate rigour with spiritual clarity in a way I have not seen anywhere else.',
+  name:    'Dr. Nana O.',
+  role:    'Group HR Director',
+  org:     'Corporate Training Client',
+}
+
 // How it works — 4-phase engagement (deliberately styled differently from the
 // /programmes Cohort Timeline so the visual reads as separate territory).
 const PHASES = [
@@ -159,7 +211,8 @@ export default function TrainingPage() {
         <TracksBand />
         <WhoBand />
         <HowBand />
-        {/* Further bands added in Steps 13.4–13.6 */}
+        <OutcomesBand />
+        {/* Further bands added in Steps 13.5–13.6 */}
       </main>
       <Footer />
     </>
@@ -835,5 +888,220 @@ function IconGovern() {
       <line x1="19" y1="11" x2="19" y2="18" />
       <line x1="3"  y1="20" x2="21" y2="20" />
     </svg>
+  )
+}
+
+// ---- Outcomes + trust strip -------------------------------------------------
+
+function OutcomesBand() {
+  return (
+    <section className="tp-out site-section">
+      <div className="site-container">
+        <SectionHeader
+          eyebrow="What Changes Afterwards"
+          title={<>Outcomes we <em>design</em> for.</>}
+          subtitle="Every engagement is scoped against observable change. These are the six outcomes we aim at most often — the specific signals stakeholders look for in the debrief."
+        />
+
+        <ul className="tp-out__grid">
+          {OUTCOMES.map((o, i) => (
+            <li key={o.metric} className="tp-out__row">
+              <span className="tp-out__tick" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="4 12 10 18 20 6" />
+                </svg>
+              </span>
+              <div className="tp-out__body">
+                <span className="tp-out__n">{String(i + 1).padStart(2, '0')}</span>
+                <h3>{o.metric}</h3>
+                <p>{o.line}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+
+        {/* Trust strip */}
+        <div className="tp-trust">
+          <div className="tp-trust__sectors">
+            <span className="tp-trust__eyebrow">Sectors served</span>
+            <ul className="tp-trust__chips">
+              {SECTORS.map(s => <li key={s}>{s}</li>)}
+            </ul>
+          </div>
+
+          <figure className="tp-trust__quote">
+            <span className="tp-trust__mark" aria-hidden="true">&ldquo;</span>
+            <blockquote>{PULL_QUOTE.body}</blockquote>
+            <figcaption>
+              <strong>{PULL_QUOTE.name}</strong>
+              <span>{PULL_QUOTE.role} · {PULL_QUOTE.org}</span>
+            </figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <style>{`
+        .tp-out { background: var(--white); color: var(--ink); }
+
+        .tp-out__grid {
+          list-style: none;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 14px;
+          max-width: 980px;
+          margin: 0 auto 60px;
+        }
+        @media (min-width: 720px)  { .tp-out__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; } }
+
+        .tp-out__row {
+          display: grid;
+          grid-template-columns: 44px minmax(0, 1fr);
+          gap: 16px;
+          padding: 20px 22px;
+          background: var(--cream);
+          border: 1px solid rgba(13, 33, 55, 0.08);
+          border-radius: var(--radius-lg);
+          align-items: start;
+          transition: border-color 0.22s ease, transform 0.22s ease, box-shadow 0.22s ease;
+        }
+        .tp-out__row:hover {
+          transform: translateY(-2px);
+          border-color: rgba(91, 45, 142, 0.3);
+          box-shadow: 0 18px 36px rgba(13, 33, 55, 0.08);
+        }
+
+        .tp-out__tick {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background: rgba(91, 45, 142, 0.12);
+          color: var(--purple);
+        }
+        .tp-out__tick svg { width: 18px; height: 18px; }
+
+        .tp-out__body { min-width: 0; }
+        .tp-out__n {
+          display: block;
+          font-family: var(--font-display);
+          font-style: italic;
+          font-weight: 700;
+          font-size: 12px;
+          letter-spacing: 1.4px;
+          color: var(--gold-dark);
+          margin-bottom: 4px;
+        }
+        .tp-out__body h3 {
+          font-family: var(--font-display);
+          font-weight: 800;
+          font-size: 17px;
+          line-height: 1.25;
+          letter-spacing: -0.2px;
+          color: var(--navy);
+          margin-bottom: 6px;
+        }
+        .tp-out__body p {
+          font-size: 13.5px;
+          line-height: 1.6;
+          color: rgba(13, 33, 55, 0.74);
+        }
+
+        /* Trust strip */
+        .tp-trust {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 24px;
+          padding: 32px 26px;
+          background:
+            radial-gradient(ellipse at 0% 0%, rgba(91, 45, 142, 0.07), transparent 60%),
+            linear-gradient(160deg, var(--cream), var(--white));
+          border: 1px solid rgba(13, 33, 55, 0.08);
+          border-radius: 22px;
+          box-shadow: 0 18px 42px rgba(13, 33, 55, 0.06);
+        }
+        @media (min-width: 880px) {
+          .tp-trust {
+            grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+            gap: 36px;
+            padding: 40px 44px;
+            align-items: center;
+          }
+        }
+        .tp-trust > * { min-width: 0; }
+
+        .tp-trust__eyebrow {
+          display: block;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 2.4px;
+          text-transform: uppercase;
+          color: var(--purple);
+          margin-bottom: 14px;
+        }
+        .tp-trust__chips {
+          list-style: none;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .tp-trust__chips li {
+          padding: 7px 13px;
+          font-size: 12px;
+          font-weight: 700;
+          color: var(--navy);
+          background: var(--white);
+          border: 1px solid rgba(13, 33, 55, 0.1);
+          border-radius: 999px;
+          line-height: 1.2;
+        }
+
+        .tp-trust__quote {
+          position: relative;
+          padding: 20px 22px 22px;
+          background: var(--white);
+          border: 1px solid rgba(201, 168, 76, 0.32);
+          border-radius: 18px;
+          margin: 0;
+        }
+        .tp-trust__mark {
+          position: absolute;
+          top: -14px;
+          left: 18px;
+          width: 36px;
+          height: 36px;
+          display: inline-flex;
+          align-items: flex-end;
+          justify-content: center;
+          background: var(--gold);
+          color: var(--navy);
+          border-radius: 50%;
+          font-family: var(--font-display);
+          font-weight: 900;
+          font-size: 30px;
+          line-height: 1;
+          padding-bottom: 6px;
+          box-shadow: 0 8px 18px rgba(201, 168, 76, 0.4);
+        }
+        .tp-trust__quote blockquote {
+          font-family: var(--font-display);
+          font-weight: 600;
+          font-style: italic;
+          font-size: clamp(15px, 1.6vw, 17px);
+          line-height: 1.5;
+          color: var(--navy);
+          margin: 0 0 14px;
+        }
+        .tp-trust__quote figcaption {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          font-size: 12.5px;
+        }
+        .tp-trust__quote figcaption strong { color: var(--navy); }
+        .tp-trust__quote figcaption span { color: rgba(13, 33, 55, 0.6); }
+      `}</style>
+    </section>
   )
 }
