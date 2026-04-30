@@ -38,6 +38,64 @@ const SNAPSHOT = {
   model:     'Bespoke or off-the-shelf',
 }
 
+// Who it's for — 5 organisation archetypes
+const AUDIENCES = [
+  {
+    title: 'Corporates & large enterprises',
+    line:  'Banking, telco, FMCG, energy and professional services teams who need scalable training that matches the polish of an internal L&D function.',
+    icon:  IconBuilding,
+  },
+  {
+    title: 'SMEs & growth-stage businesses',
+    line:  'Founder-led companies who have outgrown ad-hoc training and need their first proper leadership and management programme — without enterprise overhead.',
+    icon:  IconShop,
+  },
+  {
+    title: 'NGOs & foundations',
+    line:  'Programme staff, country directors and operations teams who are doing serious work on tight budgets and need training that respects both.',
+    icon:  IconHands,
+  },
+  {
+    title: 'Churches & ministries',
+    line:  'Leadership pipelines, staff teams and lay leaders who want development rooted in faith without losing rigour on the leadership and operations side.',
+    icon:  IconChurch,
+  },
+  {
+    title: 'Public sector & boards',
+    line:  'Boards, senior public officials and executive teams who need facilitated sessions that combine financial literacy, governance and leadership in one room.',
+    icon:  IconGovern,
+  },
+]
+
+// How it works — 4-phase engagement (deliberately styled differently from the
+// /programmes Cohort Timeline so the visual reads as separate territory).
+const PHASES = [
+  {
+    n: '01',
+    label: 'Discover',
+    title: 'Scoping conversation',
+    line:  'A 30–45 minute call with your L&D / leadership team to understand the audience, the current gap and the behaviour change you want to see.',
+  },
+  {
+    n: '02',
+    label: 'Design',
+    title: 'Curriculum proposal',
+    line:  'A written proposal with the recommended track(s), session structure, timeline, success measures and pricing — usually within a week of the discovery call.',
+  },
+  {
+    n: '03',
+    label: 'Deliver',
+    title: 'Sessions & materials',
+    line:  'Live delivery in-person, online or hybrid. Every session ships with worksheets, frameworks and follow-up assignments your team can use the next morning.',
+  },
+  {
+    n: '04',
+    label: 'Debrief',
+    title: 'Impact review',
+    line:  'A post-engagement debrief with stakeholders covering outcomes, observed behaviour change, materials handed over and recommended next steps.',
+  },
+]
+
 // Training tracks — six core categories. Lengths are indicative.
 const TRACKS = [
   {
@@ -99,7 +157,9 @@ export default function TrainingPage() {
       <main>
         <TrainingHero />
         <TracksBand />
-        {/* Further bands added in Steps 13.3–13.6 */}
+        <WhoBand />
+        <HowBand />
+        {/* Further bands added in Steps 13.4–13.6 */}
       </main>
       <Footer />
     </>
@@ -479,6 +539,301 @@ function IconCustom() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="3" />
       <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
+    </svg>
+  )
+}
+
+// ---- Who It's For -----------------------------------------------------------
+
+function WhoBand() {
+  return (
+    <section className="tp-who site-section">
+      <div className="site-container">
+        <SectionHeader
+          eyebrow="Who It Is For"
+          title={<>Built for <em>five kinds</em> of organisation.</>}
+          subtitle="Different sizes, different sectors — same need: training that translates to behaviour the team actually carries back to their desk."
+        />
+
+        <ul className="tp-who__grid">
+          {AUDIENCES.map(a => {
+            const Icon = a.icon
+            return (
+              <li key={a.title} className="tp-who__card">
+                <span className="tp-who__icon" aria-hidden="true"><Icon /></span>
+                <h3>{a.title}</h3>
+                <p>{a.line}</p>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+
+      <style>{`
+        .tp-who { background: var(--cream); color: var(--ink); }
+
+        .tp-who__grid {
+          list-style: none;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 16px;
+        }
+        @media (min-width: 720px)  { .tp-who__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (min-width: 1080px) { .tp-who__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+        .tp-who__card {
+          padding: 26px 24px 24px;
+          background: var(--white);
+          border: 1px solid rgba(13, 33, 55, 0.08);
+          border-radius: var(--radius-lg);
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          box-shadow: 0 12px 28px rgba(13, 33, 55, 0.05);
+          transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+        }
+        .tp-who__card:hover {
+          transform: translateY(-3px);
+          border-color: rgba(91, 45, 142, 0.32);
+          box-shadow: 0 22px 48px rgba(13, 33, 55, 0.09);
+        }
+
+        .tp-who__icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+          background: rgba(91, 45, 142, 0.1);
+          color: var(--purple);
+        }
+        .tp-who__icon svg { width: 22px; height: 22px; }
+
+        .tp-who__card h3 {
+          font-family: var(--font-display);
+          font-weight: 800;
+          font-size: 17px;
+          line-height: 1.25;
+          letter-spacing: -0.2px;
+          color: var(--navy);
+        }
+        .tp-who__card p {
+          font-size: 13.5px;
+          line-height: 1.65;
+          color: rgba(13, 33, 55, 0.74);
+        }
+      `}</style>
+    </section>
+  )
+}
+
+// ---- How It Works -----------------------------------------------------------
+
+function HowBand() {
+  return (
+    <section className="tp-how">
+      <div className="tp-how__bg" aria-hidden="true">
+        <span className="tp-how__orb tp-how__orb--gold" />
+        <span className="tp-how__orb tp-how__orb--purple" />
+      </div>
+      <div className="site-container tp-how__inner">
+        <SectionHeader
+          tone="light"
+          eyebrow="How It Works"
+          title={<>From first call to <em>final debrief</em>.</>}
+          subtitle="A four-phase engagement, each step crisply scoped. Most engagements move from Discover to Deliver in two to four weeks — faster if dates are tight."
+        />
+
+        <ol className="tp-how__grid">
+          {PHASES.map((p, i) => (
+            <li key={p.n} className="tp-phase">
+              <div className="tp-phase__top">
+                <span className="tp-phase__n">{p.n}</span>
+                <span className="tp-phase__label">{p.label}</span>
+              </div>
+              <h3>{p.title}</h3>
+              <p>{p.line}</p>
+              {i < PHASES.length - 1 && (
+                <span className="tp-phase__arrow" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                  </svg>
+                </span>
+              )}
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <style>{`
+        .tp-how {
+          position: relative;
+          padding: 100px 0 110px;
+          background:
+            radial-gradient(ellipse at 88% 0%, rgba(201, 168, 76, 0.22) 0%, transparent 55%),
+            radial-gradient(ellipse at 12% 100%, rgba(91, 45, 142, 0.36) 0%, transparent 55%),
+            linear-gradient(160deg, #0D2137 0%, #14294a 55%, #1a0d2e 100%);
+          color: var(--white);
+          overflow: hidden;
+          isolation: isolate;
+        }
+        .tp-how__bg { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+        .tp-how__orb { position: absolute; border-radius: 50%; filter: blur(110px); opacity: 0.45; }
+        .tp-how__orb--gold   { width: 460px; height: 460px; top: -160px; right: -140px; background: radial-gradient(circle, rgba(201, 168, 76, 0.4), transparent 70%); }
+        .tp-how__orb--purple { width: 480px; height: 480px; bottom: -160px; left: -140px; background: radial-gradient(circle, rgba(122, 71, 184, 0.5), transparent 70%); }
+        .tp-how__inner { position: relative; z-index: 1; }
+
+        .tp-how__grid {
+          list-style: none;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 18px;
+          counter-reset: none;
+        }
+        @media (min-width: 720px)  { .tp-how__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (min-width: 1080px) { .tp-how__grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 22px; } }
+
+        .tp-phase {
+          position: relative;
+          padding: 24px 22px 26px;
+          background: linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 18px;
+          min-width: 0;
+          transition: transform 0.22s ease, border-color 0.22s ease;
+        }
+        .tp-phase:hover {
+          transform: translateY(-4px);
+          border-color: rgba(201, 168, 76, 0.45);
+        }
+
+        .tp-phase__top {
+          display: flex;
+          align-items: baseline;
+          gap: 12px;
+          margin-bottom: 12px;
+          padding-bottom: 12px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .tp-phase__n {
+          font-family: var(--font-display);
+          font-style: italic;
+          font-weight: 900;
+          font-size: 36px;
+          line-height: 1;
+          letter-spacing: -1px;
+          color: var(--gold);
+        }
+        .tp-phase__label {
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 2.4px;
+          text-transform: uppercase;
+          color: rgba(255, 255, 255, 0.62);
+        }
+        .tp-phase h3 {
+          font-family: var(--font-display);
+          font-weight: 800;
+          font-size: 18px;
+          line-height: 1.25;
+          letter-spacing: -0.2px;
+          color: var(--white);
+          margin-bottom: 8px;
+        }
+        .tp-phase p {
+          font-size: 13.5px;
+          line-height: 1.65;
+          color: rgba(255, 255, 255, 0.74);
+        }
+
+        /* Connector arrow between phases.
+           Hidden by default; only shown horizontally on the 4-col layout. */
+        .tp-phase__arrow {
+          display: none;
+        }
+        @media (min-width: 1080px) {
+          .tp-phase__arrow {
+            display: inline-flex;
+            position: absolute;
+            top: 50%;
+            right: -16px;
+            transform: translateY(-50%);
+            width: 28px;
+            height: 28px;
+            align-items: center;
+            justify-content: center;
+            color: var(--gold);
+            background: var(--navy);
+            border: 1px solid rgba(201, 168, 76, 0.5);
+            border-radius: 50%;
+            z-index: 2;
+          }
+          .tp-phase__arrow svg { width: 14px; height: 14px; }
+        }
+      `}</style>
+    </section>
+  )
+}
+
+// ---- Audience icons ---------------------------------------------------------
+
+function IconBuilding() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="4" y="3" width="16" height="18" rx="1.5" />
+      <line x1="8"  y1="7"  x2="8"  y2="9" />
+      <line x1="12" y1="7"  x2="12" y2="9" />
+      <line x1="16" y1="7"  x2="16" y2="9" />
+      <line x1="8"  y1="12" x2="8"  y2="14" />
+      <line x1="12" y1="12" x2="12" y2="14" />
+      <line x1="16" y1="12" x2="16" y2="14" />
+      <rect x="10" y="17" width="4" height="4" />
+    </svg>
+  )
+}
+function IconShop() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 9l1.5-4h15L21 9" />
+      <path d="M4 9v11h16V9" />
+      <path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0" />
+      <rect x="9" y="13" width="6" height="7" />
+    </svg>
+  )
+}
+function IconHands() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 4l1.6 3.6L17.5 8l-2.7 2.6.7 3.7L12 12.6 8.5 14.3l.7-3.7L6.5 8l3.9-.4L12 4z" />
+      <path d="M5 18c2-1 4-1 7-1s5 0 7 1" />
+      <path d="M5 21c2-1 4-1 7-1s5 0 7 1" />
+    </svg>
+  )
+}
+function IconChurch() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <line x1="12" y1="2" x2="12" y2="8" />
+      <line x1="9"  y1="5" x2="15" y2="5" />
+      <path d="M5 21V12l7-4 7 4v9" />
+      <rect x="10" y="14" width="4" height="7" />
+      <line x1="5"  y1="16" x2="9"  y2="16" />
+      <line x1="15" y1="16" x2="19" y2="16" />
+    </svg>
+  )
+}
+function IconGovern() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polygon points="12 3 21 8 3 8 12 3" />
+      <line x1="5"  y1="11" x2="5"  y2="18" />
+      <line x1="9"  y1="11" x2="9"  y2="18" />
+      <line x1="15" y1="11" x2="15" y2="18" />
+      <line x1="19" y1="11" x2="19" y2="18" />
+      <line x1="3"  y1="20" x2="21" y2="20" />
     </svg>
   )
 }
