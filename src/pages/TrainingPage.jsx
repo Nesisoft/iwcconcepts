@@ -35,6 +35,30 @@ const DISCOVERY_CALL_URL = '/lady-adel#contact'
 const WHATSAPP_NUMBER = '233000000000'
 const CONTACT_EMAIL   = 'training@iwcconcepts.com'
 
+// FAQ — 5 items, B2B procurement-focused
+const FAQ = [
+  {
+    q: 'How long is a typical engagement?',
+    a: 'It ranges from a single half-day workshop to a multi-week leadership programme spread across a quarter. Most one-track engagements land at 1–3 days; multi-track or bespoke programmes typically run 4–12 weeks with weekly sessions. We size the engagement to the outcome you need, not to a fixed catalogue.',
+  },
+  {
+    q: 'Do you travel for in-person sessions?',
+    a: 'Yes — we deliver in-person across Ghana and West Africa, and travel further afield for engagements that warrant it (typically multi-day intensives or board offsites). Travel and accommodation, where they apply, are scoped transparently in the proposal.',
+  },
+  {
+    q: 'Do you work with churches, ministries and NGOs?',
+    a: 'Yes. A meaningful part of our work is with faith-based organisations, NGOs and foundations. We bring the same operational rigour to a ministry leadership team or country office that we would to a corporate. Pricing is calibrated to the sector.',
+  },
+  {
+    q: 'How is a session priced?',
+    a: 'Engagements are priced per scope rather than per head. The proposal sets out a clear total, what is included (sessions, materials, debrief, post-engagement support) and what is optional. Indicative budgets in the request form help us land the right tier on the first pass.',
+  },
+  {
+    q: 'How quickly can you start?',
+    a: 'For a standard one- or two-day engagement, two to four weeks from first contact to first session is typical. Multi-week programmes need a little more lead time for design. If your timeline is tighter than that, flag it in the brief — we have moved fast before.',
+  },
+]
+
 // Focus-area chips (must align with TRACKS titles below)
 const FOCUS_AREAS = [
   'Leadership & Management',
@@ -243,7 +267,8 @@ export default function TrainingPage() {
         <HowBand />
         <OutcomesBand />
         <ProposalBand />
-        {/* Further bands added in Step 13.6 */}
+        <FAQBand />
+        <FinalCTABand />
       </main>
       <Footer />
     </>
@@ -1799,5 +1824,238 @@ function FieldStyles() {
         padding-right: 38px;
       }
     `}</style>
+  )
+}
+
+// ---- FAQ --------------------------------------------------------------------
+
+function FAQBand() {
+  const [openIdx, setOpenIdx] = useState(0)
+  return (
+    <section className="tp-faq">
+      <div className="tp-faq__bg" aria-hidden="true">
+        <span className="tp-faq__orb tp-faq__orb--purple" />
+        <span className="tp-faq__orb tp-faq__orb--gold" />
+      </div>
+      <div className="site-container tp-faq__inner">
+        <SectionHeader
+          tone="light"
+          eyebrow="Frequently Asked"
+          title={<>The five questions <em>buyers ask first</em>.</>}
+          subtitle="If yours is not here, message us on WhatsApp and we will answer directly — usually within the working day."
+        />
+
+        <ul className="tp-faq__list">
+          {FAQ.map((item, i) => {
+            const open = openIdx === i
+            return (
+              <li key={i} className={`tp-fq ${open ? 'is-open' : ''}`}>
+                <button
+                  type="button"
+                  className="tp-fq__q"
+                  aria-expanded={open}
+                  onClick={() => setOpenIdx(open ? -1 : i)}
+                >
+                  <span>{item.q}</span>
+                  <span className="tp-fq__icon" aria-hidden="true">{open ? '−' : '+'}</span>
+                </button>
+                <div className="tp-fq__a" role="region" aria-hidden={!open}>
+                  <p>{item.a}</p>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+
+      <style>{`
+        .tp-faq {
+          position: relative;
+          padding: 100px 0 110px;
+          background:
+            radial-gradient(ellipse at 12% 0%, rgba(91, 45, 142, 0.36) 0%, transparent 55%),
+            radial-gradient(ellipse at 88% 100%, rgba(201, 168, 76, 0.18) 0%, transparent 55%),
+            linear-gradient(160deg, #0D2137 0%, #14294a 55%, #1a0d2e 100%);
+          color: var(--white);
+          overflow: hidden;
+          isolation: isolate;
+        }
+        .tp-faq__bg { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+        .tp-faq__orb { position: absolute; border-radius: 50%; filter: blur(110px); opacity: 0.42; }
+        .tp-faq__orb--purple { width: 460px; height: 460px; top: -160px; left: -140px; background: radial-gradient(circle, rgba(122, 71, 184, 0.5), transparent 70%); }
+        .tp-faq__orb--gold   { width: 420px; height: 420px; bottom: -160px; right: -140px; background: radial-gradient(circle, rgba(201, 168, 76, 0.35), transparent 70%); }
+        .tp-faq__inner { position: relative; z-index: 1; }
+
+        .tp-faq__list {
+          list-style: none;
+          max-width: 820px;
+          margin: 0 auto;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .tp-fq {
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.09);
+          border-radius: 14px;
+          overflow: hidden;
+          transition: border-color 0.2s ease, background 0.2s ease;
+        }
+        .tp-fq.is-open {
+          border-color: rgba(201, 168, 76, 0.42);
+          background: rgba(255, 255, 255, 0.05);
+        }
+        .tp-fq__q {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          padding: 18px 22px;
+          background: transparent;
+          border: 0;
+          cursor: pointer;
+          color: var(--white);
+          font-family: var(--font-display);
+          font-size: 16px;
+          font-weight: 700;
+          text-align: left;
+          letter-spacing: -0.1px;
+          min-width: 0;
+        }
+        .tp-fq__q:focus-visible {
+          outline: none;
+          box-shadow: inset 0 0 0 2px rgba(201, 168, 76, 0.4);
+          border-radius: 14px;
+        }
+        .tp-fq__icon {
+          flex-shrink: 0;
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(201, 168, 76, 0.15);
+          color: var(--gold);
+          font-size: 18px;
+          font-weight: 700;
+          line-height: 1;
+        }
+        .tp-fq__a {
+          max-height: 0;
+          overflow: hidden;
+          transition: max-height 0.3s ease;
+        }
+        .tp-fq.is-open .tp-fq__a { max-height: 460px; }
+        .tp-fq__a p {
+          padding: 0 22px 20px;
+          font-size: 14px;
+          line-height: 1.7;
+          color: rgba(255, 255, 255, 0.78);
+        }
+      `}</style>
+    </section>
+  )
+}
+
+// ---- Final CTA --------------------------------------------------------------
+
+function FinalCTABand() {
+  return (
+    <section className="tp-final">
+      <div className="site-container">
+        <div className="tp-final__card">
+          <div className="tp-final__copy">
+            <span className="tp-final__eyebrow">Two ways in</span>
+            <h3>Ready to scope a training engagement?</h3>
+            <p>
+              Send a written brief and we&rsquo;ll respond with a proposal —
+              or jump straight on a 30-minute discovery call if it&rsquo;s
+              easier to talk it through. Either route gets you to the same
+              place.
+            </p>
+          </div>
+          <div className="tp-final__ctas">
+            <CTAButton href="#proposal" variant="gold" size="lg">
+              Request a Proposal
+            </CTAButton>
+            <CTAButton to={DISCOVERY_CALL_URL} variant="outline-light" size="lg" arrow={false}>
+              Book a Discovery Call
+            </CTAButton>
+          </div>
+        </div>
+      </div>
+
+      <style>{`
+        .tp-final {
+          padding: 72px 0 120px;
+          background:
+            radial-gradient(ellipse at 90% 0%, rgba(201, 168, 76, 0.25) 0%, transparent 55%),
+            radial-gradient(ellipse at 10% 100%, rgba(91, 45, 142, 0.4) 0%, transparent 55%),
+            linear-gradient(160deg, #0D2137 0%, #14294a 55%, #1a0d2e 100%);
+          color: var(--white);
+        }
+        .tp-final__card {
+          padding: 34px 26px;
+          border-radius: 22px;
+          background:
+            radial-gradient(ellipse at 0% 0%, rgba(201, 168, 76, 0.25), transparent 60%),
+            linear-gradient(135deg, rgba(91, 45, 142, 0.55), rgba(13, 33, 55, 0.6));
+          border: 1px solid rgba(201, 168, 76, 0.32);
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+          align-items: stretch;
+        }
+        .tp-final__card > * { min-width: 0; }
+        @media (min-width: 960px) {
+          .tp-final__card {
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            padding: 44px 52px;
+            gap: 40px;
+          }
+        }
+
+        .tp-final__eyebrow {
+          display: inline-block;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 2.5px;
+          text-transform: uppercase;
+          color: var(--gold);
+          margin-bottom: 10px;
+        }
+
+        .tp-final__copy { max-width: 600px; }
+        .tp-final h3 {
+          font-family: var(--font-display);
+          font-weight: 800;
+          font-size: clamp(24px, 3.4vw, 32px);
+          color: var(--white);
+          letter-spacing: -0.3px;
+          margin-bottom: 10px;
+        }
+        .tp-final p {
+          font-size: 14.5px;
+          line-height: 1.7;
+          color: rgba(255, 255, 255, 0.78);
+        }
+
+        .tp-final__ctas {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .tp-final__ctas .cta { white-space: normal; text-align: center; line-height: 1.25; }
+        @media (min-width: 520px) {
+          .tp-final__ctas { flex-direction: row; flex-wrap: wrap; }
+          .tp-final__ctas .cta { white-space: nowrap; }
+        }
+        @media (min-width: 960px) { .tp-final__ctas { flex-direction: column; align-items: stretch; } }
+      `}</style>
+    </section>
   )
 }
