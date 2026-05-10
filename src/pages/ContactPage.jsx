@@ -32,8 +32,42 @@ import CTAButton from '../components/ui/CTAButton'
 const WHATSAPP_NUMBER = '233000000000'
 const CONTACT_EMAIL   = 'hello@iwcconcepts.com'
 
+// PLACEHOLDER specialist inboxes — replace with real addresses
+// (or alias them all to CONTACT_EMAIL on the mail server side).
+const PRESS_EMAIL         = 'press@iwcconcepts.com'
+const SPEAKING_EMAIL      = 'speaking@iwcconcepts.com'
+const PARTNERSHIPS_EMAIL  = 'partnerships@iwcconcepts.com'
+
 const RESPONSE_WINDOW = 'Within 2 working days'
 const OFFICE_HOURS    = 'Mon – Fri · 9am – 5pm GMT'
+
+// Specialist contact paths
+const SPECIALIST_PATHS = [
+  {
+    accent:  'gold',
+    label:   'Media & Press',
+    line:    'Interviews, quotes, podcast appearances, press kit and bio. Tell us your outlet, deadline and angle.',
+    email:   () => PRESS_EMAIL,
+    subject: 'Media enquiry',
+    icon:    IconCamera,
+  },
+  {
+    accent:  'purple',
+    label:   'Speaking Engagements',
+    line:    'Keynotes, panels, conferences, corporate offsites. Share the date, audience and theme — we will respond with availability and fit.',
+    email:   () => SPEAKING_EMAIL,
+    subject: 'Speaking enquiry',
+    icon:    IconStage,
+  },
+  {
+    accent:  'orange',
+    label:   'Partnerships & Sponsorship',
+    line:    'Strategic collaborations, programme sponsorship, ecosystem partners and joint initiatives. Outline the proposition in a paragraph.',
+    email:   () => PARTNERSHIPS_EMAIL,
+    subject: 'Partnership enquiry',
+    icon:    IconHandshake,
+  },
+]
 
 // Enquiry routing — keep order matching the routing-band cards in 14.3
 const ENQUIRY_TYPES = [
@@ -111,7 +145,8 @@ export default function ContactPage() {
         <ContactHero />
         <RoutesBand />
         <MessageBand />
-        {/* Further bands added in Steps 14.4–14.6 */}
+        <SpecialistBand />
+        {/* Further bands added in Steps 14.5–14.6 */}
       </main>
       <Footer />
     </>
@@ -550,6 +585,219 @@ function IconMic() {
       <path d="M5 11a7 7 0 0 0 14 0" />
       <line x1="12" y1="18" x2="12" y2="22" />
       <line x1="8" y1="22" x2="16" y2="22" />
+    </svg>
+  )
+}
+
+// ---- Specialist contact paths -----------------------------------------------
+
+function SpecialistBand() {
+  return (
+    <section className="cp-spec">
+      <div className="cp-spec__bg" aria-hidden="true">
+        <span className="cp-spec__orb cp-spec__orb--gold" />
+        <span className="cp-spec__orb cp-spec__orb--purple" />
+      </div>
+      <div className="site-container cp-spec__inner">
+        <SectionHeader
+          tone="light"
+          eyebrow="Press · Speaking · Partnerships"
+          title={<>Direct lines for <em>specialist enquiries</em></>}
+          subtitle="If you are reaching out about media, a speaking slot or a strategic collaboration, jump to the inbox that handles it. The general team is copied automatically."
+        />
+
+        <ul className="cp-spec__grid">
+          {SPECIALIST_PATHS.map(s => {
+            const Icon = s.icon
+            const email = s.email()
+            return (
+              <li key={s.label} className={`cp-spec__card cp-spec__card--${s.accent}`}>
+                <span className="cp-spec__icon" aria-hidden="true"><Icon /></span>
+                <h3>{s.label}</h3>
+                <p>{s.line}</p>
+                <a
+                  className="cp-spec__email"
+                  href={`mailto:${email}?subject=${encodeURIComponent(s.subject)}`}
+                >
+                  <span className="cp-spec__email-addr">{email}</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                  </svg>
+                </a>
+              </li>
+            )
+          })}
+        </ul>
+
+        <p className="cp-spec__note">
+          Specialist inboxes are placeholders for now &mdash; if your message
+          bounces, send it to <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>{' '}
+          and we&rsquo;ll route it internally.
+        </p>
+      </div>
+
+      <style>{`
+        .cp-spec {
+          position: relative;
+          padding: 100px 0 110px;
+          background:
+            radial-gradient(ellipse at 88% 0%, rgba(201, 168, 76, 0.22) 0%, transparent 55%),
+            radial-gradient(ellipse at 12% 100%, rgba(91, 45, 142, 0.36) 0%, transparent 55%),
+            linear-gradient(160deg, #0D2137 0%, #14294a 55%, #1a0d2e 100%);
+          color: var(--white);
+          overflow: hidden;
+          isolation: isolate;
+        }
+        .cp-spec__bg { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+        .cp-spec__orb { position: absolute; border-radius: 50%; filter: blur(110px); opacity: 0.42; }
+        .cp-spec__orb--gold   { width: 460px; height: 460px; top: -160px; right: -140px; background: radial-gradient(circle, rgba(201, 168, 76, 0.4), transparent 70%); }
+        .cp-spec__orb--purple { width: 480px; height: 480px; bottom: -160px; left: -140px; background: radial-gradient(circle, rgba(122, 71, 184, 0.5), transparent 70%); }
+        .cp-spec__inner { position: relative; z-index: 1; }
+
+        .cp-spec__grid {
+          list-style: none;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 18px;
+          max-width: 1080px;
+          margin: 0 auto 32px;
+        }
+        @media (min-width: 720px)  { .cp-spec__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+        .cp-spec__card {
+          position: relative;
+          padding: 26px 24px 22px;
+          background: linear-gradient(160deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 18px;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          overflow: hidden;
+          transition: transform 0.22s ease, border-color 0.22s ease;
+        }
+        .cp-spec__card::before {
+          content: '';
+          position: absolute;
+          inset: 0 0 auto 0;
+          height: 3px;
+          background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+        }
+        .cp-spec__card:hover {
+          transform: translateY(-4px);
+          border-color: rgba(201, 168, 76, 0.45);
+        }
+
+        .cp-spec__card--gold   { --accent-a: var(--gold);   --accent-b: var(--gold-dark); }
+        .cp-spec__card--purple { --accent-a: var(--purple); --accent-b: #7a47b8; }
+        .cp-spec__card--orange { --accent-a: var(--orange); --accent-b: var(--orange-dark); }
+
+        .cp-spec__icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+          background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+          color: var(--white);
+          box-shadow: 0 10px 22px rgba(0, 0, 0, 0.25);
+        }
+        .cp-spec__card--gold .cp-spec__icon { color: var(--navy); }
+        .cp-spec__icon svg { width: 22px; height: 22px; }
+
+        .cp-spec__card h3 {
+          font-family: var(--font-display);
+          font-weight: 800;
+          font-size: 18px;
+          line-height: 1.25;
+          letter-spacing: -0.2px;
+          color: var(--white);
+        }
+        .cp-spec__card p {
+          flex-grow: 1;
+          font-size: 13.5px;
+          line-height: 1.65;
+          color: rgba(255, 255, 255, 0.74);
+        }
+
+        .cp-spec__email {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          margin-top: 4px;
+          padding: 9px 14px;
+          font-size: 12.5px;
+          font-weight: 700;
+          color: var(--gold);
+          background: rgba(201, 168, 76, 0.1);
+          border: 1px solid rgba(201, 168, 76, 0.32);
+          border-radius: 999px;
+          text-decoration: none;
+          transition: background 0.18s ease, gap 0.18s ease, color 0.18s ease;
+          align-self: flex-start;
+          max-width: 100%;
+        }
+        .cp-spec__email:hover {
+          background: rgba(201, 168, 76, 0.18);
+          gap: 12px;
+        }
+        .cp-spec__email-addr {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          min-width: 0;
+        }
+
+        .cp-spec__note {
+          max-width: 720px;
+          margin: 0 auto;
+          text-align: center;
+          font-size: 12.5px;
+          line-height: 1.7;
+          color: rgba(255, 255, 255, 0.55);
+        }
+        .cp-spec__note a {
+          color: var(--gold);
+          font-weight: 700;
+          text-decoration: underline;
+          text-underline-offset: 3px;
+        }
+      `}</style>
+    </section>
+  )
+}
+
+// ---- Specialist icons -------------------------------------------------------
+
+function IconCamera() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" />
+      <circle cx="12" cy="13" r="3.5" />
+    </svg>
+  )
+}
+function IconStage() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="6" width="18" height="11" rx="1.5" />
+      <line x1="3" y1="17" x2="6" y2="21" />
+      <line x1="21" y1="17" x2="18" y2="21" />
+      <line x1="9" y1="6" x2="9" y2="2" />
+      <line x1="15" y1="6" x2="15" y2="2" />
+      <line x1="7" y1="2" x2="11" y2="2" />
+      <line x1="13" y1="2" x2="17" y2="2" />
+    </svg>
+  )
+}
+function IconHandshake() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 11l4-4 3 2 4-3 4 3 3-1v8l-3 2-4-2-3 2-4-2-4 2z" />
+      <path d="M10 13l2 2 2-2" />
     </svg>
   )
 }
