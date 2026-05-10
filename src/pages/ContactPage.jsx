@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import Navbar from '../components/layout/Navbar'
 import Footer from '../components/layout/Footer'
 import SectionHeader from '../components/ui/SectionHeader'
@@ -55,6 +55,46 @@ const INITIAL_MESSAGE = {
   subject: '', message: '',
 }
 
+// "Right place?" routing — keep order matching the enquiry select order
+const ROUTES = [
+  {
+    accent:   'orange',
+    label:    'Apply to the programme',
+    line:     'Founders ready to scope a cohort application — long-form or waitlist — start here. Your form lands directly with the programme team.',
+    icon:     IconRoute,
+    to:       '/programmes',
+    hash:     'apply',
+    cta:      'Open the application',
+  },
+  {
+    accent:   'purple',
+    label:    'Request a training proposal',
+    line:     'HR, L&D, board sponsors. The proposal form lets you flag focus areas, audience size and dates — we come back with a written proposal.',
+    icon:     IconBrief,
+    to:       '/training',
+    hash:     'proposal',
+    cta:      'Open the proposal form',
+  },
+  {
+    accent:   'gold',
+    label:    'Register for Catch Up',
+    line:     'The free monthly Zoom platform. Register once and you receive the link, calendar invite and reminders for every future episode.',
+    icon:     IconBroadcast,
+    to:       '/catch-up',
+    hash:     'register',
+    cta:      'Save your seat',
+  },
+  {
+    accent:   'navy',
+    label:    'Book a speaking engagement',
+    line:     'Keynotes, panels, conferences and corporate events. Use the message form below and pick "Speaking engagement" for the fastest path.',
+    icon:     IconMic,
+    to:       null,            // stays on /contact
+    hash:     'message',
+    cta:      'Use the message form',
+  },
+]
+
 // ---- Page -------------------------------------------------------------------
 
 export default function ContactPage() {
@@ -69,8 +109,9 @@ export default function ContactPage() {
       <Navbar />
       <main>
         <ContactHero />
+        <RoutesBand />
         <MessageBand />
-        {/* Further bands added in Steps 14.3–14.6 */}
+        {/* Further bands added in Steps 14.4–14.6 */}
       </main>
       <Footer />
     </>
@@ -333,6 +374,182 @@ function IconClock() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="9" />
       <polyline points="12 7 12 12 16 14" />
+    </svg>
+  )
+}
+
+// ---- "Right place?" routing band --------------------------------------------
+
+function RoutesBand() {
+  return (
+    <section className="cp-rt site-section">
+      <div className="site-container">
+        <SectionHeader
+          eyebrow="Make sure you're in the right place"
+          title={<>Save yourself a step &mdash; <em>route directly</em></>}
+          subtitle="Most enquiries land in one of four places. If yours fits a route below, jumping straight there is faster than going through the general inbox. The form below is for everything else."
+        />
+
+        <ul className="cp-rt__grid">
+          {ROUTES.map(r => {
+            const Icon = r.icon
+            const href = r.to
+              ? `${r.to}${r.hash ? '#' + r.hash : ''}`
+              : `#${r.hash || ''}`
+            // Use Link for cross-page navigation (supports the hash anchor),
+            // a plain <a> for in-page #message anchor.
+            const Wrap = r.to ? Link : 'a'
+            const wrapProps = r.to ? { to: href } : { href }
+            return (
+              <li key={r.label} className={`cp-rt__card cp-rt__card--${r.accent}`}>
+                <Wrap className="cp-rt__link" {...wrapProps}>
+                  <span className="cp-rt__icon" aria-hidden="true"><Icon /></span>
+                  <h3>{r.label}</h3>
+                  <p>{r.line}</p>
+                  <span className="cp-rt__cta">
+                    {r.cta}
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                      <polyline points="12 5 19 12 12 19" />
+                    </svg>
+                  </span>
+                </Wrap>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+
+      <style>{`
+        .cp-rt { background: var(--white); color: var(--ink); }
+
+        .cp-rt__grid {
+          list-style: none;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 16px;
+        }
+        @media (min-width: 720px)  { .cp-rt__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (min-width: 1080px) { .cp-rt__grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; } }
+
+        .cp-rt__card { min-width: 0; }
+        .cp-rt__link {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          height: 100%;
+          padding: 26px 24px 22px;
+          background: var(--cream);
+          border: 1px solid rgba(13, 33, 55, 0.08);
+          border-radius: var(--radius-lg);
+          color: var(--navy);
+          text-decoration: none;
+          overflow: hidden;
+          transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+        }
+        .cp-rt__link::before {
+          content: '';
+          position: absolute;
+          inset: 0 0 auto 0;
+          height: 3px;
+          background: linear-gradient(90deg, var(--accent-a), var(--accent-b));
+        }
+        .cp-rt__link:hover {
+          transform: translateY(-4px);
+          border-color: rgba(13, 33, 55, 0.18);
+          box-shadow: 0 22px 48px rgba(13, 33, 55, 0.1);
+        }
+
+        .cp-rt__card--orange { --accent-a: var(--orange); --accent-b: var(--orange-dark); }
+        .cp-rt__card--purple { --accent-a: var(--purple); --accent-b: #7a47b8; }
+        .cp-rt__card--gold   { --accent-a: var(--gold);   --accent-b: var(--gold-dark); }
+        .cp-rt__card--navy   { --accent-a: var(--navy);   --accent-b: #1a3a5f; }
+
+        .cp-rt__icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+          background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+          color: var(--white);
+          box-shadow: 0 10px 22px rgba(13, 33, 55, 0.14);
+        }
+        .cp-rt__card--gold .cp-rt__icon { color: var(--navy); }
+        .cp-rt__icon svg { width: 22px; height: 22px; }
+
+        .cp-rt__link h3 {
+          font-family: var(--font-display);
+          font-weight: 800;
+          font-size: 17px;
+          line-height: 1.25;
+          letter-spacing: -0.2px;
+          color: var(--navy);
+        }
+        .cp-rt__link p {
+          flex-grow: 1;
+          font-size: 13.5px;
+          line-height: 1.6;
+          color: rgba(13, 33, 55, 0.74);
+        }
+
+        .cp-rt__cta {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          margin-top: 4px;
+          font-size: 11.5px;
+          font-weight: 800;
+          letter-spacing: 1.6px;
+          text-transform: uppercase;
+          color: var(--purple);
+          transition: gap 0.18s ease;
+        }
+        .cp-rt__link:hover .cp-rt__cta { gap: 10px; }
+      `}</style>
+    </section>
+  )
+}
+
+// ---- Route icons ------------------------------------------------------------
+
+function IconRoute() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 19V9a3 3 0 0 1 3-3h6a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h9" />
+      <polyline points="15 13 18 16 21 13" />
+    </svg>
+  )
+}
+function IconBrief() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="7" width="18" height="13" rx="1.5" />
+      <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+      <line x1="3" y1="13" x2="21" y2="13" />
+    </svg>
+  )
+}
+function IconBroadcast() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="2.2" />
+      <path d="M16 8a5 5 0 0 1 0 8" />
+      <path d="M8 8a5 5 0 0 0 0 8" />
+      <path d="M19 5a9 9 0 0 1 0 14" />
+      <path d="M5 5a9 9 0 0 0 0 14" />
+    </svg>
+  )
+}
+function IconMic() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5 11a7 7 0 0 0 14 0" />
+      <line x1="12" y1="18" x2="12" y2="22" />
+      <line x1="8" y1="22" x2="16" y2="22" />
     </svg>
   )
 }
