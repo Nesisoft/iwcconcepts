@@ -41,6 +41,29 @@ const PARTNERSHIPS_EMAIL  = 'partnerships@iwcconcepts.com'
 const RESPONSE_WINDOW = 'Within 2 working days'
 const OFFICE_HOURS    = 'Mon – Fri · 9am – 5pm GMT'
 
+// Office details — PLACEHOLDER values, refine pre-launch
+const OFFICE = {
+  city:    'Accra, Ghana',
+  line1:   'IWC Concepts HQ',
+  line2:   'Address details available on request',     // PLACEHOLDER
+  hours:   OFFICE_HOURS,
+  window:  RESPONSE_WINDOW,
+  // Optional Google Maps URL — leave empty until confirmed
+  mapsUrl: '',
+}
+
+// Social channels — kept in sync with MediaSection.jsx so handles/links
+// stay consistent across the site.
+const SOCIALS = [
+  { name: 'Facebook',  handle: '@theladyadel',  brand: '#1877F2', confirmed: true,  href: 'https://facebook.com/theladyadel',                  icon: SocialFacebook  },
+  { name: 'Instagram', handle: '@theladyadele', brand: '#E1306C', confirmed: true,  href: 'https://instagram.com/theladyadele',                icon: SocialInstagram },
+  { name: 'LinkedIn',  handle: 'Adelaide Clottey', brand: '#0A66C2', confirmed: true,  href: 'https://linkedin.com/in/adelaide-clottey-07a0983b2', icon: SocialLinkedIn  },
+  { name: 'YouTube',   handle: 'Coming soon',   brand: '#FF0000', confirmed: false, href: '#', icon: SocialYouTube  },
+  { name: 'Spotify',   handle: 'Coming soon',   brand: '#1DB954', confirmed: false, href: '#', icon: SocialSpotify  },
+  { name: 'TikTok',    handle: 'Coming soon',   brand: '#000000', confirmed: false, href: '#', icon: SocialTikTok   },
+  { name: 'X',         handle: 'Coming soon',   brand: '#000000', confirmed: false, href: '#', icon: SocialX        },
+]
+
 // Specialist contact paths
 const SPECIALIST_PATHS = [
   {
@@ -146,7 +169,8 @@ export default function ContactPage() {
         <RoutesBand />
         <MessageBand />
         <SpecialistBand />
-        {/* Further bands added in Steps 14.5–14.6 */}
+        <SocialsOfficeBand />
+        {/* Final CTA added in Step 14.6 */}
       </main>
       <Footer />
     </>
@@ -798,6 +822,386 @@ function IconHandshake() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M3 11l4-4 3 2 4-3 4 3 3-1v8l-3 2-4-2-3 2-4-2-4 2z" />
       <path d="M10 13l2 2 2-2" />
+    </svg>
+  )
+}
+
+// ---- Socials + Office band --------------------------------------------------
+
+function SocialsOfficeBand() {
+  return (
+    <section className="cp-soc site-section">
+      <div className="site-container">
+        <SectionHeader
+          eyebrow="Follow · Visit · Connect"
+          title={<>Where we&rsquo;re <em>online &amp; offline</em></>}
+          subtitle="Active accounts where Lady Adel actually shows up — plus the working hours and response window so you know when to expect a reply."
+        />
+
+        <div className="cp-soc__grid">
+          {/* Left: socials */}
+          <div className="cp-soc__panel cp-soc__panel--socials">
+            <div className="cp-soc__panel-head">
+              <span className="cp-soc__eyebrow">Social Channels</span>
+              <h3>Pick your preferred feed.</h3>
+            </div>
+            <ul className="cp-soc__list">
+              {SOCIALS.map(s => {
+                const Icon = s.icon
+                const live = s.confirmed
+                return (
+                  <li key={s.name}>
+                    <a
+                      className={`cp-soc__row ${live ? '' : 'is-soon'}`}
+                      href={live ? s.href : undefined}
+                      target={live ? '_blank' : undefined}
+                      rel={live ? 'noreferrer' : undefined}
+                      aria-disabled={live ? undefined : 'true'}
+                      onClick={live ? undefined : (e) => e.preventDefault()}
+                    >
+                      <span
+                        className="cp-soc__chip"
+                        style={{ background: s.brand }}
+                        aria-hidden="true"
+                      >
+                        <Icon />
+                      </span>
+                      <div className="cp-soc__text">
+                        <span className="cp-soc__name">{s.name}</span>
+                        <span className="cp-soc__handle">{s.handle}</span>
+                      </div>
+                      {live ? (
+                        <span className="cp-soc__cta">
+                          Follow
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                            <polyline points="12 5 19 12 12 19" />
+                          </svg>
+                        </span>
+                      ) : (
+                        <span className="cp-soc__soon">Soon</span>
+                      )}
+                    </a>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+
+          {/* Right: office */}
+          <div className="cp-soc__panel cp-soc__panel--office">
+            <div className="cp-soc__panel-head">
+              <span className="cp-soc__eyebrow">Office &amp; Hours</span>
+              <h3>{OFFICE.city}</h3>
+            </div>
+
+            <ul className="cp-office__list">
+              <li>
+                <span className="cp-office__icon" aria-hidden="true"><IconPin /></span>
+                <div>
+                  <span className="cp-office__label">Location</span>
+                  <span className="cp-office__value">{OFFICE.line1}</span>
+                  <span className="cp-office__sub">{OFFICE.line2}</span>
+                </div>
+              </li>
+              <li>
+                <span className="cp-office__icon" aria-hidden="true"><IconClock /></span>
+                <div>
+                  <span className="cp-office__label">Working hours</span>
+                  <span className="cp-office__value">{OFFICE.hours}</span>
+                </div>
+              </li>
+              <li>
+                <span className="cp-office__icon" aria-hidden="true"><IconMail /></span>
+                <div>
+                  <span className="cp-office__label">Response window</span>
+                  <span className="cp-office__value">{OFFICE.window}</span>
+                  <span className="cp-office__sub">For urgent matters, WhatsApp is fastest.</span>
+                </div>
+              </li>
+            </ul>
+
+            {OFFICE.mapsUrl ? (
+              <a className="cp-office__maps" href={OFFICE.mapsUrl} target="_blank" rel="noreferrer">
+                Open in Google Maps
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </a>
+            ) : (
+              <p className="cp-office__maps-soon">
+                Map link coming soon &mdash; visits by appointment for now.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <style>{`
+        .cp-soc { background: var(--white); color: var(--ink); }
+
+        .cp-soc__grid {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 18px;
+          align-items: stretch;
+        }
+        @media (min-width: 880px) {
+          .cp-soc__grid {
+            grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+            gap: 22px;
+          }
+        }
+
+        .cp-soc__panel {
+          padding: 26px 22px;
+          background: var(--cream);
+          border: 1px solid rgba(13, 33, 55, 0.08);
+          border-radius: var(--radius-lg);
+          min-width: 0;
+        }
+        @media (min-width: 768px) { .cp-soc__panel { padding: 32px 32px; } }
+
+        .cp-soc__panel-head { margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid rgba(13, 33, 55, 0.08); }
+        .cp-soc__eyebrow {
+          display: block;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 2.4px;
+          text-transform: uppercase;
+          color: var(--purple);
+          margin-bottom: 6px;
+        }
+        .cp-soc__panel-head h3 {
+          font-family: var(--font-display);
+          font-weight: 800;
+          font-size: 22px;
+          line-height: 1.2;
+          letter-spacing: -0.3px;
+          color: var(--navy);
+        }
+
+        /* Socials list */
+        .cp-soc__list {
+          list-style: none;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .cp-soc__row {
+          display: grid;
+          grid-template-columns: 40px minmax(0, 1fr) auto;
+          align-items: center;
+          gap: 14px;
+          padding: 12px 14px;
+          background: var(--white);
+          border: 1px solid rgba(13, 33, 55, 0.08);
+          border-radius: 14px;
+          color: var(--navy);
+          text-decoration: none;
+          transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+        }
+        .cp-soc__row:hover:not(.is-soon) {
+          transform: translateY(-2px);
+          border-color: rgba(91, 45, 142, 0.32);
+          box-shadow: 0 14px 28px rgba(13, 33, 55, 0.06);
+        }
+        .cp-soc__row.is-soon { cursor: default; opacity: 0.62; }
+
+        .cp-soc__chip {
+          width: 36px;
+          height: 36px;
+          border-radius: 10px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--white);
+        }
+        .cp-soc__chip svg { width: 18px; height: 18px; }
+
+        .cp-soc__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+        .cp-soc__name {
+          font-size: 14px;
+          font-weight: 800;
+          color: var(--navy);
+          line-height: 1.2;
+        }
+        .cp-soc__handle {
+          font-size: 12px;
+          color: rgba(13, 33, 55, 0.62);
+          line-height: 1.3;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .cp-soc__cta {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 6px 12px;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 1.4px;
+          text-transform: uppercase;
+          color: var(--purple);
+          background: rgba(91, 45, 142, 0.08);
+          border-radius: 999px;
+          transition: gap 0.18s ease, background 0.18s ease;
+        }
+        .cp-soc__row:hover:not(.is-soon) .cp-soc__cta {
+          gap: 8px;
+          background: rgba(91, 45, 142, 0.14);
+        }
+        .cp-soc__soon {
+          padding: 5px 11px;
+          font-size: 10.5px;
+          font-weight: 800;
+          letter-spacing: 1.4px;
+          text-transform: uppercase;
+          color: var(--gold-dark);
+          background: rgba(201, 168, 76, 0.14);
+          border-radius: 999px;
+        }
+
+        /* Office list */
+        .cp-office__list {
+          list-style: none;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+        .cp-office__list li {
+          display: grid;
+          grid-template-columns: 40px minmax(0, 1fr);
+          gap: 14px;
+          padding: 14px 14px;
+          background: var(--white);
+          border: 1px solid rgba(13, 33, 55, 0.08);
+          border-radius: 14px;
+          align-items: start;
+        }
+        .cp-office__icon {
+          width: 36px;
+          height: 36px;
+          border-radius: 10px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(91, 45, 142, 0.1);
+          color: var(--purple);
+        }
+        .cp-office__icon svg { width: 18px; height: 18px; }
+        .cp-office__list > li > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+        .cp-office__label {
+          font-size: 10.5px;
+          font-weight: 800;
+          letter-spacing: 1.8px;
+          text-transform: uppercase;
+          color: rgba(13, 33, 55, 0.55);
+        }
+        .cp-office__value {
+          font-size: 14.5px;
+          font-weight: 700;
+          color: var(--navy);
+          line-height: 1.4;
+        }
+        .cp-office__sub {
+          font-size: 12.5px;
+          color: rgba(13, 33, 55, 0.6);
+          line-height: 1.5;
+        }
+
+        .cp-office__maps {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          margin-top: 18px;
+          padding: 10px 16px;
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: 1.5px;
+          text-transform: uppercase;
+          color: var(--white);
+          background: var(--purple);
+          border-radius: 999px;
+          text-decoration: none;
+          transition: gap 0.18s ease, background 0.18s ease;
+        }
+        .cp-office__maps:hover { gap: 12px; background: var(--purple-dark); }
+        .cp-office__maps-soon {
+          margin-top: 18px;
+          font-size: 12px;
+          color: rgba(13, 33, 55, 0.55);
+          font-style: italic;
+        }
+      `}</style>
+    </section>
+  )
+}
+
+// ---- Office icon ------------------------------------------------------------
+
+function IconPin() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 22s7-7 7-12a7 7 0 0 0-14 0c0 5 7 12 7 12z" />
+      <circle cx="12" cy="10" r="2.6" />
+    </svg>
+  )
+}
+
+// ---- Social icons (duplicated locally — keep in sync with MediaSection) -----
+
+function SocialFacebook() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M13.5 21v-7.4h2.5l.4-2.9h-2.9V8.9c0-.84.24-1.41 1.46-1.41H16.5V4.9c-.27-.04-1.2-.12-2.28-.12-2.26 0-3.8 1.38-3.8 3.9v2.17H8v2.9h2.42V21h3.08z" />
+    </svg>
+  )
+}
+function SocialInstagram() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="0.9" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+function SocialLinkedIn() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M4.98 3.5A2.5 2.5 0 1 1 5 8.5a2.5 2.5 0 0 1-.02-5zM3 9.5h4V21H3V9.5zm7 0h3.8v1.6h.05c.53-.95 1.83-1.95 3.76-1.95 4.02 0 4.76 2.55 4.76 5.86V21h-4v-5.22c0-1.25-.03-2.86-1.8-2.86-1.8 0-2.08 1.35-2.08 2.76V21h-4V9.5z" />
+    </svg>
+  )
+}
+function SocialYouTube() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M21.6 7.2c-.2-1.4-.9-2.1-2.3-2.3C17.4 4.6 12 4.6 12 4.6s-5.4 0-7.3.3c-1.4.2-2.1.9-2.3 2.3C2.1 9.1 2.1 12 2.1 12s0 2.9.3 4.8c.2 1.4.9 2.1 2.3 2.3 1.9.3 7.3.3 7.3.3s5.4 0 7.3-.3c1.4-.2 2.1-.9 2.3-2.3.3-1.9.3-4.8.3-4.8s0-2.9-.3-4.8zM10 15.4V8.6L15.8 12 10 15.4z" />
+    </svg>
+  )
+}
+function SocialSpotify() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm4.6 14.4c-.2.3-.6.4-.9.2-2.5-1.5-5.7-1.9-9.4-1-.4.1-.7-.1-.8-.5-.1-.4.1-.7.5-.8 4.1-.9 7.6-.5 10.5 1.2.3.2.4.6.1.9zm1.2-2.7c-.3.4-.7.5-1.1.3-2.9-1.8-7.3-2.3-10.7-1.3-.4.1-.9-.1-1-.5-.1-.4.1-.9.5-1 3.9-1.2 8.8-.6 12.1 1.5.4.2.5.7.2 1zm.1-2.8c-3.4-2-9.1-2.2-12.4-1.2-.5.2-1.1-.1-1.2-.6-.2-.5.1-1.1.6-1.2 3.8-1.2 10.1-.9 14 1.4.5.3.6.9.3 1.3-.2.5-.8.6-1.3.3z" />
+    </svg>
+  )
+}
+function SocialTikTok() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M19.6 8.3a6.1 6.1 0 0 1-3.6-1.2v7.3a5.8 5.8 0 1 1-5.8-5.8c.3 0 .6 0 .9.1v2.9a2.9 2.9 0 1 0 2 2.8V2h2.9a3.9 3.9 0 0 0 3.6 3.5v2.8z" />
+    </svg>
+  )
+}
+function SocialX() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M17.5 3h3.2l-7 8 8.2 10h-6.4l-5-6.5L4.5 21H1.3l7.5-8.5L1 3h6.5l4.5 6 5.5-6z" />
     </svg>
   )
 }
