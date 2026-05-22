@@ -51,7 +51,36 @@ alter table tasks      enable row level security;
 create policy "anon_all" on forms      for all using (true) with check (true);
 create policy "anon_all" on submissions for all using (true) with check (true);
 create policy "anon_all" on speakers   for all using (true) with check (true);
-create policy "anon_all" on tasks      for all using (true) with check (true);`
+create policy "anon_all" on tasks      for all using (true) with check (true);
+
+-- Public platform tables (programs, enrollments, testimonials)
+create table programs (
+  id text primary key,
+  data jsonb not null,
+  created_at timestamptz not null default now()
+);
+
+create table enrollments (
+  id text primary key,
+  program_id text not null,
+  data jsonb not null,
+  created_at timestamptz not null default now()
+);
+create index on enrollments(program_id);
+
+create table testimonials (
+  id text primary key,
+  data jsonb not null,
+  created_at timestamptz not null default now()
+);
+
+alter table programs     enable row level security;
+alter table enrollments  enable row level security;
+alter table testimonials enable row level security;
+
+create policy "anon_all" on programs     for all using (true) with check (true);
+create policy "anon_all" on enrollments  for all using (true) with check (true);
+create policy "anon_all" on testimonials for all using (true) with check (true);`
 
 export default function DatabaseSetup() {
   const navigate = useNavigate()

@@ -316,6 +316,119 @@ export function getTimeLeft(targetDateStr) {
   }
 }
 
+// ── Programs CRUD ──────────────────────────────────────────────────────────
+export async function getAllPrograms() {
+  const sb = getSupabase()
+  if (sb) {
+    const { data, error } = await sb.from('programs').select('data').order('created_at', { ascending: false })
+    if (error) throw error
+    return (data || []).map(r => r.data)
+  }
+  return dbGetAll('programs')
+}
+
+export async function getProgramById(id) {
+  const sb = getSupabase()
+  if (sb) {
+    const { data, error } = await sb.from('programs').select('data').eq('id', id).single()
+    if (error) return null
+    return data?.data || null
+  }
+  return dbGet('programs', id)
+}
+
+export async function saveProgram(program) {
+  const now = new Date().toISOString()
+  const record = { ...program, updatedAt: now }
+  if (!record.id) record.id = uid()
+  if (!record.createdAt) record.createdAt = now
+  const sb = getSupabase()
+  if (sb) {
+    const { error } = await sb.from('programs').upsert(
+      { id: record.id, data: record, created_at: record.createdAt },
+      { onConflict: 'id' }
+    )
+    if (error) throw error
+    return record
+  }
+  await dbPut('programs', record)
+  return record
+}
+
+export async function deleteProgram(id) {
+  const sb = getSupabase()
+  if (sb) {
+    const { error } = await sb.from('programs').delete().eq('id', id)
+    if (error) throw error
+    return
+  }
+  await dbDelete('programs', id)
+}
+
+// ── Enrollments CRUD ───────────────────────────────────────────────────────
+export async function addEnrollment(enrollment) {
+  const record = { ...enrollment, id: enrollment.id || uid(), enrolledAt: enrollment.enrolledAt || new Date().toISOString() }
+  const sb = getSupabase()
+  if (sb) {
+    const { error } = await sb.from('enrollments').insert({
+      id: record.id, program_id: record.programId, data: record,
+    })
+    if (error) throw error
+    return record
+  }
+  await dbPut('enrollments', record)
+  return record
+}
+
+export async function getEnrollmentsByProgram(programId) {
+  const sb = getSupabase()
+  if (sb) {
+    const { data, error } = await sb.from('enrollments').select('data').eq('program_id', programId).order('created_at', { ascending: false })
+    if (error) throw error
+    return (data || []).map(r => r.data)
+  }
+  return dbGetByIndex('enrollments', 'programId', programId)
+}
+
+// ── Testimonials CRUD ──────────────────────────────────────────────────────
+export async function getAllTestimonials() {
+  const sb = getSupabase()
+  if (sb) {
+    const { data, error } = await sb.from('testimonials').select('data').order('created_at', { ascending: false })
+    if (error) throw error
+    return (data || []).map(r => r.data)
+  }
+  return dbGetAll('testimonials')
+}
+
+export async function saveTestimonial(testimonial) {
+  const now = new Date().toISOString()
+  const record = { ...testimonial, updatedAt: now }
+  if (!record.id) record.id = uid()
+  if (!record.createdAt) record.createdAt = now
+  const sb = getSupabase()
+  if (sb) {
+    const { error } = await sb.from('testimonials').upsert(
+      { id: record.id, data: record, created_at: record.createdAt },
+      { onConflict: 'id' }
+    )
+    if (error) throw error
+    return record
+  }
+  await dbPut('testimonials', record)
+  return record
+}
+
+export async function deleteTestimonial(id) {
+  const sb = getSupabase()
+  if (sb) {
+    const { error } = await sb.from('testimonials').delete().eq('id', id)
+    if (error) throw error
+    return
+  }
+  await dbDelete('testimonials', id)
+}
+
 // ── Format date ────────────────────────────────────────────────────────────
 export function formatDate(dateStr) {
   if (!dateStr) return ''

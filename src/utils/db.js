@@ -3,7 +3,7 @@
 // Much larger storage limit and better suited for binary data (photo uploads).
 
 const DB_NAME = 'iwc_db'
-const DB_VERSION = 1
+const DB_VERSION = 2
 let _db = null
 
 function openDB() {
@@ -25,6 +25,16 @@ function openDB() {
       }
       if (!db.objectStoreNames.contains('tasks')) {
         db.createObjectStore('tasks', { keyPath: 'formId' })
+      }
+      if (!db.objectStoreNames.contains('programs')) {
+        db.createObjectStore('programs', { keyPath: 'id' })
+      }
+      if (!db.objectStoreNames.contains('enrollments')) {
+        const en = db.createObjectStore('enrollments', { keyPath: 'id' })
+        en.createIndex('programId', 'programId', { unique: false })
+      }
+      if (!db.objectStoreNames.contains('testimonials')) {
+        db.createObjectStore('testimonials', { keyPath: 'id' })
       }
     }
 
