@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { uid, getAllForms, getAllPrograms, saveProgram, deleteProgram } from '../utils/formStorage'
+import { uploadToCloudinary } from '../utils/cloudinary'
 
 const ACC = '#E4600A'
 const ACC2 = '#F5B800'
@@ -55,7 +56,7 @@ function makeDefault() {
     tags: [],
     featured: false,
     featuredOrder: 0,
-    onboardingMode: 'simple',
+    onboardingMode: 'steps',
     paystackPublicKey: '',
     hasPortalAccess: false,
     createdAt: new Date().toISOString(),
@@ -70,6 +71,7 @@ export default function ProgramsManager() {
   const [prog, setProg] = useState(null)
   const [tab, setTab] = useState('details')
   const [tagInput, setTagInput] = useState('')
+  const [uploading, setUploading] = useState(false)
 
   const refresh = useCallback(async () => {
     const [ps, fs] = await Promise.all([getAllPrograms(), getAllForms()])
@@ -121,24 +123,18 @@ export default function ProgramsManager() {
     window.open(`${base}#/onboard?programId=${id}`, '_blank')
   }
 
-  function handleImageUpload(e) {
+  async function handleImageUpload(e) {
     const file = e.target.files[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = ev => {
-      const img = new Image()
-      img.onload = () => {
-        const MAX = 1200
-        const scale = Math.min(1, MAX / Math.max(img.width, img.height))
-        const canvas = document.createElement('canvas')
-        canvas.width  = Math.round(img.width  * scale)
-        canvas.height = Math.round(img.height * scale)
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
-        set('image', canvas.toDataURL('image/jpeg', 0.82))
-      }
-      img.src = ev.target.result
+    setUploading(true)
+    try {
+      const url = await uploadToCloudinary(file, { maxPx: 1200, quality: 0.82 })
+      set('image', url)
+    } finally {
+      setUploading(false)
+      // reset input so same file can be re-selected
+      e.target.value = ''
     }
-    reader.readAsDataURL(file)
   }
 
   // Derive wizard steps preview from linked form
@@ -274,11 +270,11 @@ export default function ProgramsManager() {
                         <button onClick={() => set('image', null)} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(0,0,0,0.7)', border: 'none', borderRadius: '50%', color: 'white', cursor: 'pointer', width: 24, height: 24, fontSize: 12 }}>✕</button>
                       </div>
                     ) : (
-                      <label style={{ display: 'block', border: `2px dashed rgba(228,96,10,0.4)`, borderRadius: 10, padding: '20px', textAlign: 'center', cursor: 'pointer', background: 'rgba(228,96,10,0.05)', marginBottom: 12 }}>
-                        <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
-                        <div style={{ fontSize: 28, marginBottom: 6 }}>🖼️</div>
-                        <div style={{ fontSize: 11, color: ACC2, fontWeight: 700 }}>Click to upload program image</div>
-                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 3 }}>JPG, PNG, WebP · Max 3MB</div>
+                      <label style={{ display: 'block', border: `2px dashed rgba(228,96,10,0.4)`, borderRadius: 10, padding: '20px', textAlign: 'center', cursor: uploading ? 'not-allowed' : 'pointer', background: 'rgba(228,96,10,0.05)', marginBottom: 12, opacity: uploading ? 0.6 : 1 }}>
+                        <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} disabled={uploading} />
+                        <div style={{ fontSize: 28, marginBottom: 6 }}>{uploading ? '⏳' : '🖼️'}</div>
+                        <div style={{ fontSize: 11, color: ACC2, fontWeight: 700 }}>{uploading ? 'Uploading to Cloudinary…' : 'Click to upload program image'}</div>
+                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 3 }}>JPG, PNG, WebP</div>
                       </label>
                     )}
                   </>

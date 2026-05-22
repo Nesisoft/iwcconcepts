@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAllTestimonials, saveTestimonial, deleteTestimonial, getAllPrograms } from '../utils/formStorage'
 import { uid } from '../utils/formStorage'
+import { uploadToCloudinary } from '../utils/cloudinary'
 
 const ACCENT = '#6c3fc5'
 
@@ -49,6 +50,7 @@ export default function TestimonialsManager() {
   const [draft, setDraft] = useState(null)
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
+  const [uploading, setUploading] = useState(false)
   const [search, setSearch] = useState('')
   const [filterVisible, setFilterVisible] = useState('all')
   const saveTimer = useRef(null)
@@ -112,24 +114,17 @@ export default function TestimonialsManager() {
     if (selected === t.id) setDraft(updated)
   }
 
-  function handlePhotoUpload(e) {
+  async function handlePhotoUpload(e) {
     const file = e.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = ev => {
-      const img = new Image()
-      img.onload = () => {
-        const MAX = 200
-        const scale = Math.min(1, MAX / Math.max(img.width, img.height))
-        const canvas = document.createElement('canvas')
-        canvas.width  = Math.round(img.width  * scale)
-        canvas.height = Math.round(img.height * scale)
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
-        patch({ authorPhoto: canvas.toDataURL('image/jpeg', 0.75) })
-      }
-      img.src = ev.target.result
+    setUploading(true)
+    try {
+      const url = await uploadToCloudinary(file, { maxPx: 200, quality: 0.75 })
+      patch({ authorPhoto: url })
+    } finally {
+      setUploading(false)
+      e.target.value = ''
     }
-    reader.readAsDataURL(file)
   }
 
   const filtered = testimonials.filter(t => {
@@ -272,8 +267,8 @@ export default function TestimonialsManager() {
                         ? <img src={draft.authorPhoto} alt="" style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: `2px solid ${ACCENT}` }} />
                         : <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: 12 }}>No photo</div>
                       }
-                      <input ref={fileRef} type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display: 'none' }} />
-                      <button onClick={() => fileRef.current?.click()} style={btnSecondary}>Upload Photo</button>
+                      <input ref={fileRef} type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display: 'none' }} disabled={uploading} />
+                      <button onClick={() => !uploading && fileRef.current?.click()} disabled={uploading} style={{ ...btnSecondary, opacity: uploading ? 0.6 : 1 }}>{uploading ? 'Uploading…' : 'Upload Photo'}</button>
                       {draft.authorPhoto && (
                         <button onClick={() => patch({ authorPhoto: '' })} style={{ ...btnSecondary, color: '#ef4444', borderColor: '#fca5a5' }}>Remove</button>
                       )}

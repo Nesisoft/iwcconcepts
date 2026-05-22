@@ -14,8 +14,8 @@ const inp = (extra = {}) => ({
   ...extra,
 })
 
-const SQL = `-- Run this once in your Supabase SQL Editor
--- Project → SQL Editor → New Query → paste → Run
+const SQL = `-- ── Run ONCE: Create tables ────────────────────────────────────────────────
+-- Supabase → SQL Editor → New Query → paste → Run
 
 create table forms (
   id text primary key,
@@ -42,18 +42,6 @@ create table tasks (
   data jsonb not null
 );
 
--- Allow access with the anon key (single-org app, no user auth)
-alter table forms      enable row level security;
-alter table submissions enable row level security;
-alter table speakers   enable row level security;
-alter table tasks      enable row level security;
-
-create policy "anon_all" on forms      for all using (true) with check (true);
-create policy "anon_all" on submissions for all using (true) with check (true);
-create policy "anon_all" on speakers   for all using (true) with check (true);
-create policy "anon_all" on tasks      for all using (true) with check (true);
-
--- Public platform tables (programs, enrollments, testimonials)
 create table programs (
   id text primary key,
   data jsonb not null,
@@ -74,13 +62,71 @@ create table testimonials (
   created_at timestamptz not null default now()
 );
 
+-- ── Enable RLS on all tables ────────────────────────────────────────────────
+alter table forms        enable row level security;
+alter table submissions  enable row level security;
+alter table speakers     enable row level security;
+alter table tasks        enable row level security;
 alter table programs     enable row level security;
 alter table enrollments  enable row level security;
 alter table testimonials enable row level security;
 
-create policy "anon_all" on programs     for all using (true) with check (true);
-create policy "anon_all" on enrollments  for all using (true) with check (true);
-create policy "anon_all" on testimonials for all using (true) with check (true);`
+-- ── RLS Policies ────────────────────────────────────────────────────────────
+-- Public read (landing page, registration links):
+create policy "read_programs"     on programs     for select using (true);
+create policy "read_testimonials" on testimonials for select using (true);
+create policy "read_forms"        on forms        for select using (true);
+
+-- Admin writes (authenticated Supabase users only):
+create policy "admin_programs"     on programs     for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "admin_testimonials" on testimonials for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "admin_forms"        on forms        for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "admin_speakers"     on speakers     for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "admin_tasks"        on tasks        for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+-- Submissions: anyone can submit, only admin can read
+create policy "insert_submissions" on submissions for insert with check (true);
+create policy "admin_submissions"  on submissions for select using (auth.role() = 'authenticated');
+create policy "admin_del_submissions" on submissions for delete using (auth.role() = 'authenticated');
+
+-- Enrollments: anyone can enroll, only admin can read
+create policy "insert_enrollments" on enrollments for insert with check (true);
+create policy "admin_enrollments"  on enrollments for select using (auth.role() = 'authenticated');
+create policy "admin_del_enrollments" on enrollments for delete using (auth.role() = 'authenticated');`
+
+// Run this if tables already exist — replaces the old open policies
+const SQL_UPDATE_RLS = `-- ── Update existing RLS policies (run if tables already exist) ─────────────
+-- Drop the old open-access policies first, then re-create tightened ones.
+
+drop policy if exists "anon_all" on forms;
+drop policy if exists "anon_all" on submissions;
+drop policy if exists "anon_all" on speakers;
+drop policy if exists "anon_all" on tasks;
+drop policy if exists "anon_all" on programs;
+drop policy if exists "anon_all" on enrollments;
+drop policy if exists "anon_all" on testimonials;
+
+-- Public read
+create policy "read_programs"     on programs     for select using (true);
+create policy "read_testimonials" on testimonials for select using (true);
+create policy "read_forms"        on forms        for select using (true);
+
+-- Admin writes
+create policy "admin_programs"     on programs     for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "admin_testimonials" on testimonials for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "admin_forms"        on forms        for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "admin_speakers"     on speakers     for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "admin_tasks"        on tasks        for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+-- Submissions: anyone inserts, admin reads
+create policy "insert_submissions"    on submissions for insert with check (true);
+create policy "admin_submissions"     on submissions for select using (auth.role() = 'authenticated');
+create policy "admin_del_submissions" on submissions for delete using (auth.role() = 'authenticated');
+
+-- Enrollments: anyone inserts, admin reads
+create policy "insert_enrollments"    on enrollments for insert with check (true);
+create policy "admin_enrollments"     on enrollments for select using (auth.role() = 'authenticated');
+create policy "admin_del_enrollments" on enrollments for delete using (auth.role() = 'authenticated');`
 
 export default function DatabaseSetup() {
   const navigate = useNavigate()
@@ -91,6 +137,7 @@ export default function DatabaseSetup() {
   const [migrating, setMigrating] = useState(false)
   const [migLog, setMigLog] = useState([])
   const [sqlCopied, setSqlCopied] = useState(false)
+  const [rlsCopied, setRlsCopied] = useState(false)
   const [showKey, setShowKey] = useState(false)
   const [connected, setConnected] = useState(isConfigured())
 
@@ -156,6 +203,10 @@ export default function DatabaseSetup() {
     navigator.clipboard.writeText(SQL).then(() => { setSqlCopied(true); setTimeout(() => setSqlCopied(false), 2000) })
   }
 
+  function copyRLS() {
+    navigator.clipboard.writeText(SQL_UPDATE_RLS).then(() => { setRlsCopied(true); setTimeout(() => setRlsCopied(false), 2000) })
+  }
+
   const card = { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, padding: 24, marginBottom: 20 }
   const label = { fontSize: 10, fontWeight: 700, color: ACC, letterSpacing: 2, textTransform: 'uppercase', display: 'block', marginBottom: 6 }
   const sectionTitle = { fontSize: 13, fontWeight: 800, color: 'white', marginBottom: 6 }
@@ -205,6 +256,24 @@ export default function DatabaseSetup() {
             <pre style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 16, fontSize: 11, lineHeight: 1.7, color: 'rgba(255,255,255,0.75)', overflowX: 'auto', margin: 0, whiteSpace: 'pre-wrap' }}>{SQL}</pre>
             <button onClick={copySQL} style={{ position: 'absolute', top: 10, right: 10, background: sqlCopied ? 'rgba(46,204,113,0.25)' : 'rgba(255,255,255,0.1)', border: `1px solid ${sqlCopied ? 'rgba(46,204,113,0.5)' : 'rgba(255,255,255,0.2)'}`, borderRadius: 6, color: sqlCopied ? '#2ECC71' : 'white', padding: '5px 12px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
               {sqlCopied ? '✓ Copied!' : 'Copy SQL'}
+            </button>
+          </div>
+        </div>
+
+        {/* Existing setup: update RLS policies */}
+        <div style={{ ...card, border: '1px solid rgba(239,68,68,0.25)', background: 'rgba(239,68,68,0.05)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+            <span style={{ fontSize: 18 }}>🔒</span>
+            <div style={sectionTitle}>Already have tables? Tighten security (run once)</div>
+          </div>
+          <p style={muted}>
+            If you ran the old setup SQL (with <code style={{ color: '#f87171', fontSize: 11 }}>"anon_all"</code> open policies), paste this in the SQL Editor to replace them with proper access controls.
+            Admins (authenticated users) retain full access; anonymous visitors can only read programs/testimonials and submit registrations.
+          </p>
+          <div style={{ position: 'relative', marginTop: 14 }}>
+            <pre style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 16, fontSize: 11, lineHeight: 1.7, color: 'rgba(255,255,255,0.75)', overflowX: 'auto', margin: 0, whiteSpace: 'pre-wrap' }}>{SQL_UPDATE_RLS}</pre>
+            <button onClick={copyRLS} style={{ position: 'absolute', top: 10, right: 10, background: rlsCopied ? 'rgba(46,204,113,0.25)' : 'rgba(255,255,255,0.1)', border: `1px solid ${rlsCopied ? 'rgba(46,204,113,0.5)' : 'rgba(255,255,255,0.2)'}`, borderRadius: 6, color: rlsCopied ? '#2ECC71' : 'white', padding: '5px 12px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+              {rlsCopied ? '✓ Copied!' : 'Copy SQL'}
             </button>
           </div>
         </div>

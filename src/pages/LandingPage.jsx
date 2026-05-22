@@ -169,8 +169,7 @@ function HeroCarousel({ programs }) {
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <button
               onClick={() => {
-                if (slide.type === 'paid') navigate(`/onboard?programId=${slide.id}`)
-                else if (slide.registrationFormId) navigate(`/register?id=${slide.registrationFormId}`)
+                if (slide.registrationFormId) navigate(`/onboard?programId=${slide.id}`)
               }}
               style={{ background: GOLD, color: '#1A1A2E', border: 'none', borderRadius: 10, padding: '14px 32px', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}
             >{slide.type === 'paid' ? `Register · ${priceLabel(slide)}` : 'Join Free →'}</button>
@@ -230,8 +229,7 @@ function ProgramCard({ program }) {
 
   function handleCTA() {
     if (!canRegister) return
-    if (isPaid) navigate(`/onboard?programId=${program.id}`)
-    else if (program.registrationFormId) navigate(`/register?id=${program.registrationFormId}`)
+    if (program.registrationFormId) navigate(`/onboard?programId=${program.id}`)
   }
 
   return (
