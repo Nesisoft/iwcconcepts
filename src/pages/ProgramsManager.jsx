@@ -116,6 +116,11 @@ export default function ProgramsManager() {
     if (selected === id) setProg(prev => ({ ...prev, featured: !prev.featured }))
   }
 
+  function openOnboarding(id) {
+    const base = window.location.href.split('#')[0]
+    window.open(`${base}#/onboard?programId=${id}`, '_blank')
+  }
+
   function handleImageUpload(e) {
     const file = e.target.files[0]
     if (!file) return
@@ -197,7 +202,7 @@ export default function ProgramsManager() {
                   <span style={{ fontSize: 8, fontWeight: 800, padding: '2px 7px', borderRadius: 10, background: p.type === 'paid' ? 'rgba(245,184,0,0.15)' : 'rgba(16,185,129,0.15)', color: p.type === 'paid' ? ACC2 : '#34d399', letterSpacing: 1, textTransform: 'uppercase' }}>{p.type === 'paid' ? `GHS ${p.price}` : 'FREE'}</span>
                 </div>
                 <div style={{ display: 'flex', gap: 5, marginTop: 8 }}>
-                  <button onClick={e => { e.stopPropagation(); window.open(`#/onboard?programId=${p.id}`, '_blank') }} style={{ flex: 1, background: 'rgba(52,152,219,0.15)', border: 'none', borderRadius: 6, color: '#74b9e8', fontSize: 9, fontWeight: 700, padding: '5px', cursor: 'pointer' }}>Preview</button>
+                  <button onClick={e => { e.stopPropagation(); openOnboarding(p.id) }} style={{ flex: 1, background: 'rgba(52,152,219,0.15)', border: 'none', borderRadius: 6, color: '#74b9e8', fontSize: 9, fontWeight: 700, padding: '5px', cursor: 'pointer' }}>Preview</button>
                   <button onClick={e => { e.stopPropagation(); handleDelete(p.id) }} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: 6, color: '#f87171', fontSize: 9, fontWeight: 700, padding: '5px 8px', cursor: 'pointer' }}>✕</button>
                 </div>
               </div>
@@ -395,7 +400,7 @@ export default function ProgramsManager() {
                     </div>
                     <Toggle label="Allow portal access (Phase 2 — learning portal)" checked={prog.hasPortalAccess} onChange={e => set('hasPortalAccess', e.target.checked)} />
                     <div style={divider} />
-                    <button onClick={() => window.open(`#/onboard?programId=${prog.id}`, '_blank')} style={{ width: '100%', background: 'rgba(52,152,219,0.2)', border: '1px solid rgba(52,152,219,0.4)', borderRadius: 8, color: '#74b9e8', fontSize: 11, fontWeight: 700, padding: '10px', cursor: 'pointer' }}>
+                    <button onClick={() => openOnboarding(prog.id)} style={{ width: '100%', background: 'rgba(52,152,219,0.2)', border: '1px solid rgba(52,152,219,0.4)', borderRadius: 8, color: '#74b9e8', fontSize: 11, fontWeight: 700, padding: '10px', cursor: 'pointer' }}>
                       🔗 Preview Onboarding Page
                     </button>
                   </>
