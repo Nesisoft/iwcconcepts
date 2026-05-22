@@ -740,7 +740,7 @@ export default function EventDashboard() {
       {/* Header */}
       <header style={S.header}>
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/admin')}
           style={{ background: 'none', border: 'none', color: '#C9A84C', fontSize: 18, cursor: 'pointer', padding: '0 4px 0 0' }}
         >←</button>
         <div style={{
