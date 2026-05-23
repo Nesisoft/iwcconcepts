@@ -1,0 +1,48 @@
+# Render deployment — single service (Express serves API + Vite build)
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: iwcconcepts
+    runtime: node
+    region: oregon
+
+    # Build: install all deps, build the Vite frontend, install server deps
+    buildCommand: npm install && npm run build && cd server && npm install
+
+    # Start: Express serves /api/* routes and the built frontend
+    startCommand: node server/index.js
+
+    # Health check — returns { ok: true } when DB is reachable
+    healthCheckPath: /api/health
+
+    envVars:
+      # ── Database ────────────────────────────────────────────────────────────
+      # Any PostgreSQL connection string — local, Supabase, Neon, Railway, etc.
+      - key: DATABASE_URL
+        sync: false        # set manually in Render dashboard
+
+      # ── Auth ────────────────────────────────────────────────────────────────
+      # Supabase JWT secret (Settings → API → JWT Settings → JWT Secret)
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+
+      # ── Cloudinary (optional) ────────────────────────────────────────────────
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+      # ── CORS ────────────────────────────────────────────────────────────────
+      # Set to the exact URL of your frontend (or leave * during dev)
+      # In single-service mode (Express serves the frontend too) you can omit this.
+      - key: ALLOWED_ORIGIN
+        value: "*"
+
+      # ── Supabase Auth (for admin login — frontend reads these) ───────────────
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
