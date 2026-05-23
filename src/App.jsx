@@ -1,6 +1,5 @@
-import { useEffect } from 'react'
+
 import { HashRouter, Routes, Route } from 'react-router-dom'
-import { migrateFromLocalStorage } from './utils/db'
 import { AuthProvider } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Login from './pages/Login'
@@ -32,7 +31,6 @@ function PrivateRoute({ element }) {
 }
 
 export default function App() {
-  useEffect(() => { migrateFromLocalStorage() }, [])
   return (
     <HashRouter>
       <AuthProvider>
