@@ -65,13 +65,16 @@ create table if not exists testimonials (
   created_at timestamptz not null default now()
 );`
 
-// ── Server env vars ────────────────────────────────────────────────────────────
-const SERVER_ENV = `# ── server/.env (copy from server/.env.example) ────────────────────────────
+// ── Vercel env vars ────────────────────────────────────────────────────────────
+const SERVER_ENV = `# ── Vercel Dashboard → Project → Settings → Environment Variables ──────────
 
 # Any PostgreSQL connection string — swap this to change databases with no code changes
+# Use your provider's pooler URL for best serverless performance:
+#   Supabase: postgresql://postgres.[ref]:[pass]@aws-0-[region].pooler.supabase.com:5432/postgres
+#   Neon:     postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/neondb?sslmode=require
 DATABASE_URL=postgresql://postgres:password@localhost:5432/iwcconcepts
 
-# Supabase JWT secret — for verifying admin login tokens (no network call)
+# Supabase JWT secret — verifies admin login tokens locally (no network call)
 # Supabase Dashboard → Settings → API → JWT Settings → JWT Secret
 SUPABASE_JWT_SECRET=your-supabase-jwt-secret-here
 
@@ -80,8 +83,9 @@ CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
 
-# CORS — set to your frontend URL in production
-ALLOWED_ORIGIN=http://localhost:5173`
+# Supabase Auth — for browser login (prefix with VITE_ so Vite exposes them)
+VITE_SUPABASE_URL=https://xxxxxxxxxxxxxxxxxxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...`
 
 export default function DatabaseSetup() {
   const navigate = useNavigate()
@@ -159,7 +163,7 @@ export default function DatabaseSetup() {
         <div style={{ width: 36, height: 36, background: `linear-gradient(135deg,${ACC},#e8c060)`, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🗄️</div>
         <div>
           <div style={{ fontSize: 14, fontWeight: 800 }}>Database Setup</div>
-          <div style={{ fontSize: 9, color: ACC, letterSpacing: 2, textTransform: 'uppercase' }}>Backend · Any PostgreSQL</div>
+          <div style={{ fontSize: 9, color: ACC, letterSpacing: 2, textTransform: 'uppercase' }}>Vercel · Any PostgreSQL</div>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, background: connected ? 'rgba(46,204,113,0.12)' : 'rgba(255,255,255,0.06)', border: `1px solid ${connected ? 'rgba(46,204,113,0.4)' : 'rgba(255,255,255,0.12)'}`, borderRadius: 20, padding: '5px 14px', fontSize: 11, fontWeight: 700, color: connected ? '#2ECC71' : 'rgba(255,255,255,0.5)' }}>
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: connected ? '#2ECC71' : 'rgba(255,255,255,0.3)', display: 'inline-block' }} />
@@ -172,8 +176,8 @@ export default function DatabaseSetup() {
         {/* Architecture note */}
         <div style={{ background: 'rgba(52,152,219,0.08)', border: '1px solid rgba(52,152,219,0.25)', borderRadius: 12, padding: 18, marginBottom: 24, fontSize: 12, lineHeight: 1.8, color: 'rgba(255,255,255,0.6)' }}>
           <strong style={{ color: '#3498DB' }}>How the backend works</strong><br />
-          All data (programs, forms, speakers, enrollments…) goes through your own Express server at <code style={{ color: '#93c5fd', fontSize: 11 }}>/api/db</code>.
-          The server connects to PostgreSQL using <code style={{ color: '#93c5fd', fontSize: 11 }}>DATABASE_URL</code> — change that one env var to point at any database: local, Supabase, Neon, Railway, your own VPS.<br /><br />
+          All data (programs, forms, speakers, enrollments…) goes through Vercel serverless functions at <code style={{ color: '#93c5fd', fontSize: 11 }}>/api/db</code>.
+          The function connects to PostgreSQL using <code style={{ color: '#93c5fd', fontSize: 11 }}>DATABASE_URL</code> — change that one env var to point at any database: Supabase, Neon, Railway, local, or your own VPS.<br /><br />
           Login and session management still use <strong style={{ color: 'white' }}>Supabase Auth</strong> (configured below), which is a separate service from the database.
         </div>
 
@@ -225,11 +229,11 @@ export default function DatabaseSetup() {
         <div style={card}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
             <div style={{ width: 30, height: 30, background: `linear-gradient(135deg,${ACC},#e8c060)`, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 13, color: '#1a0d2e', flexShrink: 0 }}>3</div>
-            <div style={sectionTitle}>Configure the backend server</div>
+            <div style={sectionTitle}>Configure environment variables</div>
           </div>
           <p style={muted}>
-            Copy <code style={{ color: '#93c5fd', fontSize: 11 }}>server/.env.example</code> to <code style={{ color: '#93c5fd', fontSize: 11 }}>server/.env</code> and fill in your values.
-            On Render / Railway / Fly.io, paste these as environment variables in the dashboard instead.
+            Add these in the <strong style={{ color: 'white' }}>Vercel Dashboard → Project → Settings → Environment Variables</strong>.
+            For local dev, copy <code style={{ color: '#93c5fd', fontSize: 11 }}>.env.example</code> to <code style={{ color: '#93c5fd', fontSize: 11 }}>.env</code> and fill in your values.
           </p>
           <div style={{ position: 'relative', marginTop: 14 }}>
             <pre style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 16, fontSize: 11, lineHeight: 1.7, color: 'rgba(255,255,255,0.75)', overflowX: 'auto', margin: 0, whiteSpace: 'pre-wrap' }}>{SERVER_ENV}</pre>
@@ -239,7 +243,7 @@ export default function DatabaseSetup() {
           </div>
           <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 8, background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)', fontSize: 11, color: 'rgba(255,255,255,0.5)', lineHeight: 1.7 }}>
             <strong style={{ color: ACC }}>Switching databases</strong><br />
-            Just change <code style={{ color: '#93c5fd' }}>DATABASE_URL</code> to point at your new PostgreSQL. Run the SQL schema on the new DB. No code changes needed.
+            Update <code style={{ color: '#93c5fd' }}>DATABASE_URL</code> in Vercel to point at your new PostgreSQL, run the SQL schema on the new DB, and redeploy. No code changes needed.
           </div>
         </div>
 
@@ -294,14 +298,13 @@ export default function DatabaseSetup() {
 
         {/* Deploy note */}
         <div style={{ background: 'rgba(52,152,219,0.06)', border: '1px solid rgba(52,152,219,0.2)', borderRadius: 12, padding: 18, fontSize: 12, lineHeight: 1.9, color: 'rgba(255,255,255,0.5)' }}>
-          <strong style={{ color: '#3498DB' }}>Deploying to Render</strong><br />
+          <strong style={{ color: '#3498DB' }}>Deploying to Vercel</strong><br />
           1. Push repo to GitHub<br />
-          2. Render → New Web Service → connect repo<br />
-          3. <strong style={{ color: 'white' }}>Root directory:</strong> <code style={{ color: '#93c5fd', fontSize: 11 }}>server</code><br />
-          4. <strong style={{ color: 'white' }}>Build command:</strong> <code style={{ color: '#93c5fd', fontSize: 11 }}>npm install</code><br />
-          5. <strong style={{ color: 'white' }}>Start command:</strong> <code style={{ color: '#93c5fd', fontSize: 11 }}>node index.js</code><br />
-          6. Add all env vars in Render's Environment tab<br />
-          7. Run <code style={{ color: '#93c5fd', fontSize: 11 }}>npm run build</code> and deploy the <code style={{ color: '#93c5fd', fontSize: 11 }}>dist/</code> folder — or let the Express server serve it (Step 3 in server setup)
+          2. Vercel → <strong style={{ color: 'white' }}>Add New Project</strong> → import your repo<br />
+          3. Framework preset: <strong style={{ color: 'white' }}>Vite</strong> (auto-detected)<br />
+          4. Add all env vars in <strong style={{ color: 'white' }}>Settings → Environment Variables</strong><br />
+          5. Deploy — Vercel builds the frontend and deploys the <code style={{ color: '#93c5fd', fontSize: 11 }}>api/</code> functions automatically<br /><br />
+          <strong style={{ color: 'white' }}>Local dev:</strong> <code style={{ color: '#93c5fd', fontSize: 11 }}>npm run dev</code> (runs <code style={{ color: '#93c5fd', fontSize: 11 }}>vercel dev</code> — starts Vite + API functions together)
         </div>
 
       </div>

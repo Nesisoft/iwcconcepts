@@ -3,21 +3,22 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -n vite,api -c cyan,yellow \"vite\" \"node server/index.js\"",
+    "dev": "vercel dev",
     "build": "vite build",
-    "preview": "vite preview",
-    "server": "node server/index.js"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
     "@supabase/supabase-js": "^2.99.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.12.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.21.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",
-    "concurrently": "^9.1.2",
+    "vercel": "latest",
     "vite": "^5.0.8"
   }
 }
