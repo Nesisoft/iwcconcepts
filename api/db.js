@@ -3,25 +3,28 @@
  *
  * Handles all data CRUD for IWC Concepts.
  * Database: any PostgreSQL via DATABASE_URL (Supabase, Neon, Railway, local, etc.)
- * Auth:     Supabase JWTs verified locally with SUPABASE_JWT_SECRET — no network call.
+ * Auth:     Supabase JWTs verified via supabase.auth.getUser() —
+ *           uses SUPABASE_URL + SUPABASE_ANON_KEY (same values as the VITE_ frontend
+ *           vars, just without the prefix). No separate JWT secret needed.
  *
  * Uses pg.Client (not Pool) — a fresh connection per invocation, which is correct
- * for serverless. Cloud PostgreSQL providers (Supabase, Neon) support this via their
- * built-in connection poolers; just use the pooler URL in DATABASE_URL.
+ * for serverless. For Supabase, use the Transaction mode pooler URL (port 6543).
  */
 
-import pg  from 'pg'
-import jwt from 'jsonwebtoken'
+import pg from 'pg'
+import { createClient } from '@supabase/supabase-js'
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
-function verifyToken(token) {
-  const secret = process.env.SUPABASE_JWT_SECRET
-  if (!token || !secret) return null
-  try {
-    return jwt.verify(token, secret)
-  } catch {
-    return null
-  }
+// Verifies the caller's Supabase session token by asking Supabase Auth.
+// Requires SUPABASE_URL and SUPABASE_ANON_KEY — the same values as
+// VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY, just without the VITE_ prefix.
+async function verifyToken(token) {
+  if (!token) return null
+  const url = process.env.SUPABASE_URL
+  const key = process.env.SUPABASE_ANON_KEY
+  if (!url || !key) return null
+  const { data: { user }, error } = await createClient(url, key).auth.getUser(token)
+  return error ? null : user
 }
 
 const ADMIN_ACTIONS = new Set([
@@ -61,7 +64,7 @@ export default async function handler(req, res) {
 
   if (ADMIN_ACTIONS.has(action)) {
     const token = req.headers.authorization?.replace(/^Bearer\s+/i, '')
-    if (!verifyToken(token)) {
+    if (!await verifyToken(token)) {
       return res.status(401).json({ error: 'Unauthorized' })
     }
   }

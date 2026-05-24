@@ -68,24 +68,23 @@ create table if not exists testimonials (
 // ── Vercel env vars ────────────────────────────────────────────────────────────
 const SERVER_ENV = `# ── Vercel Dashboard → Project → Settings → Environment Variables ──────────
 
-# Any PostgreSQL connection string — swap this to change databases with no code changes
-# Use your provider's pooler URL for best serverless performance:
-#   Supabase: postgresql://postgres.[ref]:[pass]@aws-0-[region].pooler.supabase.com:5432/postgres
-#   Neon:     postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/neondb?sslmode=require
-DATABASE_URL=postgresql://postgres:password@localhost:5432/iwcconcepts
+# Database — use Supabase Transaction mode pooler URL (port 6543), not direct (5432)
+# Find it: Supabase Dashboard → Project Settings → Database → Connection pooling → Transaction mode
+DATABASE_URL=postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
 
-# Supabase JWT secret — verifies admin login tokens locally (no network call)
-# Supabase Dashboard → Settings → API → JWT Settings → JWT Secret
-SUPABASE_JWT_SECRET=your-supabase-jwt-secret-here
+# Supabase Auth — server side (no VITE_ prefix)
+# Same values as below — the server needs them to verify that API callers are logged-in admins
+SUPABASE_URL=https://xxxxxxxxxxxxxxxxxxxx.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+# Supabase Auth — frontend (VITE_ prefix exposes them to the browser)
+VITE_SUPABASE_URL=https://xxxxxxxxxxxxxxxxxxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 # Cloudinary — for image uploads (optional; falls back to canvas resize if not set)
 CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
-
-# Supabase Auth — for browser login (prefix with VITE_ so Vite exposes them)
-VITE_SUPABASE_URL=https://xxxxxxxxxxxxxxxxxxxx.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...`
+CLOUDINARY_API_SECRET=your_api_secret`
 
 export default function DatabaseSetup() {
   const navigate = useNavigate()
