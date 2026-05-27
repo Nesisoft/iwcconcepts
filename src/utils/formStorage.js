@@ -1,12 +1,23 @@
-import { dbGetAll, dbGet, dbPut, dbDelete, dbGetByIndex } from './db'
+/**
+ * formStorage.js — data access layer
+ *
+ * All data calls go through the Express backend at /api/db.
+ * In dev  : Vite proxies /api → http://localhost:3001  (vite.config.js)
+ * In prod : Express serves both this app and the API from the same origin
+ *
+ * No Supabase credentials or database details live in the browser.
+ * Only Supabase Auth (login / session) still calls supabase.co — that's expected.
+ */
+
 import { getSupabase } from './supabase'
 
-// ── Unique ID generator ────────────────────────────────────────────────────
+// ── Unique ID generator ────────────────────────────────────────────────────────
+// Matches the server-side uid() — both generate the same format.
 export function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
 }
 
-// ── URL encode / decode form config (for shareable links) ──────────────────
+// ── URL encode / decode form config (for shareable links) ─────────────────────
 export function encodeFormConfig(config) {
   try { return btoa(encodeURIComponent(JSON.stringify(config))) }
   catch { return null }
@@ -16,7 +27,7 @@ export function decodeFormConfig(encoded) {
   catch { return null }
 }
 
-// ── Country codes for WhatsApp ─────────────────────────────────────────────
+// ── Country codes for WhatsApp ─────────────────────────────────────────────────
 export const COUNTRY_CODES = [
   { code: '+233', flag: '🇬🇭', name: 'Ghana' },
   { code: '+234', flag: '🇳🇬', name: 'Nigeria' },
@@ -38,7 +49,7 @@ export const COUNTRY_CODES = [
   { code: '+64',  flag: '🇳🇿', name: 'New Zealand' },
 ]
 
-// ── Default field templates ────────────────────────────────────────────────
+// ── Default field templates ────────────────────────────────────────────────────
 export const DEFAULT_REGISTRATION_FIELDS = [
   { id: 'f_name',       type: 'full_name', label: 'Full Name',               placeholder: 'Enter your full name',   required: true },
   { id: 'f_email',      type: 'email',     label: 'Email Address',           placeholder: 'your@email.com',         required: true },
@@ -58,95 +69,67 @@ export const DEFAULT_FEEDBACK_FIELDS = [
   { id: 'f_testimonial',type: 'textarea',  label: 'Testimonial (will be shared)',  placeholder: 'Write a short testimonial we can feature...', required: false },
 ]
 
-// ── Forms CRUD ─────────────────────────────────────────────────────────────
-export async function getAllForms() {
-  const sb = getSupabase()
-  if (sb) {
-    const { data, error } = await sb.from('forms').select('data').order('created_at', { ascending: false })
-    if (error) throw error
-    return (data || []).map(r => r.data)
+// ── Internal: API call helper ──────────────────────────────────────────────────
+async function api(action, payload = {}, token = null) {
+  const headers = { 'Content-Type': 'application/json' }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  const res = await fetch('/api/db', {
+    method:  'POST',
+    headers,
+    body:    JSON.stringify({ action, payload }),
+  })
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: res.statusText }))
+    throw new Error(body.error || `[${action}] HTTP ${res.status}`)
   }
-  return dbGetAll('forms')
+  return res.json()
 }
 
-export async function getFormById(id) {
+// ── Internal: get the logged-in admin's JWT ────────────────────────────────────
+async function adminToken() {
   const sb = getSupabase()
-  if (sb) {
-    const { data, error } = await sb.from('forms').select('data').eq('id', id).single()
-    if (error) return null
-    return data?.data || null
-  }
-  return dbGet('forms', id)
+  if (!sb) return null
+  const { data: { session } } = await sb.auth.getSession()
+  return session?.access_token ?? null
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Forms CRUD
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const getAllForms  = ()   => api('getAllForms')
+export const getFormById  = (id) => api('getFormById', { id })
 
 export async function saveForm(form) {
-  const now = new Date().toISOString()
+  const now    = new Date().toISOString()
   const record = { ...form, updatedAt: now }
-  if (!record.id) record.id = uid()
+  if (!record.id)        record.id        = uid()
   if (!record.createdAt) record.createdAt = now
-  const sb = getSupabase()
-  if (sb) {
-    const { error } = await sb.from('forms').upsert(
-      { id: record.id, data: record, created_at: record.createdAt },
-      { onConflict: 'id' }
-    )
-    if (error) throw error
-    return record
-  }
-  await dbPut('forms', record)
-  return record
+  return api('saveForm', { form: record }, await adminToken())
 }
 
 export async function deleteForm(id) {
-  const sb = getSupabase()
-  if (sb) {
-    // Submissions and tasks are deleted via cascade in Supabase
-    // but our schema doesn't have FK cascade, so delete explicitly
-    await sb.from('submissions').delete().eq('form_id', id)
-    await sb.from('tasks').delete().eq('form_id', id)
-    const { error } = await sb.from('forms').delete().eq('id', id)
-    if (error) throw error
-    return
-  }
-  await dbDelete('forms', id)
-  const subs = await dbGetByIndex('submissions', 'formId', id)
-  for (const sub of subs) await dbDelete('submissions', sub.id)
-  await dbDelete('tasks', id)
+  return api('deleteForm', { id }, await adminToken())
 }
 
-// ── Submissions CRUD ───────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// Submissions CRUD
+// ═══════════════════════════════════════════════════════════════════════════════
+
 export async function getFormSubmissions(formId) {
-  const sb = getSupabase()
-  if (sb) {
-    const { data, error } = await sb.from('submissions').select('data').eq('form_id', formId).order('submitted_at', { ascending: false })
-    if (error) throw error
-    return (data || []).map(r => r.data)
-  }
-  return dbGetByIndex('submissions', 'formId', formId)
+  return api('getFormSubmissions', { formId }, await adminToken())
 }
 
 export async function addSubmission(formId, data) {
+  // ID and timestamp are generated client-side (consistent with old behaviour)
   const sub = { id: uid(), formId, timestamp: new Date().toISOString(), data }
-  const sb = getSupabase()
-  if (sb) {
-    const { error } = await sb.from('submissions').insert({
-      id: sub.id, form_id: formId, data: sub, submitted_at: sub.timestamp,
-    })
-    if (error) throw error
-    return sub
-  }
-  await dbPut('submissions', sub)
-  return sub
+  return api('addSubmission', { sub })
 }
 
 export async function deleteSubmission(_formId, subId) {
-  const sb = getSupabase()
-  if (sb) {
-    const { error } = await sb.from('submissions').delete().eq('id', subId)
-    if (error) throw error
-    return
-  }
-  await dbDelete('submissions', subId)
+  return api('deleteSubmission', { id: subId }, await adminToken())
 }
 
 export async function exportCSV(formId) {
@@ -161,8 +144,8 @@ export async function exportCSV(formId) {
     ...form.fields.map(f => {
       const v = s.data[f.id]
       if (f.type === 'whatsapp') return `${v?.code || ''} ${v?.number || ''}`
-      if (f.type === 'picture') return v?.name ? `[Photo: ${v.name}]` : ''
-      if (Array.isArray(v)) return v.join('; ')
+      if (f.type === 'picture')  return v?.name ? `[Photo: ${v.name}]` : ''
+      if (Array.isArray(v))      return v.join('; ')
       return v || ''
     }),
   ])
@@ -172,63 +155,41 @@ export async function exportCSV(formId) {
     .join('\n')
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
   a.download = `${(form.title || 'form').replace(/\s+/g, '_')}_${Date.now()}.csv`
   a.href = url; a.click()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-// ── Speakers CRUD ──────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// Speakers CRUD  (admin-only: matches original RLS policy)
+// ═══════════════════════════════════════════════════════════════════════════════
+
 export async function getAllSpeakers() {
-  const sb = getSupabase()
-  if (sb) {
-    const { data, error } = await sb.from('speakers').select('data').order('created_at', { ascending: false })
-    if (error) throw error
-    return (data || []).map(r => r.data)
-  }
-  return dbGetAll('speakers')
+  return api('getAllSpeakers', {}, await adminToken())
 }
 
 export async function getSpeakerById(id) {
-  const sb = getSupabase()
-  if (sb) {
-    const { data, error } = await sb.from('speakers').select('data').eq('id', id).single()
-    if (error) return null
-    return data?.data || null
-  }
-  return dbGet('speakers', id)
+  return api('getSpeakerById', { id }, await adminToken())
 }
 
 export async function saveSpeaker(speaker) {
-  const now = new Date().toISOString()
+  const now    = new Date().toISOString()
   const record = { ...speaker, updatedAt: now }
-  if (!record.id) record.id = uid()
+  if (!record.id)        record.id        = uid()
   if (!record.createdAt) record.createdAt = now
-  const sb = getSupabase()
-  if (sb) {
-    const { error } = await sb.from('speakers').upsert(
-      { id: record.id, data: record, created_at: record.createdAt },
-      { onConflict: 'id' }
-    )
-    if (error) throw error
-    return record
-  }
-  await dbPut('speakers', record)
-  return record
+  return api('saveSpeaker', { speaker: record }, await adminToken())
 }
 
 export async function deleteSpeaker(id) {
-  const sb = getSupabase()
-  if (sb) {
-    const { error } = await sb.from('speakers').delete().eq('id', id)
-    if (error) throw error
-    return
-  }
-  await dbDelete('speakers', id)
+  return api('deleteSpeaker', { id }, await adminToken())
 }
 
-// ── Event Tasks / Checklist ────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// Event Tasks / Checklist
+// ═══════════════════════════════════════════════════════════════════════════════
+
 const DEFAULT_TASKS = {
   pre: [
     'Confirm meeting link / book venue',
@@ -261,35 +222,81 @@ const DEFAULT_TASKS = {
 }
 
 export async function getEventTasks(formId) {
-  const sb = getSupabase()
-  if (sb) {
-    const { data } = await sb.from('tasks').select('data').eq('form_id', formId).maybeSingle()
-    if (data?.data) return data.data
-  } else {
-    const doc = await dbGet('tasks', formId)
-    if (doc) return { pre: doc.pre || [], during: doc.during || [], post: doc.post || [] }
-  }
-  // First time: create defaults
-  const tasks = {
-    pre:    DEFAULT_TASKS.pre.map((t, i) => ({ id: `p${i}`, text: t, done: false })),
+  const token = await adminToken()
+  const tasks = await api('getEventTasks', { formId }, token)
+  if (tasks) return tasks
+  // First time — server returned null, so create and persist defaults
+  const defaults = {
+    pre:    DEFAULT_TASKS.pre.map((t, i)    => ({ id: `p${i}`, text: t, done: false })),
     during: DEFAULT_TASKS.during.map((t, i) => ({ id: `d${i}`, text: t, done: false })),
-    post:   DEFAULT_TASKS.post.map((t, i) => ({ id: `q${i}`, text: t, done: false })),
+    post:   DEFAULT_TASKS.post.map((t, i)   => ({ id: `q${i}`, text: t, done: false })),
   }
-  await saveEventTasks(formId, tasks)
-  return tasks
+  await api('saveEventTasks', { formId, tasks: defaults }, token)
+  return defaults
 }
 
 export async function saveEventTasks(formId, tasks) {
-  const sb = getSupabase()
-  if (sb) {
-    const { error } = await sb.from('tasks').upsert({ form_id: formId, data: tasks }, { onConflict: 'form_id' })
-    if (error) throw error
-    return
-  }
-  await dbPut('tasks', { formId, ...tasks })
+  return api('saveEventTasks', { formId, tasks }, await adminToken())
 }
 
-// ── Email sending via EmailJS ──────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// Programs CRUD  (public reads, admin writes)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const getAllPrograms  = ()   => api('getAllPrograms')
+export const getProgramById  = (id) => api('getProgramById', { id })
+
+export async function saveProgram(program) {
+  const now    = new Date().toISOString()
+  const record = { ...program, updatedAt: now }
+  if (!record.id)        record.id        = uid()
+  if (!record.createdAt) record.createdAt = now
+  return api('saveProgram', { program: record }, await adminToken())
+}
+
+export async function deleteProgram(id) {
+  return api('deleteProgram', { id }, await adminToken())
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Enrollments CRUD  (public inserts, admin reads)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export async function addEnrollment(enrollment) {
+  const record = {
+    ...enrollment,
+    id:         enrollment.id         || uid(),
+    enrolledAt: enrollment.enrolledAt || new Date().toISOString(),
+  }
+  return api('addEnrollment', { enrollment: record })
+}
+
+export async function getEnrollmentsByProgram(programId) {
+  return api('getEnrollmentsByProgram', { programId }, await adminToken())
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Testimonials CRUD  (public reads, admin writes)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const getAllTestimonials = () => api('getAllTestimonials')
+
+export async function saveTestimonial(testimonial) {
+  const now    = new Date().toISOString()
+  const record = { ...testimonial, updatedAt: now }
+  if (!record.id)        record.id        = uid()
+  if (!record.createdAt) record.createdAt = now
+  return api('saveTestimonial', { testimonial: record }, await adminToken())
+}
+
+export async function deleteTestimonial(id) {
+  return api('deleteTestimonial', { id }, await adminToken())
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Utility helpers (unchanged — no DB calls)
+// ═══════════════════════════════════════════════════════════════════════════════
+
 export async function sendEmailJS(serviceId, templateId, vars, publicKey) {
   if (!serviceId || !templateId || !publicKey) return false
   try {
@@ -302,21 +309,19 @@ export async function sendEmailJS(serviceId, templateId, vars, publicKey) {
   }
 }
 
-// ── Countdown helper ───────────────────────────────────────────────────────
 export function getTimeLeft(targetDateStr) {
   if (!targetDateStr) return null
   const diff = new Date(targetDateStr) - new Date()
   if (diff <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0, past: true }
   return {
-    days: Math.floor(diff / 86400000),
-    hours: Math.floor((diff % 86400000) / 3600000),
-    minutes: Math.floor((diff % 3600000) / 60000),
-    seconds: Math.floor((diff % 60000) / 1000),
-    past: false,
+    days:    Math.floor(diff / 86400000),
+    hours:   Math.floor((diff % 86400000) / 3600000),
+    minutes: Math.floor((diff % 3600000)  / 60000),
+    seconds: Math.floor((diff % 60000)    / 1000),
+    past:    false,
   }
 }
 
-// ── Format date ────────────────────────────────────────────────────────────
 export function formatDate(dateStr) {
   if (!dateStr) return ''
   try {

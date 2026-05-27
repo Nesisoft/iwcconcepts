@@ -6,7 +6,7 @@ export default async function handler(req, res) {
     const response = await fetch(
       `https://tinyurl.com/api-create.php?url=${encodeURIComponent(url)}`
     )
-    const text = await response.text()
+    const text     = await response.text()
     const shorturl = text.trim()
     if (shorturl.startsWith('http')) {
       res.status(200).json({ shorturl })
