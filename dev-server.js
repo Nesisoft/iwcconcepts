@@ -25,7 +25,13 @@ app.all('/api/shorten',          wrap(shortenHandler))
 
 const PORT = 3001
 app.listen(PORT, () => {
+  const db  = process.env.DATABASE_URL
+  const sb  = process.env.SUPABASE_URL
   console.log(`Dev API  →  http://localhost:${PORT}`)
-  console.log(`  DATABASE_URL  : ${process.env.DATABASE_URL  ? '✓' : '✗ not set'}`)
-  console.log(`  SUPABASE_URL  : ${process.env.SUPABASE_URL  ? '✓' : '✗ not set'}`)
+  console.log(`  DATABASE_URL  : ${db ? '✓' : '✗ NOT SET'}`)
+  console.log(`  SUPABASE_URL  : ${sb ? '✓' : '✗ NOT SET'}`)
+  if (!db || !sb) {
+    console.log(`\n  ⚠  Missing env vars. Copy .env.example → .env and fill in your values:\n`)
+    console.log(`     cp .env.example .env\n`)
+  }
 })

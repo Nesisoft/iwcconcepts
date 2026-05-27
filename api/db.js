@@ -39,11 +39,14 @@ const ADMIN_ACTIONS = new Set([
 
 // ── Database connection ────────────────────────────────────────────────────────
 // New client per invocation — correct for serverless.
-// SSL is disabled for localhost (dev) and enabled for everything else (cloud).
+// SSL: off for localhost/missing URL, on for everything else (Supabase, Neon, etc.)
 async function withDb(fn) {
+  const dbUrl = process.env.DATABASE_URL
+  if (!dbUrl) throw new Error('DATABASE_URL is not set. Copy .env.example → .env and fill in your values.')
+
   const client = new pg.Client({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DATABASE_URL?.includes('localhost')
+    connectionString: dbUrl,
+    ssl: dbUrl.includes('localhost') || dbUrl.includes('127.0.0.1')
       ? false
       : { rejectUnauthorized: false },
   })
