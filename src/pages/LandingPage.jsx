@@ -172,7 +172,7 @@ function HeroCarousel({ programs }) {
                 if (slide.registrationFormId) navigate(`/onboard?programId=${slide.id}`)
               }}
               style={{ background: GOLD, color: '#1A1A2E', border: 'none', borderRadius: 10, padding: '14px 32px', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}
-            >{slide.type === 'paid' ? `Register · ${priceLabel(slide)}` : 'Join Free →'}</button>
+            >{slide.type === 'paid' ? 'Register →' : 'Join Free →'}</button>
           </div>
         </div>
       </div>
@@ -292,7 +292,7 @@ function ProgramCard({ program }) {
           }}
         >
           {canRegister
-            ? (isPaid ? `Register — ${priceLabel(program)}` : 'Join Free →')
+            ? (isPaid ? 'Register →' : 'Join Free →')
             : (program.status === 'upcoming' ? 'Coming Soon' : program.status === 'closed' ? 'Registration Closed' : 'Completed')
           }
         </button>
