@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAllPrograms, getAllTestimonials } from '../utils/formStorage'
-import { useAuth } from '../contexts/AuthContext'
 
 const BRAND = '#6c3fc5'
 const GOLD  = '#C9A84C'
@@ -25,7 +24,7 @@ function priceLabel(p) {
 
 // ── Nav ───────────────────────────────────────────────────────────────────────
 
-function Nav({ isAuthed }) {
+function Nav() {
   const navigate = useNavigate()
   const [scrolled, setScrolled] = useState(false)
 
@@ -56,10 +55,7 @@ function Nav({ isAuthed }) {
         <span style={{ color: 'white', fontWeight: 800, fontSize: 15, letterSpacing: 0.5 }}>IWC CONCEPTS</span>
       </div>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-        {isAuthed
-          ? <button onClick={() => navigate('/admin')} style={navBtn(true)}>Admin Dashboard →</button>
-          : <button onClick={() => navigate('/login')} style={navBtn(false)}>Sign In</button>
-        }
+        <button onClick={() => navigate('/portal/login')} style={navBtn(false)}>My Programs</button>
       </div>
     </nav>
   )
@@ -255,12 +251,6 @@ function ProgramCard({ program }) {
           fontSize: 11, fontWeight: 700, borderRadius: 20, padding: '3px 10px',
           textTransform: 'capitalize',
         }}>{program.status}</span>
-        <span style={{
-          position: 'absolute', top: 12, right: 12,
-          background: isPaid ? '#1a0d2e' : '#f0fdf4',
-          color: isPaid ? GOLD : '#065f46',
-          fontSize: 12, fontWeight: 800, borderRadius: 20, padding: '3px 10px',
-        }}>{priceLabel(program)}</span>
       </div>
 
       {/* Body */}
@@ -456,7 +446,6 @@ function Footer() {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
-  const { user } = useAuth()
   const [programs, setPrograms] = useState([])
   const [testimonials, setTestimonials] = useState([])
   const [loading, setLoading] = useState(true)
@@ -469,7 +458,7 @@ export default function LandingPage() {
 
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', minHeight: '100vh' }}>
-      <Nav isAuthed={!!user} />
+      <Nav />
 
       {loading ? (
         <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f0a1a' }}>

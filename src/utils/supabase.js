@@ -14,18 +14,29 @@ function getKeys() {
 }
 
 let _client = null
+let _customerClient = null
 
 export function getSupabase() {
   if (_client) return _client
   const { url, key } = getKeys()
   if (!url || !key) return null
-  _client = createClient(url, key)
+  _client = createClient(url, key, { auth: { storageKey: 'iwc_admin_session' } })
   return _client
 }
 
-// Re-init client (called after user saves new keys in Database Setup)
+// Separate Supabase client for customer/portal auth — independent session storage.
+export function getCustomerSupabase() {
+  if (_customerClient) return _customerClient
+  const { url, key } = getKeys()
+  if (!url || !key) return null
+  _customerClient = createClient(url, key, { auth: { storageKey: 'iwc_customer_session' } })
+  return _customerClient
+}
+
+// Re-init clients (called after user saves new keys in Database Setup)
 export function reinitSupabase() {
   _client = null
+  _customerClient = null
   return getSupabase()
 }
 

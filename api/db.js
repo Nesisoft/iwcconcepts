@@ -35,6 +35,15 @@ const ADMIN_ACTIONS = new Set([
   'saveProgram', 'deleteProgram',
   'getEnrollmentsByProgram',
   'saveTestimonial', 'deleteTestimonial',
+  'getContentSections', 'saveContentSection', 'deleteContentSection',
+  'getContentItems',    'saveContentItem',    'deleteContentItem',
+])
+
+// Actions requiring any valid Supabase session (customer or admin).
+// The server uses the verified user.email to scope the response.
+const CUSTOMER_ACTIONS = new Set([
+  'getMyEnrollments',
+  'getPortalContent',
 ])
 
 // ── Database connection ────────────────────────────────────────────────────────
@@ -65,15 +74,16 @@ export default async function handler(req, res) {
   const { action, payload = {} } = req.body || {}
   if (!action) return res.status(400).json({ error: 'Missing action' })
 
-  if (ADMIN_ACTIONS.has(action)) {
-    const token = req.headers.authorization?.replace(/^Bearer\s+/i, '')
-    if (!await verifyToken(token)) {
-      return res.status(401).json({ error: 'Unauthorized' })
-    }
+  const token = req.headers.authorization?.replace(/^Bearer\s+/i, '')
+  let authUser = null
+
+  if (ADMIN_ACTIONS.has(action) || CUSTOMER_ACTIONS.has(action)) {
+    authUser = await verifyToken(token)
+    if (!authUser) return res.status(401).json({ error: 'Unauthorized' })
   }
 
   try {
-    const result = await withDb(client => handleAction(client, action, payload))
+    const result = await withDb(client => handleAction(client, action, payload, authUser))
     res.json(result)
   } catch (err) {
     console.error(`[api/db] action=${action}`, err.message)
@@ -82,7 +92,7 @@ export default async function handler(req, res) {
 }
 
 // ── Action handler ────────────────────────────────────────────────────────────
-async function handleAction(db, action, p) {
+async function handleAction(db, action, p, user = null) {
   switch (action) {
 
     // ── Forms ─────────────────────────────────────────────────────────────────
@@ -268,6 +278,101 @@ async function handleAction(db, action, p) {
     case 'deleteTestimonial': {
       await db.query('DELETE FROM testimonials WHERE id = $1', [p.id])
       return { ok: true }
+    }
+
+    // ── Content Sections (admin) ──────────────────────────────────────────────
+    case 'getContentSections': {
+      const { rows } = await db.query(
+        `SELECT data FROM content_sections WHERE program_id = $1
+         ORDER BY (data->>'order')::int NULLS LAST, created_at ASC`,
+        [p.programId]
+      )
+      return rows.map(r => r.data)
+    }
+
+    case 'saveContentSection': {
+      const s = p.section
+      await db.query(
+        `INSERT INTO content_sections (id, program_id, data, created_at)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (id) DO UPDATE SET data = $3`,
+        [s.id, s.programId, s, s.createdAt || new Date().toISOString()]
+      )
+      return s
+    }
+
+    case 'deleteContentSection': {
+      // Delete items in this section first
+      await db.query(
+        `DELETE FROM content_items WHERE program_id = $1 AND data->>'sectionId' = $2`,
+        [p.programId, p.id]
+      )
+      await db.query('DELETE FROM content_sections WHERE id = $1', [p.id])
+      return { ok: true }
+    }
+
+    // ── Content Items (admin) ─────────────────────────────────────────────────
+    case 'getContentItems': {
+      const { rows } = await db.query(
+        `SELECT data FROM content_items WHERE program_id = $1
+         ORDER BY (data->>'order')::int NULLS LAST, created_at ASC`,
+        [p.programId]
+      )
+      return rows.map(r => r.data)
+    }
+
+    case 'saveContentItem': {
+      const item = p.item
+      await db.query(
+        `INSERT INTO content_items (id, program_id, data, created_at)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (id) DO UPDATE SET data = $3`,
+        [item.id, item.programId, item, item.createdAt || new Date().toISOString()]
+      )
+      return item
+    }
+
+    case 'deleteContentItem': {
+      await db.query('DELETE FROM content_items WHERE id = $1', [p.id])
+      return { ok: true }
+    }
+
+    // ── Customer portal actions ───────────────────────────────────────────────
+    case 'getMyEnrollments': {
+      const { rows } = await db.query(
+        `SELECT data FROM enrollments WHERE data->>'participantEmail' = $1
+         ORDER BY created_at DESC`,
+        [user.email]
+      )
+      return rows.map(r => r.data)
+    }
+
+    case 'getPortalContent': {
+      // Verify the caller is enrolled in this program
+      const { rows: er } = await db.query(
+        `SELECT id FROM enrollments
+         WHERE program_id = $1 AND data->>'participantEmail' = $2`,
+        [p.programId, user.email]
+      )
+      if (er.length === 0) throw new Error('Not enrolled in this program')
+
+      const [sr, ir] = await Promise.all([
+        db.query(
+          `SELECT data FROM content_sections WHERE program_id = $1
+           ORDER BY (data->>'order')::int NULLS LAST, created_at ASC`,
+          [p.programId]
+        ),
+        db.query(
+          `SELECT data FROM content_items WHERE program_id = $1
+           AND (data->>'isPublished')::boolean = true
+           ORDER BY (data->>'order')::int NULLS LAST, created_at ASC`,
+          [p.programId]
+        ),
+      ])
+      return {
+        sections: sr.rows.map(r => r.data),
+        items: ir.rows.map(r => r.data),
+      }
     }
 
     default:

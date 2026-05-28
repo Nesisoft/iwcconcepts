@@ -136,8 +136,10 @@ function buildSteps(form, program) {
 
   if (!hasEmail) steps.push({ type: 'email' })
   if (!hasName)  steps.push({ type: 'name' })
-  steps.push({ type: 'wheel' })
-  if (program?.type === 'paid') steps.push({ type: 'payment' })
+  if (program?.type === 'paid') {
+    steps.push({ type: 'wheel' })
+    steps.push({ type: 'payment' })
+  }
   return steps
 }
 
@@ -752,7 +754,7 @@ export default function ProgramOnboarding() {
             <p style={{ color: '#6b7280', fontSize: 15, margin: '0 0 36px' }}>
               Spin the wheel for an exclusive discount on <strong>{program.title}</strong>.
             </p>
-            <SpinWheel onDone={program.type === 'paid' ? goNext : submitFree} />
+            <SpinWheel onDone={goNext} />
           </div>
         )
 
