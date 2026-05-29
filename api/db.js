@@ -53,13 +53,25 @@ async function withDb(fn) {
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) throw new Error('DATABASE_URL is not set. Copy .env.example → .env and fill in your values.')
 
+  const isLocal = dbUrl.includes('localhost') || dbUrl.includes('127.0.0.1')
   const client = new pg.Client({
     connectionString: dbUrl,
-    ssl: dbUrl.includes('localhost') || dbUrl.includes('127.0.0.1')
-      ? false
-      : { rejectUnauthorized: false },
+    ssl: isLocal ? false : { rejectUnauthorized: false },
+    connectionTimeoutMillis: 8000,
   })
-  await client.connect()
+
+  try {
+    await client.connect()
+  } catch (connErr) {
+    // Provide a descriptive error regardless of whether err.message is empty
+    const detail = connErr.message || connErr.code || String(connErr) || 'unknown'
+    throw new Error(
+      `Database connection failed (${detail}). ` +
+      `Make sure DATABASE_URL is correct and your database is reachable. ` +
+      `For Supabase, use the Transaction pooler URL on port 6543.`
+    )
+  }
+
   try {
     return await fn(client)
   } finally {
@@ -86,8 +98,9 @@ export default async function handler(req, res) {
     const result = await withDb(client => handleAction(client, action, payload, authUser))
     res.json(result)
   } catch (err) {
-    console.error(`[api/db] action=${action}`, err.message)
-    res.status(500).json({ error: err.message })
+    const msg = err.message || err.code || String(err) || 'Internal server error'
+    console.error(`[api/db] action=${action} —`, msg)
+    res.status(500).json({ error: msg })
   }
 }
 
