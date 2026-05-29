@@ -418,47 +418,53 @@ function NameScreen({ value, onChange, onNext, onBack }) {
   )
 }
 
-function PaymentScreen({ program, discountedPrice, email, name, form, formData, onSuccess }) {
+function PaymentScreen({ program, discountedPrice, email, name, form, formData }) {
   const [paying, setPaying]  = useState(null)
   const [error,  setError]   = useState('')
   const originalPrice = Number(program.price || 0)
 
-  function pay(channel) {
-    if (!window.PaystackPop) { setError('Payment system is loading — try again in a moment.'); return }
+  async function pay(channel) {
     setPaying(channel)
     setError('')
-    const ref = `IWC-${uid()}`
-    const handler = window.PaystackPop.setup({
-      key: program.paystackPublicKey,
-      email: email || 'customer@example.com',
-      amount: Math.round(discountedPrice * 100),
-      currency: 'GHS',
-      ref,
-      channels: [channel],
-      onSuccess: async (tx) => {
-        try {
-          const submissionId = uid()
-          if (form) {
-            await addSubmission(form.id, { ...formData, email, name, id: submissionId })
-          }
-          await addEnrollment({
-            id: uid(), programId: program.id, programTitle: program.title,
-            participantName: name || '',
-            participantEmail: email || '',
-            paymentRef: tx.reference,
-            amountPaid: discountedPrice,
-            currency: 'GHS',
-            enrolledAt: new Date().toISOString(),
-            ...(form ? { formSubmissionId: submissionId } : {}),
-          })
-          onSuccess(tx.reference)
-        } catch {
-          setError('Payment succeeded but enrollment saving failed. Please contact support — ref: ' + tx.reference)
-        } finally { setPaying(null) }
-      },
-      onCancel: () => setPaying(null),
-    })
-    handler.openIframe()
+
+    // Stash enrollment context so the return handler can complete the enrollment
+    // after Paystack redirects back.
+    localStorage.setItem('iwc_pending_payment', JSON.stringify({
+      email, name, programId: program.id,
+      formId:   form?.id   || null,
+      formData: formData   || {},
+      channel,
+    }))
+
+    const callbackUrl = `${window.location.origin}/?paystack_return=1&programId=${encodeURIComponent(program.id)}`
+
+    try {
+      const res = await fetch('/api/paystack-init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email || 'customer@example.com',
+          amount: discountedPrice,
+          currency: 'GHS',
+          channels: [channel],
+          callback_url: callbackUrl,
+          metadata: { programId: program.id, programTitle: program.title },
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.authorization_url) {
+        setError(data.error || 'Could not initialise payment. Please try again.')
+        setPaying(null)
+        localStorage.removeItem('iwc_pending_payment')
+        return
+      }
+      // Redirect to Paystack hosted checkout — page will unload
+      window.location.href = data.authorization_url
+    } catch {
+      setError('Network error. Please check your connection and try again.')
+      setPaying(null)
+      localStorage.removeItem('iwc_pending_payment')
+    }
   }
 
   return (
@@ -643,23 +649,72 @@ export default function ProgramOnboarding() {
   const [payRef,       setPayRef]       = useState(null)
   const [accountSetup, setAccountSetup] = useState(null) // null | 'pending' | 'sent' | 'failed'
 
-  // Load Paystack SDK once
-  useEffect(() => {
-    const s = document.createElement('script')
-    s.src = 'https://js.paystack.co/v1/inline.js'
-    document.head.appendChild(s)
-    return () => { try { document.head.removeChild(s) } catch {} }
-  }, [])
-
   useEffect(() => {
     if (!programId) { setNotFound(true); setLoading(false); return }
     getProgramById(programId).then(async p => {
       if (!p) { setNotFound(true); setLoading(false); return }
       setProgram(p)
+      let loadedForm = null
       if (p.registrationFormId) {
-        const f = await getFormById(p.registrationFormId)
-        setForm(f)
+        loadedForm = await getFormById(p.registrationFormId)
+        setForm(loadedForm)
       }
+
+      // ── Paystack redirect return ──────────────────────────────────────────
+      // main.jsx captured ?paystack_return=1 params into sessionStorage before
+      // HashRouter booted, then navigated here. Process the enrollment now.
+      const stashed = sessionStorage.getItem('iwc_paystack_return')
+      if (stashed) {
+        let ret
+        try { ret = JSON.parse(stashed) } catch {}
+        if (ret?.programId === p.id && ret?.reference) {
+          sessionStorage.removeItem('iwc_paystack_return')
+          let ctx
+          try { ctx = JSON.parse(localStorage.getItem('iwc_pending_payment') || 'null') } catch {}
+          localStorage.removeItem('iwc_pending_payment')
+
+          const payEmail    = ctx?.email    || ''
+          const payName     = ctx?.name     || ''
+          const payFormData = ctx?.formData || {}
+          const payFormId   = ctx?.formId   || null
+
+          if (payEmail) setEmail(payEmail)
+          if (payName)  setName(payName)
+
+          try {
+            const submissionId = uid()
+            if (loadedForm && payFormId) {
+              await addSubmission(payFormId, { ...payFormData, email: payEmail, name: payName, id: submissionId })
+            }
+            await addEnrollment({
+              id: uid(), programId: p.id, programTitle: p.title,
+              participantName: payName, participantEmail: payEmail,
+              paymentRef: ret.reference,
+              amountPaid: Math.round(Number(p.price || 0) * 0.5),
+              currency: 'GHS', enrolledAt: new Date().toISOString(),
+              ...(loadedForm && payFormId ? { formSubmissionId: submissionId } : {}),
+            })
+            setPayRef(ret.reference)
+            setConfirmed(true)
+            window.scrollTo({ top: 0 })
+            if (p.hasPortalAccess && payEmail) {
+              setAccountSetup('pending')
+              try {
+                await sendAccountSetup(payEmail)
+                setAccountSetup('sent')
+              } catch {
+                setAccountSetup('failed')
+              }
+            }
+          } catch (err) {
+            console.error('[paystack-return]', err)
+            alert('Payment was received but enrollment saving failed. Please contact support — ref: ' + ret.reference)
+          }
+          setLoading(false)
+          return
+        }
+      }
+      // ── Normal load ───────────────────────────────────────────────────────
       setLoading(false)
     })
   }, [programId])
@@ -823,7 +878,6 @@ export default function ProgramOnboarding() {
             name={resolvedName}
             form={form}
             formData={formData}
-            onSuccess={completePaidEnrollment}
           />
         )
 
