@@ -394,11 +394,16 @@ export default function ProgramsManager() {
                       <strong style={{ color: ACC }}>Closed</strong> — visible, registration link disabled<br />
                       <strong style={{ color: '#3498DB' }}>Completed</strong> — visible as past program
                     </div>
-                    <Toggle label="Allow portal access (Phase 2 — learning portal)" checked={prog.hasPortalAccess} onChange={e => set('hasPortalAccess', e.target.checked)} />
+                    <Toggle label="Allow portal access (learning portal)" checked={prog.hasPortalAccess} onChange={e => set('hasPortalAccess', e.target.checked)} />
                     <div style={divider} />
-                    <button onClick={() => openOnboarding(prog.id)} style={{ width: '100%', background: 'rgba(52,152,219,0.2)', border: '1px solid rgba(52,152,219,0.4)', borderRadius: 8, color: '#74b9e8', fontSize: 11, fontWeight: 700, padding: '10px', cursor: 'pointer' }}>
-                      🔗 Preview Onboarding Page
-                    </button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <button onClick={() => openOnboarding(prog.id)} style={{ width: '100%', background: 'rgba(52,152,219,0.2)', border: '1px solid rgba(52,152,219,0.4)', borderRadius: 8, color: '#74b9e8', fontSize: 11, fontWeight: 700, padding: '10px', cursor: 'pointer' }}>
+                        🔗 Preview Onboarding Page
+                      </button>
+                      <button onClick={() => navigate(`/content-admin?programId=${prog.id}`)} style={{ width: '100%', background: `rgba(201,168,76,0.15)`, border: `1px solid rgba(201,168,76,0.3)`, borderRadius: 8, color: ACC2, fontSize: 11, fontWeight: 700, padding: '10px', cursor: 'pointer' }}>
+                        📚 Manage Program Content
+                      </button>
+                    </div>
                   </>
                 )}
 

@@ -294,6 +294,54 @@ export async function deleteTestimonial(id) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Content Sections CRUD  (admin-only)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const getContentSections = (programId) =>
+  adminToken().then(t => api('getContentSections', { programId }, t))
+
+export async function saveContentSection(section) {
+  const now    = new Date().toISOString()
+  const record = { ...section, updatedAt: now }
+  if (!record.id)        record.id        = uid()
+  if (!record.createdAt) record.createdAt = now
+  return api('saveContentSection', { section: record }, await adminToken())
+}
+
+export async function deleteContentSection(programId, id) {
+  return api('deleteContentSection', { programId, id }, await adminToken())
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Content Items CRUD  (admin-only)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const getContentItems = (programId) =>
+  adminToken().then(t => api('getContentItems', { programId }, t))
+
+export async function saveContentItem(item) {
+  const now    = new Date().toISOString()
+  const record = { ...item, updatedAt: now }
+  if (!record.id)        record.id        = uid()
+  if (!record.createdAt) record.createdAt = now
+  return api('saveContentItem', { item: record }, await adminToken())
+}
+
+export async function deleteContentItem(id) {
+  return api('deleteContentItem', { id }, await adminToken())
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Customer portal  (requires a valid customer JWT passed in explicitly)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const getMyEnrollments = (token) =>
+  api('getMyEnrollments', {}, token)
+
+export const getPortalContent = (programId, token) =>
+  api('getPortalContent', { programId }, token)
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Utility helpers (unchanged — no DB calls)
 // ═══════════════════════════════════════════════════════════════════════════════
 

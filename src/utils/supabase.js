@@ -14,18 +14,36 @@ function getKeys() {
 }
 
 let _client = null
+let _customerClient = null
 
 export function getSupabase() {
   if (_client) return _client
   const { url, key } = getKeys()
   if (!url || !key) return null
+  // No custom storageKey — use Supabase's default so existing admin sessions
+  // survive across deploys and code changes without re-login.
   _client = createClient(url, key)
   return _client
 }
 
-// Re-init client (called after user saves new keys in Database Setup)
+// Separate Supabase client for customer/portal auth.
+// Uses a distinct storageKey so customer and admin sessions never collide.
+// detectSessionInUrl is off because the magic-link hash is captured in main.jsx
+// before React mounts (HashRouter would otherwise swallow the token fragment).
+export function getCustomerSupabase() {
+  if (_customerClient) return _customerClient
+  const { url, key } = getKeys()
+  if (!url || !key) return null
+  _customerClient = createClient(url, key, {
+    auth: { storageKey: 'iwc_customer_session', detectSessionInUrl: false },
+  })
+  return _customerClient
+}
+
+// Re-init clients (called after user saves new keys in Database Setup)
 export function reinitSupabase() {
   _client = null
+  _customerClient = null
   return getSupabase()
 }
 

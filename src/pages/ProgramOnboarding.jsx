@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getProgramById, getFormById, addSubmission, addEnrollment, uid } from '../utils/formStorage'
+import { useCustomerAuth } from '../contexts/CustomerAuthContext'
 
 const BRAND  = '#6c3fc5'
 const BRAND2 = '#9333ea'
@@ -136,8 +137,10 @@ function buildSteps(form, program) {
 
   if (!hasEmail) steps.push({ type: 'email' })
   if (!hasName)  steps.push({ type: 'name' })
-  steps.push({ type: 'wheel' })
-  if (program?.type === 'paid') steps.push({ type: 'payment' })
+  if (program?.type === 'paid') {
+    steps.push({ type: 'wheel' })
+    steps.push({ type: 'payment' })
+  }
   return steps
 }
 
@@ -537,7 +540,7 @@ function PaymentScreen({ program, discountedPrice, email, name, form, formData, 
 
 // ── Confirmation ───────────────────────────────────────────────────────────────
 
-function Confirmation({ program, paymentRef, name }) {
+function Confirmation({ program, paymentRef, name, email, accountSetup }) {
   const navigate = useNavigate()
   return (
     <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 24px', textAlign: 'center' }}>
@@ -553,9 +556,44 @@ function Confirmation({ program, paymentRef, name }) {
           Ref: <code style={{ background: '#f3f4f6', padding: '2px 8px', borderRadius: 4 }}>{paymentRef}</code>
         </p>
       )}
-      <p style={{ color: '#6b7280', fontSize: 14, maxWidth: 380, margin: '0 auto 36px', lineHeight: 1.75 }}>
-        Check your email for confirmation and program access details. We look forward to seeing you!
-      </p>
+
+      {/* Portal account setup notice */}
+      {accountSetup === 'sent' && (
+        <div style={{
+          background: '#f5f0ff', border: `1px solid ${BRAND}28`, borderRadius: 14,
+          padding: '20px 24px', margin: '0 auto 28px', maxWidth: 420, textAlign: 'left',
+        }}>
+          <div style={{ fontWeight: 800, color: BRAND, fontSize: 15, marginBottom: 6 }}>
+            📧 Set up your learning portal account
+          </div>
+          <p style={{ color: '#6b7280', fontSize: 13, margin: 0, lineHeight: 1.7 }}>
+            We've sent a verification link to{' '}
+            <strong style={{ color: '#374151' }}>{email}</strong>. Click it to confirm your
+            email and create a password — then you can sign in to access your program content.
+          </p>
+        </div>
+      )}
+      {accountSetup === 'failed' && (
+        <div style={{
+          background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 14,
+          padding: '16px 20px', margin: '0 auto 28px', maxWidth: 420, textAlign: 'left',
+        }}>
+          <p style={{ color: '#92400e', fontSize: 13, margin: 0, lineHeight: 1.7 }}>
+            Your enrollment is confirmed, but we couldn't send your portal setup email just now.
+            Please contact support to get access to your learning content.
+          </p>
+        </div>
+      )}
+      {accountSetup === 'pending' && (
+        <p style={{ color: '#9ca3af', fontSize: 13, margin: '0 0 28px' }}>Setting up your portal account…</p>
+      )}
+
+      {!accountSetup && (
+        <p style={{ color: '#6b7280', fontSize: 14, maxWidth: 380, margin: '0 auto 36px', lineHeight: 1.75 }}>
+          Check your email for confirmation and program access details. We look forward to seeing you!
+        </p>
+      )}
+
       <button onClick={() => navigate('/')} style={primaryBtn()}>← Back to Programs</button>
     </div>
   )
@@ -589,6 +627,7 @@ export default function ProgramOnboarding() {
   const [params]    = useSearchParams()
   const programId   = params.get('programId')
   const navigate    = useNavigate()
+  const { sendAccountSetup } = useCustomerAuth()
 
   const [program,   setProgram]   = useState(null)
   const [form,      setForm]      = useState(null)
@@ -596,12 +635,13 @@ export default function ProgramOnboarding() {
   const [notFound,  setNotFound]  = useState(false)
 
   // flow state
-  const [step,      setStep]      = useState(0)
-  const [formData,  setFormData]  = useState({})
-  const [email,     setEmail]     = useState('')
-  const [name,      setName]      = useState('')
-  const [confirmed, setConfirmed] = useState(false)
-  const [payRef,    setPayRef]    = useState(null)
+  const [step,         setStep]         = useState(0)
+  const [formData,     setFormData]     = useState({})
+  const [email,        setEmail]        = useState('')
+  const [name,         setName]         = useState('')
+  const [confirmed,    setConfirmed]    = useState(false)
+  const [payRef,       setPayRef]       = useState(null)
+  const [accountSetup, setAccountSetup] = useState(null) // null | 'pending' | 'sent' | 'failed'
 
   // Load Paystack SDK once
   useEffect(() => {
@@ -666,6 +706,24 @@ export default function ProgramOnboarding() {
     }
   }
 
+  // After a successful paid enrollment, show confirmation and — if the program
+  // grants portal access — send the account-setup / email-verification link.
+  async function completePaidEnrollment(ref) {
+    setPayRef(ref)
+    setConfirmed(true)
+    window.scrollTo({ top: 0 })
+    if (program.hasPortalAccess && resolvedEmail) {
+      setAccountSetup('pending')
+      try {
+        await sendAccountSetup(resolvedEmail)
+        setAccountSetup('sent')
+      } catch (err) {
+        console.error('[portal] account setup email failed:', err)
+        setAccountSetup('failed')
+      }
+    }
+  }
+
   async function submitFree() {
     try {
       const submissionId = uid()
@@ -692,7 +750,7 @@ export default function ProgramOnboarding() {
     <div style={{ minHeight: '100vh', background: '#fff', fontFamily: 'Inter, -apple-system, sans-serif' }}>
       <Header program={program} navigate={navigate} />
       <div style={{ padding: '56px 0 80px' }}>
-        <Confirmation program={program} paymentRef={payRef} name={resolvedName} />
+        <Confirmation program={program} paymentRef={payRef} name={resolvedName} email={resolvedEmail} accountSetup={accountSetup} />
       </div>
     </div>
   )
@@ -752,7 +810,7 @@ export default function ProgramOnboarding() {
             <p style={{ color: '#6b7280', fontSize: 15, margin: '0 0 36px' }}>
               Spin the wheel for an exclusive discount on <strong>{program.title}</strong>.
             </p>
-            <SpinWheel onDone={program.type === 'paid' ? goNext : submitFree} />
+            <SpinWheel onDone={goNext} />
           </div>
         )
 
@@ -765,7 +823,7 @@ export default function ProgramOnboarding() {
             name={resolvedName}
             form={form}
             formData={formData}
-            onSuccess={ref => { setPayRef(ref); setConfirmed(true); window.scrollTo({ top: 0 }) }}
+            onSuccess={completePaidEnrollment}
           />
         )
 

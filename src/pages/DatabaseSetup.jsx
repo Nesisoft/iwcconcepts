@@ -63,7 +63,23 @@ create table if not exists testimonials (
   id         text        primary key,
   data       jsonb       not null,
   created_at timestamptz not null default now()
-);`
+);
+
+create table if not exists content_sections (
+  id         text        primary key,
+  program_id text        not null,
+  data       jsonb       not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists content_sections_program_id_idx on content_sections(program_id);
+
+create table if not exists content_items (
+  id         text        primary key,
+  program_id text        not null,
+  data       jsonb       not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists content_items_program_id_idx on content_items(program_id);`
 
 // ── Vercel env vars ────────────────────────────────────────────────────────────
 const SERVER_ENV = `# ── Vercel Dashboard → Project → Settings → Environment Variables ──────────
