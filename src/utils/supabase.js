@@ -20,16 +20,22 @@ export function getSupabase() {
   if (_client) return _client
   const { url, key } = getKeys()
   if (!url || !key) return null
-  _client = createClient(url, key, { auth: { storageKey: 'iwc_admin_session' } })
+  _client = createClient(url, key, {
+    auth: { storageKey: 'iwc_admin_session', detectSessionInUrl: false },
+  })
   return _client
 }
 
 // Separate Supabase client for customer/portal auth — independent session storage.
+// detectSessionInUrl is off because HashRouter conflicts with the implicit-flow
+// hash. Magic-link tokens are captured in main.jsx and applied via setSession().
 export function getCustomerSupabase() {
   if (_customerClient) return _customerClient
   const { url, key } = getKeys()
   if (!url || !key) return null
-  _customerClient = createClient(url, key, { auth: { storageKey: 'iwc_customer_session' } })
+  _customerClient = createClient(url, key, {
+    auth: { storageKey: 'iwc_customer_session', detectSessionInUrl: false },
+  })
   return _customerClient
 }
 

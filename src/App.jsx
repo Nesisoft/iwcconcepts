@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import { CustomerAuthProvider } from './contexts/CustomerAuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import CustomerRoute from './components/CustomerRoute'
+import PortalRedirectHandler from './components/PortalRedirectHandler'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import QuoteCardStudio from './pages/QuoteCardStudio'
@@ -19,6 +20,7 @@ import TestimonialsManager from './pages/TestimonialsManager'
 import ProgramOnboarding from './pages/ProgramOnboarding'
 import ContentManager from './pages/ContentManager'
 import PortalLogin from './pages/PortalLogin'
+import SetPassword from './pages/SetPassword'
 import Portal from './pages/Portal'
 import ProgramPortal from './pages/ProgramPortal'
 
@@ -46,6 +48,7 @@ export default function App() {
     <HashRouter>
       <AuthProvider>
         <CustomerAuthProvider>
+          <PortalRedirectHandler />
           <Routes>
             {/* Public */}
             <Route path="/"       element={<LandingPage />} />
@@ -54,6 +57,7 @@ export default function App() {
 
             {/* Customer portal */}
             <Route path="/portal/login"           element={<PortalLogin />} />
+            <Route path="/portal/set-password"    element={<SetPassword />} />
             <Route path="/portal"                 element={<PortalRoute element={<Portal />} />} />
             <Route path="/portal/program/:programId" element={<PortalRoute element={<ProgramPortal />} />} />
 

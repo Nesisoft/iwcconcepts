@@ -22,14 +22,6 @@ export function CustomerAuthProvider({ children }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  async function signUp(email, password) {
-    const sb = getCustomerSupabase()
-    if (!sb) throw new Error('Supabase is not configured. Contact the administrator.')
-    const { data, error } = await sb.auth.signUp({ email, password })
-    if (error) throw new Error(error.message)
-    return data
-  }
-
   async function signIn(email, password) {
     const sb = getCustomerSupabase()
     if (!sb) throw new Error('Supabase is not configured. Contact the administrator.')
@@ -52,8 +44,49 @@ export function CustomerAuthProvider({ children }) {
     return session?.access_token ?? null
   }
 
+  // Sends the account-setup / email-verification link. Used after a successful
+  // paid enrollment when the program grants portal access. shouldCreateUser
+  // creates the account if it doesn't exist; existing accounts simply receive a
+  // sign-in link. The link returns to ?pwsetup=1 where the user sets a password.
+  async function sendAccountSetup(email) {
+    const sb = getCustomerSupabase()
+    if (!sb) throw new Error('Supabase is not configured.')
+    const redirectTo = `${window.location.origin}${window.location.pathname}?pwsetup=1`
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: true, emailRedirectTo: redirectTo },
+    })
+    if (error) throw new Error(error.message)
+  }
+
+  // Applies the magic-link tokens captured in main.jsx (sessionStorage) so the
+  // SetPassword page can authenticate the user and let them set a password.
+  async function applyStashedSession() {
+    const sb = getCustomerSupabase()
+    if (!sb) throw new Error('Supabase is not configured.')
+    const raw = sessionStorage.getItem('iwc_portal_tokens')
+    if (!raw) return null
+    sessionStorage.removeItem('iwc_portal_tokens')
+    const { access_token, refresh_token } = JSON.parse(raw)
+    const { data, error } = await sb.auth.setSession({ access_token, refresh_token })
+    if (error) throw new Error(error.message)
+    setUser(data.user ?? null)
+    return data.user ?? null
+  }
+
+  async function updatePassword(password) {
+    const sb = getCustomerSupabase()
+    if (!sb) throw new Error('Supabase is not configured.')
+    const { error } = await sb.auth.updateUser({ password })
+    if (error) throw new Error(error.message)
+  }
+
   return (
-    <CustomerAuthContext.Provider value={{ user, loading, signUp, signIn, signOut, getAccessToken }}>
+    <CustomerAuthContext.Provider value={{
+      user, loading,
+      signIn, signOut, getAccessToken,
+      sendAccountSetup, applyStashedSession, updatePassword,
+    }}>
       {children}
     </CustomerAuthContext.Provider>
   )

@@ -9,43 +9,25 @@ const GOLD   = '#C9A84C'
 export default function PortalLogin() {
   const navigate  = useNavigate()
   const location  = useLocation()
-  const { signIn, signUp } = useCustomerAuth()
+  const { signIn } = useCustomerAuth()
 
-  const [mode, setMode]       = useState('login')  // 'login' | 'register'
-  const [email, setEmail]     = useState('')
+  const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
-  const [error, setError]     = useState('')
-  const [info, setInfo]       = useState('')
-  const [loading, setLoading] = useState(false)
+  const [error, setError]       = useState('')
+  const [loading, setLoading]   = useState(false)
 
-  const from = location.state?.from?.pathname || '/portal'
+  // A success message may be passed from the SetPassword page after the user
+  // finishes creating their password.
+  const notice = location.state?.notice || ''
+  const from   = location.state?.from?.pathname || '/portal'
 
   async function handleSubmit(e) {
     e.preventDefault()
-    setError(''); setInfo('')
-
-    if (mode === 'register') {
-      if (password !== confirm) { setError('Passwords do not match.'); return }
-      if (password.length < 6)  { setError('Password must be at least 6 characters.'); return }
-    }
-
+    setError('')
     setLoading(true)
     try {
-      if (mode === 'login') {
-        await signIn(email.trim(), password)
-        navigate(from, { replace: true })
-      } else {
-        const data = await signUp(email.trim(), password)
-        if (data?.user?.identities?.length === 0) {
-          setError('An account with this email already exists. Please sign in instead.')
-        } else if (!data?.session) {
-          setInfo('Account created! Check your email to confirm, then sign in.')
-          setMode('login')
-        } else {
-          navigate('/portal', { replace: true })
-        }
-      }
+      await signIn(email.trim(), password)
+      navigate(from, { replace: true })
     } catch (err) {
       setError(err.message)
     } finally {
@@ -80,18 +62,16 @@ export default function PortalLogin() {
           border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20,
           padding: '36px 32px',
         }}>
-          {/* Tabs */}
-          <div style={{ display: 'flex', marginBottom: 28, background: 'rgba(255,255,255,0.06)', borderRadius: 10, padding: 4 }}>
-            {['login', 'register'].map(m => (
-              <button key={m} onClick={() => { setMode(m); setError(''); setInfo('') }} style={{
-                flex: 1, border: 'none', borderRadius: 8,
-                background: mode === m ? 'rgba(108,63,197,0.8)' : 'transparent',
-                color: mode === m ? '#fff' : 'rgba(255,255,255,0.5)',
-                fontWeight: 700, fontSize: 13, padding: '9px 0', cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}>{m === 'login' ? 'Sign In' : 'Create Account'}</button>
-            ))}
-          </div>
+          <h1 style={{ color: 'white', fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>Sign in</h1>
+          <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, margin: '0 0 24px' }}>
+            Access your enrolled programs and learning content.
+          </p>
+
+          {notice && (
+            <div style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#6ee7b7', marginBottom: 18 }}>
+              {notice}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
@@ -111,35 +91,14 @@ export default function PortalLogin() {
               </label>
               <input
                 type="password" required value={password} onChange={e => setPassword(e.target.value)}
-                placeholder={mode === 'register' ? 'At least 6 characters' : '••••••••'}
-                autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+                placeholder="••••••••" autoComplete="current-password"
                 style={inp()}
               />
             </div>
 
-            {mode === 'register' && (
-              <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.7)', marginBottom: 6 }}>
-                  Confirm password
-                </label>
-                <input
-                  type="password" required value={confirm} onChange={e => setConfirm(e.target.value)}
-                  placeholder="Repeat your password"
-                  autoComplete="new-password"
-                  style={inp()}
-                />
-              </div>
-            )}
-
             {error && (
               <div style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#fca5a5' }}>
                 {error}
-              </div>
-            )}
-
-            {info && (
-              <div style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#6ee7b7' }}>
-                {info}
               </div>
             )}
 
@@ -151,15 +110,14 @@ export default function PortalLogin() {
               boxShadow: loading ? 'none' : '0 4px 20px rgba(108,63,197,0.4)',
               marginTop: 4,
             }}>
-              {loading ? '…' : mode === 'login' ? 'Sign In →' : 'Create Account →'}
+              {loading ? '…' : 'Sign In →'}
             </button>
           </form>
 
-          {mode === 'register' && (
-            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', textAlign: 'center', margin: '20px 0 0', lineHeight: 1.6 }}>
-              Use the same email address you registered with for a program. Your content access is tied to that email.
-            </p>
-          )}
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', textAlign: 'center', margin: '22px 0 0', lineHeight: 1.6 }}>
+            Accounts are created when you enrol in a program with portal access.
+            Check the email you registered with for your account setup link.
+          </p>
         </div>
 
         <button onClick={() => navigate('/')} style={{
