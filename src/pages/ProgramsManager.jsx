@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { uid, getAllForms, getAllPrograms, saveProgram, deleteProgram } from '../utils/formStorage'
 import { uploadToCloudinary } from '../utils/cloudinary'
+import AdminSelect from '../components/AdminSelect'
 
 const ACC = '#E4600A'
 const ACC2 = '#F5B800'
@@ -295,10 +296,15 @@ export default function ProgramsManager() {
                       </div>
                     </div>
                     <Fld label="Linked Registration Form">
-                      <select style={inp()} value={prog.registrationFormId} onChange={e => set('registrationFormId', e.target.value)}>
-                        <option value="">— Select a form —</option>
-                        {forms.map(f => <option key={f.id} value={f.id}>{f.title}</option>)}
-                      </select>
+                      <AdminSelect
+                        value={prog.registrationFormId}
+                        onChange={e => set('registrationFormId', e.target.value)}
+                        options={[
+                          { value: '', label: '— Select a form —' },
+                          ...forms.map(f => ({ value: f.id, label: f.title || 'Untitled' })),
+                        ]}
+                        style={{ width: '100%' }}
+                      />
                     </Fld>
                     {prog.onboardingMode === 'steps' && linkedForm && (
                       <div style={{ marginTop: 16 }}>
@@ -383,9 +389,12 @@ export default function ProgramsManager() {
                 {tab === 'publish' && (
                   <>
                     <Fld label="Status">
-                      <select style={inp()} value={prog.status} onChange={e => set('status', e.target.value)}>
-                        {STATUS_OPTS.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
-                      </select>
+                      <AdminSelect
+                        value={prog.status}
+                        onChange={e => set('status', e.target.value)}
+                        options={STATUS_OPTS.map(s => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) }))}
+                        style={{ width: '100%' }}
+                      />
                     </Fld>
                     <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', lineHeight: 1.8, marginBottom: 16 }}>
                       <strong style={{ color: 'rgba(255,255,255,0.7)' }}>Draft</strong> — hidden from public landing page<br />

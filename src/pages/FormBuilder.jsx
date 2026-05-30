@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import AdminSelect from '../components/AdminSelect'
 import {
   uid, getAllForms, saveForm, deleteForm, getFormSubmissions,
   DEFAULT_REGISTRATION_FIELDS, DEFAULT_FEEDBACK_FIELDS, encodeFormConfig,
@@ -139,12 +140,17 @@ function FieldEditorModal({ field, onSave, onClose }) {
         {f.type === 'picture' && (
           <>
             <Field label="Accepted File Types">
-              <select style={inp()} value={f.accept || 'image/*'} onChange={e => set('accept', e.target.value)}>
-                <option value="image/*">Images only (JPG, PNG, WebP, etc.)</option>
-                <option value="image/jpeg,image/png">JPG & PNG only</option>
-                <option value="image/*,.pdf">Images & PDF</option>
-                <option value="*">Any file type</option>
-              </select>
+              <AdminSelect
+                value={f.accept || 'image/*'}
+                onChange={e => set('accept', e.target.value)}
+                options={[
+                  { value: 'image/*',           label: 'Images only (JPG, PNG, WebP, etc.)' },
+                  { value: 'image/jpeg,image/png', label: 'JPG & PNG only' },
+                  { value: 'image/*,.pdf',       label: 'Images & PDF' },
+                  { value: '*',                  label: 'Any file type' },
+                ]}
+                style={{ width: '100%' }}
+              />
             </Field>
             <Field label="Max File Size (MB)">
               <input type="number" style={inp()} min="1" max="20" value={f.maxSizeMB || 5}
