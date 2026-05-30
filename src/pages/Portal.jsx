@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCustomerAuth } from '../contexts/CustomerAuthContext'
 import { getMyEnrollments, getAllPrograms } from '../utils/formStorage'
+import { BookOpen, ArrowRight, ArrowLeft } from 'lucide-react'
 
 const BRAND  = '#6c3fc5'
 const BRAND2 = '#9333ea'
@@ -131,20 +132,20 @@ export default function Portal() {
 
         {!loading && !error && !hasAnyContent && (
           <div style={{ textAlign: 'center', padding: '80px 0' }}>
-            <div style={{ fontSize: 56, marginBottom: 16 }}>📚</div>
-            <h2 style={{ fontSize: 20, fontWeight: 800, color: '#374151', margin: '0 0 8px' }}>No programs yet</h2>
+            <BookOpen size={52} color="#c4b5f8" style={{ marginBottom: 16 }} />
+            <h2 style={{ fontSize: 20, fontWeight: 800, color: '#374151', margin: '0 0 8px' }}>No courses yet</h2>
             <p style={{ color: '#9ca3af', fontSize: 15, maxWidth: 360, margin: '0 auto 28px' }}>
-              Browse available programs and register to get started.
+              Browse available courses and register to get started.
             </p>
-            <button onClick={() => navigate('/')} style={{ background: BRAND, color: '#fff', border: 'none', borderRadius: 10, padding: '12px 28px', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
-              Browse Programs →
+            <button onClick={() => navigate('/')} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: BRAND, color: '#fff', border: 'none', borderRadius: 10, padding: '12px 28px', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+              Browse Courses <ArrowRight size={16} />
             </button>
           </div>
         )}
 
-        {/* ── Section 1: My enrolled programs ─────────────────────────────── */}
+        {/* ── Section 1: My enrolled courses ──────────────────────────────── */}
         {!loading && enrollments.length > 0 && (
-          <Section title="My Programs" subtitle="Programs you're enrolled in">
+          <Section title="My Courses" subtitle="Courses you're enrolled in">
             {enrollments.map(enr => {
               const prog = programs[enr.programId]
               return (
@@ -194,7 +195,7 @@ export default function Portal() {
 
         {/* ── Section 3: More paid programs with portal access ─────────────── */}
         {!loading && morePrograms.length > 0 && (
-          <Section title="More Programs" subtitle="Enroll to unlock full access">
+          <Section title="More Courses" subtitle="Enroll to unlock full access">
             {morePrograms.map(prog => (
               <ProgramCard
                 key={prog.id}
@@ -216,7 +217,7 @@ export default function Portal() {
       </div>
 
       <div style={{ padding: '20px 24px', textAlign: 'center', borderTop: '1px solid #f3f4f6' }}>
-        <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 13, cursor: 'pointer' }}>← Back to Programs</button>
+        <button onClick={() => navigate('/')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#9ca3af', fontSize: 13, cursor: 'pointer' }}><ArrowLeft size={14} /> Back to Courses</button>
       </div>
     </div>
   )
@@ -251,7 +252,7 @@ function ProgramCard({ program, fallbackTitle, badge, badgeColor, badgeBg, sub, 
       <div style={{ height: 140, background: '#f3f4f6', position: 'relative', overflow: 'hidden' }}>
         {program?.image
           ? <img src={program.image} alt={program?.title || fallbackTitle} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #6c3fc520, #6c3fc540)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>📚</div>
+          : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #6c3fc520, #6c3fc540)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BookOpen size={34} color={BRAND} /></div>
         }
         <span style={{
           position: 'absolute', top: 10, right: 10,

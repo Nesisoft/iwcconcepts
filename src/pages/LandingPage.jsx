@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAllPrograms, getAllTestimonials } from '../utils/formStorage'
+import SiteNav from '../components/SiteNav'
+import SiteFooter from '../components/SiteFooter'
+import { Calendar, MapPin, Star, BookOpen, CircleDot, Clock, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 
 const BRAND = '#6c3fc5'
 const GOLD  = '#C9A84C'
@@ -15,63 +18,6 @@ function statusColor(s) {
 function formatDate(iso) {
   if (!iso) return ''
   return new Date(iso).toLocaleDateString('en-GH', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
-// Gold star used to mark premium (paid) courses in place of a price.
-function StarIcon({ size = 14, color = '#1A1A2E' }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill={color} aria-hidden="true">
-      <path d="M12 2.5l2.9 6.06 6.6.86-4.86 4.54 1.25 6.54L12 17.9 6.11 21l1.25-6.54L2.5 9.42l6.6-.86L12 2.5z" />
-    </svg>
-  )
-}
-
-// ── Nav ───────────────────────────────────────────────────────────────────────
-
-function Nav() {
-  const navigate = useNavigate()
-  const [scrolled, setScrolled] = useState(false)
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40)
-    window.addEventListener('scroll', onScroll)
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
-
-  return (
-    <nav style={{
-      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-      background: scrolled ? 'rgba(15,10,26,0.95)' : 'transparent',
-      backdropFilter: scrolled ? 'blur(12px)' : 'none',
-      borderBottom: scrolled ? '1px solid rgba(255,255,255,0.08)' : 'none',
-      transition: 'all 0.3s',
-      padding: '0 24px',
-      display: 'flex', alignItems: 'center', height: 64,
-    }}>
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{
-          width: 36, height: 36, borderRadius: 9,
-          background: `linear-gradient(135deg, ${GOLD}, #e8c060)`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontWeight: 900, fontSize: 14, color: '#1A1A2E',
-          fontFamily: "'Playfair Display', serif",
-        }}>IW</div>
-        <span style={{ color: 'white', fontWeight: 800, fontSize: 15, letterSpacing: 0.5 }}>IWC CONCEPTS</span>
-      </div>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-        <button onClick={() => navigate('/portal/login')} style={navBtn(false)}>My Programs</button>
-      </div>
-    </nav>
-  )
-}
-
-function navBtn(primary) {
-  return {
-    background: primary ? GOLD : 'rgba(255,255,255,0.1)',
-    color: primary ? '#1A1A2E' : 'white',
-    border: primary ? 'none' : '1px solid rgba(255,255,255,0.2)',
-    borderRadius: 8, padding: '8px 18px', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-  }
 }
 
 // ── Hero Carousel ─────────────────────────────────────────────────────────────
@@ -114,8 +60,8 @@ function HeroCarousel({ programs }) {
           </p>
           <button
             onClick={() => document.getElementById('programs')?.scrollIntoView({ behavior: 'smooth' })}
-            style={{ background: GOLD, color: '#1A1A2E', border: 'none', borderRadius: 10, padding: '14px 32px', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}
-          >View Programs ↓</button>
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: GOLD, color: '#1A1A2E', border: 'none', borderRadius: 10, padding: '14px 32px', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}
+          >View Courses <BookOpen size={17} /></button>
         </div>
       </div>
     )
@@ -150,8 +96,12 @@ function HeroCarousel({ programs }) {
         padding: '0 clamp(24px, 8vw, 100px)',
       }}>
         <div style={{ maxWidth: 560, color: 'white' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: GOLD, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 12 }}>
-            {slide.status === 'open' ? '🟢 Open for Registration' : slide.status === 'upcoming' ? '🔜 Coming Soon' : slide.status}
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11, fontWeight: 700, color: GOLD, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 12 }}>
+            {slide.status === 'open'
+              ? <><CircleDot size={13} /> Open for Registration</>
+              : slide.status === 'upcoming'
+                ? <><Clock size={13} /> Coming Soon</>
+                : slide.status}
           </div>
           <h1 style={{ fontSize: 'clamp(26px, 4vw, 52px)', fontWeight: 900, margin: '0 0 12px', lineHeight: 1.15, textShadow: '0 2px 12px rgba(0,0,0,0.4)' }}>
             {slide.title}
@@ -162,8 +112,9 @@ function HeroCarousel({ programs }) {
             </p>
           )}
           {slide.startDate && (
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: '0 0 28px' }}>
-              📅 {formatDate(slide.startDate)}{slide.venue ? ` · 📍 ${slide.venue}` : ''}
+            <p style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: '0 0 28px' }}>
+              <Calendar size={14} /> {formatDate(slide.startDate)}
+              {slide.venue && <><span>·</span><MapPin size={14} /> {slide.venue}</>}
             </p>
           )}
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -171,8 +122,8 @@ function HeroCarousel({ programs }) {
               onClick={() => {
                 if (slide.registrationFormId) navigate(`/onboard?programId=${slide.id}`)
               }}
-              style={{ background: GOLD, color: '#1A1A2E', border: 'none', borderRadius: 10, padding: '14px 32px', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}
-            >{slide.type === 'paid' ? 'Register →' : 'Join Free →'}</button>
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: GOLD, color: '#1A1A2E', border: 'none', borderRadius: 10, padding: '14px 32px', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}
+            >{slide.type === 'paid' ? 'Register' : 'Join Free'} <ArrowRight size={17} /></button>
           </div>
         </div>
       </div>
@@ -183,11 +134,13 @@ function HeroCarousel({ programs }) {
           <button
             onClick={() => goTo((idx - 1 + featured.length) % featured.length)}
             style={arrowBtn('left')}
-          >‹</button>
+            aria-label="Previous"
+          ><ChevronLeft size={26} /></button>
           <button
             onClick={() => goTo((idx + 1) % featured.length)}
             style={arrowBtn('right')}
-          >›</button>
+            aria-label="Next"
+          ><ChevronRight size={26} /></button>
           {/* Dots */}
           <div style={{ position: 'absolute', bottom: 28, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 8 }}>
             {featured.map((_, i) => (
@@ -216,7 +169,7 @@ function arrowBtn(side) {
     background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(6px)',
     border: '1px solid rgba(255,255,255,0.25)', borderRadius: '50%',
     width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center',
-    color: 'white', fontSize: 28, cursor: 'pointer', lineHeight: 1,
+    color: 'white', cursor: 'pointer', lineHeight: 1,
   }
 }
 
@@ -247,7 +200,7 @@ function ProgramCard({ program }) {
       <div style={{ height: 180, background: '#f3f4f6', position: 'relative', overflow: 'hidden' }}>
         {program.image
           ? <img src={program.image} alt={program.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #6c3fc520, #6c3fc540)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40 }}>📚</div>
+          : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #6c3fc520, #6c3fc540)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BookOpen size={40} color={BRAND} /></div>
         }
         <span style={{
           position: 'absolute', top: 12, left: 12,
@@ -263,7 +216,7 @@ function ProgramCard({ program }) {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
           }} title="Premium course">
-            <StarIcon size={15} />
+            <Star size={15} color="#1A1A2E" fill="#1A1A2E" />
           </span>
         )}
       </div>
@@ -274,9 +227,9 @@ function ProgramCard({ program }) {
         {program.tagline && (
           <p style={{ margin: 0, fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>{program.tagline}</p>
         )}
-        <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
-          {program.startDate && <span>📅 {formatDate(program.startDate)}</span>}
-          {program.venue && <span style={{ marginLeft: 10 }}>📍 {program.venue}</span>}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
+          {program.startDate && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Calendar size={13} /> {formatDate(program.startDate)}</span>}
+          {program.venue && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><MapPin size={13} /> {program.venue}</span>}
         </div>
         {program.tags?.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
@@ -294,10 +247,11 @@ function ProgramCard({ program }) {
             fontWeight: 700, fontSize: 13, cursor: canRegister ? 'pointer' : 'not-allowed',
             background: canRegister ? (isPaid ? BRAND : '#059669') : '#e5e7eb',
             color: canRegister ? '#fff' : '#9ca3af',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
           }}
         >
           {canRegister
-            ? (isPaid ? 'Register →' : 'Join Free →')
+            ? <>{isPaid ? 'Register' : 'Join Free'} <ArrowRight size={15} /></>
             : (program.status === 'upcoming' ? 'Coming Soon' : program.status === 'closed' ? 'Registration Closed' : 'Completed')
           }
         </button>
@@ -318,18 +272,18 @@ function ProgramsSection({ programs }) {
     <section id="programs" style={{ background: '#f9fafb', padding: '80px 24px' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: 48 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: BRAND, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 10 }}>Our Programs</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: BRAND, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 10 }}>Our Courses</div>
           <h2 style={{ fontSize: 'clamp(26px, 4vw, 42px)', fontWeight: 900, color: '#111827', margin: 0 }}>
             Grow With Purpose
           </h2>
           <p style={{ color: '#6b7280', marginTop: 12, fontSize: 16, maxWidth: 480, margin: '12px auto 0' }}>
-            Faith-based entrepreneurship and leadership programs designed to transform your life and business.
+            Faith-based entrepreneurship and leadership courses designed to transform your life and business.
           </p>
         </div>
 
         {visible.length === 0 ? (
           <div style={{ textAlign: 'center', color: '#9ca3af', padding: '60px 0', fontSize: 16 }}>
-            Programs coming soon — check back shortly.
+            Courses coming soon — check back shortly.
           </div>
         ) : (
           <div style={{
@@ -438,26 +392,6 @@ function TestimonialsSection({ testimonials }) {
   )
 }
 
-// ── Footer ────────────────────────────────────────────────────────────────────
-
-function Footer() {
-  return (
-    <footer style={{ background: '#0f0a1a', color: 'rgba(255,255,255,0.6)', padding: '40px 24px', textAlign: 'center' }}>
-      <div style={{
-        width: 40, height: 40, borderRadius: 10,
-        background: `linear-gradient(135deg, ${GOLD}, #e8c060)`,
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        fontWeight: 900, fontSize: 14, color: '#1A1A2E',
-        fontFamily: "'Playfair Display', serif",
-        marginBottom: 12,
-      }}>IW</div>
-      <div style={{ fontWeight: 700, color: 'white', fontSize: 14, marginBottom: 4 }}>IWC Concepts</div>
-      <div style={{ fontSize: 12, color: GOLD, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 20 }}>Faith · Business · Impact</div>
-      <div style={{ fontSize: 12 }}>© {new Date().getFullYear()} IWC Concepts. All rights reserved.</div>
-    </footer>
-  )
-}
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
@@ -473,7 +407,7 @@ export default function LandingPage() {
 
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', minHeight: '100vh' }}>
-      <Nav />
+      <SiteNav />
 
       {loading ? (
         <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f0a1a' }}>
@@ -484,7 +418,7 @@ export default function LandingPage() {
           <HeroCarousel programs={programs} />
           <ProgramsSection programs={programs} />
           <TestimonialsSection testimonials={testimonials} />
-          <Footer />
+          <SiteFooter />
         </>
       )}
     </div>

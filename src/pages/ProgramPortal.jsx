@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useCustomerAuth } from '../contexts/CustomerAuthContext'
 import { getPortalContent, getProgramById } from '../utils/formStorage'
+import { Play, FileText, Paperclip, BookOpen, Lock, AlertTriangle, ArrowLeft, Menu, X, ArrowRight } from 'lucide-react'
 
 const BRAND  = '#6c3fc5'
 const BRAND2 = '#9333ea'
@@ -15,7 +16,12 @@ function parseVideo(url) {
   return null
 }
 
-const TYPE_ICON = { video: '▶', text: '📄', file: '📎' }
+// Lucide icon component for each content type.
+const TYPE_ICON = { video: Play, text: FileText, file: Paperclip }
+function TypeIcon({ type, size = 14, color }) {
+  const Icon = TYPE_ICON[type] || FileText
+  return <Icon size={size} color={color} />
+}
 
 function useWindowWidth() {
   const [width, setWidth] = useState(window.innerWidth)
@@ -85,16 +91,16 @@ export default function ProgramPortal() {
     const isAccessError = error.toLowerCase().includes('enrolled') || error.toLowerCase().includes('access')
     return (
       <div style={{ minHeight: '100vh', background: '#f9fafb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, sans-serif', flexDirection: 'column', gap: 16, padding: 24 }}>
-        <div style={{ fontSize: 48 }}>{isAccessError ? '🔒' : '⚠️'}</div>
+        {isAccessError ? <Lock size={46} color="#9ca3af" /> : <AlertTriangle size={46} color="#f59e0b" />}
         <div style={{ fontSize: 18, fontWeight: 700, color: '#374151', textAlign: 'center' }}>
-          {isAccessError ? "You don't have access to this program" : 'Could not load content'}
+          {isAccessError ? "You don't have access to this course" : 'Could not load content'}
         </div>
         {!isAccessError && (
           <div style={{ fontSize: 13, color: '#9ca3af', textAlign: 'center', maxWidth: 400 }}>{error}</div>
         )}
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
           <button onClick={load} style={{ background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 8, padding: '10px 20px', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>Try Again</button>
-          <button onClick={() => navigate('/portal')} style={{ background: BRAND, color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 600, cursor: 'pointer' }}>← Back to My Programs</button>
+          <button onClick={() => navigate('/portal')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: BRAND, color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 600, cursor: 'pointer' }}><ArrowLeft size={15} /> Back to My Courses</button>
         </div>
       </div>
     )
@@ -145,10 +151,11 @@ export default function ProgramPortal() {
         flexShrink: 0, gap: 12, position: 'sticky', top: 0, zIndex: 50,
       }}>
         <button onClick={() => navigate('/portal')} style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5,
           background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)',
           borderRadius: 7, color: 'rgba(255,255,255,0.8)', padding: '5px 12px',
           fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
-        }}>← My Programs</button>
+        }}><ArrowLeft size={13} /> My Courses</button>
 
         <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.7)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {program?.title || 'Program'}
@@ -174,7 +181,7 @@ export default function ProgramPortal() {
             whiteSpace: 'nowrap',
           }}
         >
-          <span>{sideOpen ? '✕' : '☰'}</span>
+          {sideOpen ? <X size={15} /> : <Menu size={15} />}
           {isMobile && <span>{sideOpen ? 'Close' : 'Lessons'}</span>}
         </button>
       </header>
@@ -218,8 +225,8 @@ export default function ProgramPortal() {
                   <span style={{ fontSize: 11, color: '#9ca3af' }}>{totalItems} lesson{totalItems !== 1 ? 's' : ''}</span>
                   <button
                     onClick={() => setSideOpen(false)}
-                    style={{ background: '#f3f4f6', border: 'none', borderRadius: 6, width: 28, height: 28, cursor: 'pointer', fontSize: 14, color: '#6b7280', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  >✕</button>
+                    style={{ background: '#f3f4f6', border: 'none', borderRadius: 6, width: 28, height: 28, cursor: 'pointer', color: '#6b7280', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  ><X size={15} /></button>
                 </div>
               </div>
               {sidebarContent}
@@ -231,7 +238,7 @@ export default function ProgramPortal() {
         <main style={{ flex: 1, overflowY: 'auto', background: '#fff' }}>
           {!active ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: isMobile ? 'calc(100vh - 56px)' : '100%', color: '#9ca3af', gap: 16, padding: 24 }}>
-              <div style={{ fontSize: 52 }}>📚</div>
+              <BookOpen size={52} color="#c4b5f8" />
               <div style={{ fontSize: 16, fontWeight: 700, color: '#374151', textAlign: 'center' }}>
                 {items.length === 0 ? 'No lessons published yet' : 'Select a lesson to get started'}
               </div>
@@ -245,7 +252,7 @@ export default function ProgramPortal() {
                     cursor: 'pointer', boxShadow: '0 4px 16px rgba(108,63,197,0.35)',
                   }}
                 >
-                  Browse Lessons →
+                  Browse Lessons <ArrowRight size={16} style={{ verticalAlign: 'middle' }} />
                 </button>
               )}
             </div>
@@ -275,8 +282,8 @@ function SidebarItem({ item, active, onClick }) {
       borderLeft: active ? `3px solid ${BRAND}` : '3px solid transparent',
       cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'flex-start',
     }}>
-      <span style={{ fontSize: 13, marginTop: 1, flexShrink: 0, color: active ? BRAND : '#6b7280' }}>
-        {TYPE_ICON[item.type] || '📄'}
+      <span style={{ marginTop: 2, flexShrink: 0, display: 'inline-flex' }}>
+        <TypeIcon type={item.type} size={14} color={active ? BRAND : '#9ca3af'} />
       </span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: active ? 700 : 500, color: active ? '#111827' : '#374151', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -294,7 +301,7 @@ function ContentView({ item, onNext, hasNext, isMobile }) {
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: isMobile ? '24px 16px 80px' : '32px 24px 64px' }}>
       <div style={{ fontSize: 12, color: '#9ca3af', fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span>{TYPE_ICON[item.type]}</span>
+        <TypeIcon type={item.type} size={13} color="#9ca3af" />
         <span style={{ textTransform: 'capitalize' }}>{item.type}</span>
         {item.duration && <><span>·</span><span>{item.duration}</span></>}
       </div>
@@ -341,7 +348,7 @@ function ContentView({ item, onNext, hasNext, isMobile }) {
             color: BRAND, fontWeight: 700, fontSize: 15, marginBottom: 28,
           }}
         >
-          <span style={{ fontSize: 24 }}>📎</span>
+          <Paperclip size={20} />
           {item.fileName || 'Download File'}
         </a>
       )}
@@ -355,8 +362,9 @@ function ContentView({ item, onNext, hasNext, isMobile }) {
           fontWeight: 700, fontSize: 14, cursor: 'pointer',
           boxShadow: '0 4px 16px rgba(108,63,197,0.3)',
           width: isMobile ? '100%' : 'auto',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
         }}>
-          Next Lesson →
+          Next Lesson <ArrowRight size={16} />
         </button>
       )}
     </div>

@@ -23,6 +23,8 @@ import PortalLogin from './pages/PortalLogin'
 import SetPassword from './pages/SetPassword'
 import Portal from './pages/Portal'
 import ProgramPortal from './pages/ProgramPortal'
+import About from './pages/About'
+import Contact from './pages/Contact'
 
 // Pages that are publicly accessible (no login required)
 const PUBLIC_ROUTES = (
@@ -52,6 +54,8 @@ export default function App() {
           <Routes>
             {/* Public */}
             <Route path="/"       element={<LandingPage />} />
+            <Route path="/about"  element={<About />} />
+            <Route path="/contact" element={<Contact />} />
             <Route path="/login"  element={<Login />} />
             {PUBLIC_ROUTES}
 

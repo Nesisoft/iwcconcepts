@@ -583,7 +583,7 @@ function Confirmation({ program, paymentRef, name, email, accountSetup }) {
           <p style={{ color: '#6b7280', fontSize: 13, margin: 0, lineHeight: 1.7 }}>
             We've sent a verification link to{' '}
             <strong style={{ color: '#374151' }}>{email}</strong>. Click it to confirm your
-            email and create a password — then you can sign in to access your program content.
+            email and create a password — then you can sign in to access your course content.
           </p>
         </div>
       )}
@@ -608,7 +608,7 @@ function Confirmation({ program, paymentRef, name, email, accountSetup }) {
         </p>
       )}
 
-      <button onClick={() => navigate('/')} style={primaryBtn()}>← Back to Programs</button>
+      <button onClick={() => navigate('/')} style={primaryBtn()}>← Back to Courses</button>
     </div>
   )
 }
@@ -626,7 +626,7 @@ function Header({ program, navigate }) {
         background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)',
         borderRadius: 8, padding: '6px 14px', color: 'rgba(255,255,255,0.8)',
         fontSize: 13, fontWeight: 600, cursor: 'pointer',
-      }}>← Programs</button>
+      }}>← Courses</button>
       <div style={{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: 0.4 }}>
         {program?.title || ''}
       </div>
