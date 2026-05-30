@@ -140,7 +140,7 @@ export default function ContentManager() {
 
   if (!programId || !program) return (
     <div style={{ minHeight: '100vh', background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
-      <div style={{ color: 'white', fontSize: 18 }}>Program not found</div>
+      <div style={{ color: 'white', fontSize: 18 }}>Course not found</div>
       <button onClick={() => navigate('/programs-admin')} style={{ background: ACC, border: 'none', borderRadius: 8, color: '#1A1A2E', padding: '10px 24px', fontWeight: 700, cursor: 'pointer' }}>← Back</button>
     </div>
   )
@@ -275,7 +275,7 @@ function ItemEditor({ item, sections, onChange, onSave, onCancel, saving }) {
         {item.createdAt ? 'Edit Lesson' : 'New Lesson'}
       </h3>
 
-      <Fld label="Title"><input style={inp()} value={item.title} onChange={e => set('title', e.target.value)} placeholder="e.g. Introduction to the program" autoFocus /></Fld>
+      <Fld label="Title"><input style={inp()} value={item.title} onChange={e => set('title', e.target.value)} placeholder="e.g. Introduction to the course" autoFocus /></Fld>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <Fld label="Content Type">

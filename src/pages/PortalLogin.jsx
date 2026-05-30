@@ -64,7 +64,7 @@ export default function PortalLogin() {
         }}>
           <h1 style={{ color: 'white', fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>Sign in</h1>
           <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, margin: '0 0 24px' }}>
-            Access your enrolled programs and learning content.
+            Access your enrolled courses and learning content.
           </p>
 
           {notice && (
@@ -115,7 +115,7 @@ export default function PortalLogin() {
           </form>
 
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', textAlign: 'center', margin: '22px 0 0', lineHeight: 1.6 }}>
-            Accounts are created when you enrol in a program with portal access.
+            Accounts are created when you enrol in a course with portal access.
             Check the email you registered with for your account setup link.
           </p>
         </div>
@@ -123,7 +123,7 @@ export default function PortalLogin() {
         <button onClick={() => navigate('/')} style={{
           display: 'block', margin: '20px auto 0', background: 'none', border: 'none',
           color: 'rgba(255,255,255,0.4)', fontSize: 13, cursor: 'pointer',
-        }}>← Back to Programs</button>
+        }}>← Back to Courses</button>
       </div>
     </div>
   )

@@ -42,11 +42,12 @@ function Toggle({ label, checked, onChange }) {
 function makeDefault() {
   return {
     id: uid(),
-    title: 'New Program',
+    title: 'New Course',
     tagline: '',
     description: '',
     type: 'free',
     price: 0,
+    discount: 0,
     startDate: '',
     endDate: '',
     status: 'draft',
@@ -104,7 +105,7 @@ export default function ProgramsManager() {
   }
 
   async function handleDelete(id) {
-    if (!confirm('Delete this program?')) return
+    if (!confirm('Delete this course?')) return
     await deleteProgram(id)
     await refresh()
     if (selected === id) { setSelected(null); setProg(null) }
@@ -168,22 +169,22 @@ export default function ProgramsManager() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ width: 34, height: 34, background: `linear-gradient(135deg,${ACC},${ACC2})`, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🎓</div>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 800 }}>Programs Manager</div>
+              <div style={{ fontSize: 13, fontWeight: 800 }}>Courses Manager</div>
               <div style={{ fontSize: 8, color: ACC, letterSpacing: 2 }}>IWC CONCEPTS</div>
             </div>
           </div>
         </div>
-        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{programs.length} program{programs.length !== 1 ? 's' : ''} · Auto-saved</div>
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{programs.length} course{programs.length !== 1 ? 's' : ''} · Auto-saved</div>
       </header>
 
       <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', flex: 1, overflow: 'hidden' }}>
         {/* Left list */}
         <div style={{ ...panelStyle, borderRight: '1px solid rgba(255,255,255,0.07)' }}>
-          <button onClick={create} style={{ width: '100%', background: `linear-gradient(135deg,${ACC},#c04800)`, border: 'none', borderRadius: 8, color: 'white', padding: '10px', fontSize: 11, fontWeight: 700, cursor: 'pointer', marginBottom: 12 }}>+ New Program</button>
+          <button onClick={create} style={{ width: '100%', background: `linear-gradient(135deg,${ACC},#c04800)`, border: 'none', borderRadius: 8, color: 'white', padding: '10px', fontSize: 11, fontWeight: 700, cursor: 'pointer', marginBottom: 12 }}>+ New Course</button>
           <div style={divider} />
           {programs.length === 0 && (
             <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>🎓</div>No programs yet
+              <div style={{ fontSize: 32, marginBottom: 8 }}>🎓</div>No courses yet
             </div>
           )}
           {programs.map(p => {
@@ -211,7 +212,7 @@ export default function ProgramsManager() {
         {!prog ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: 'rgba(255,255,255,0.25)', gap: 12 }}>
             <div style={{ fontSize: 52 }}>🎓</div>
-            <div style={{ fontSize: 14, fontWeight: 700 }}>Select a program to edit</div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>Select a course to edit</div>
             <div style={{ fontSize: 11 }}>or create a new one</div>
           </div>
         ) : (
@@ -236,7 +237,7 @@ export default function ProgramsManager() {
                 {/* DETAILS */}
                 {tab === 'details' && (
                   <>
-                    <Fld label="Program Title"><input style={inp()} value={prog.title} onChange={e => set('title', e.target.value)} /></Fld>
+                    <Fld label="Course Title"><input style={inp()} value={prog.title} onChange={e => set('title', e.target.value)} /></Fld>
                     <Fld label="Tagline (short subtitle shown on card)"><input style={inp()} value={prog.tagline} onChange={e => set('tagline', e.target.value)} placeholder="e.g. Build a business that works for you" /></Fld>
                     <Fld label="Description">
                       <textarea style={inp({ resize: 'vertical', lineHeight: 1.6 })} rows={5} value={prog.description} onChange={e => set('description', e.target.value)} placeholder="Full program description…" />
@@ -264,7 +265,7 @@ export default function ProgramsManager() {
                       </div>
                     </Fld>
                     <div style={divider} />
-                    <Label>Program Image</Label>
+                    <Label>Course Image</Label>
                     {prog.image ? (
                       <div style={{ position: 'relative', marginBottom: 12 }}>
                         <img src={prog.image} alt="" style={{ width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', display: 'block' }} />
@@ -331,7 +332,7 @@ export default function ProgramsManager() {
                 {tab === 'payment' && (
                   <>
                     <div style={{ marginBottom: 16 }}>
-                      <Label>Program Type</Label>
+                      <Label>Course Type</Label>
                       <div style={{ display: 'flex', gap: 10 }}>
                         {['free', 'paid'].map(t => (
                           <div key={t} onClick={() => set('type', t)} style={{ flex: 1, border: `2px solid ${prog.type === t ? (t === 'paid' ? ACC2 : '#10B981') : 'rgba(255,255,255,0.12)'}`, borderRadius: 10, padding: '12px 14px', cursor: 'pointer', background: prog.type === t ? 'rgba(255,255,255,0.05)' : 'transparent', textAlign: 'center' }}>
@@ -344,6 +345,19 @@ export default function ProgramsManager() {
                     {prog.type === 'paid' && (
                       <>
                         <Fld label="Price (GHS)"><input type="number" style={inp()} min={0} value={prog.price} onChange={e => set('price', Number(e.target.value))} /></Fld>
+                        <Fld label="Discount (%) — applied at registration via spin wheel">
+                          <input
+                            type="number" style={inp()} min={0} max={100}
+                            value={prog.discount || 0}
+                            onChange={e => set('discount', Math.max(0, Math.min(100, Number(e.target.value))))}
+                            placeholder="0 = no discount (skips the spin wheel)"
+                          />
+                          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 6, lineHeight: 1.6 }}>
+                            Leave at <strong>0</strong> for no discount — the spin wheel is skipped and the
+                            participant pays full price. Any value above 0 shows the spin wheel landing on
+                            that discount{prog.discount > 0 ? ` (pays GHS ${Math.round(Number(prog.price || 0) * (1 - (prog.discount || 0) / 100)).toLocaleString()})` : ''}.
+                          </div>
+                        </Fld>
                         <div style={divider} />
                         <div style={{ background: 'rgba(228,96,10,0.08)', border: '1px solid rgba(228,96,10,0.2)', borderRadius: 10, padding: 14, marginBottom: 16, fontSize: 11, lineHeight: 1.7, color: 'rgba(255,255,255,0.6)' }}>
                           <strong style={{ color: ACC2 }}>Paystack setup:</strong><br />
@@ -375,7 +389,7 @@ export default function ProgramsManager() {
                     )}
                     <div style={divider} />
                     <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', lineHeight: 1.7 }}>
-                      Featured programs appear as full-width slides in the hero carousel on the public landing page. The program image, title, tagline, date, and a CTA button are shown. Non-featured programs still appear in the programs grid below the carousel.
+                      Featured courses appear as full-width slides in the hero carousel on the public landing page. The course image, title, tagline, date, and a CTA button are shown. Non-featured courses still appear in the courses grid below the carousel.
                     </div>
                     {!prog.image && (
                       <div style={{ marginTop: 12, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '10px 14px', fontSize: 10, color: '#fbbf24' }}>
@@ -410,7 +424,7 @@ export default function ProgramsManager() {
                         🔗 Preview Onboarding Page
                       </button>
                       <button onClick={() => navigate(`/content-admin?programId=${prog.id}`)} style={{ width: '100%', background: `rgba(201,168,76,0.15)`, border: `1px solid rgba(201,168,76,0.3)`, borderRadius: 8, color: ACC2, fontSize: 11, fontWeight: 700, padding: '10px', cursor: 'pointer' }}>
-                        📚 Manage Program Content
+                        📚 Manage Course Content
                       </button>
                     </div>
                   </>

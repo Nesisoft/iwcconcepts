@@ -317,7 +317,7 @@ export default function TestimonialsManager() {
 
                   {/* Program link */}
                   <div>
-                    <label style={labelStyle}>Linked Program <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span></label>
+                    <label style={labelStyle}>Linked Course <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span></label>
                     <select
                       value={draft.programId}
                       onChange={e => patch({ programId: e.target.value })}
@@ -329,7 +329,7 @@ export default function TestimonialsManager() {
                       ))}
                     </select>
                     <p style={{ margin: '6px 0 0', fontSize: 12, color: '#9ca3af' }}>
-                      Global testimonials appear on the landing page. Linked ones also appear on the program's onboarding page.
+                      Global testimonials appear on the landing page. Linked ones also appear on the course's onboarding page.
                     </p>
                   </div>
 

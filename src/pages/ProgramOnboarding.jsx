@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getProgramById, getFormById, addSubmission, addEnrollment, uid } from '../utils/formStorage'
 import { useCustomerAuth } from '../contexts/CustomerAuthContext'
@@ -9,16 +9,10 @@ const GOLD   = '#C9A84C'
 
 // ── Spin Wheel ─────────────────────────────────────────────────────────────────
 
-const SEGMENTS = [
-  { label: '10% OFF', color: '#ede9fe' },
-  { label: '20% OFF', color: '#c4b5f8' },
-  { label: '30% OFF', color: '#a78bfa' },
-  { label: '50% OFF', color: '#6c3fc5' }, // WINNER — always lands here
-  { label: '40% OFF', color: '#7c3aed' },
-  { label: '15% OFF', color: '#8b5cf6' },
-]
-const WINNER_IDX = 3
-const SEG_ANGLE  = 360 / SEGMENTS.length
+const SEG_COLORS = ['#ede9fe', '#c4b5f8', '#a78bfa', '#6c3fc5', '#7c3aed', '#8b5cf6']
+const WINNER_IDX = 3       // wheel always lands on this segment
+const SEG_COUNT  = 6
+const SEG_ANGLE  = 360 / SEG_COUNT
 
 // When CSS rotation = R (clockwise), pointer (fixed at top) aligns with angle
 // (360 - R%360) degrees CW from top. We want that to equal winner center.
@@ -27,9 +21,20 @@ const SEG_ANGLE  = 360 / SEGMENTS.length
 const WINNER_CENTER = WINNER_IDX * SEG_ANGLE + SEG_ANGLE / 2
 const SPIN_TARGET   = 360 - WINNER_CENTER + 360 * 5  // = 1950°
 
-function SpinWheel({ onDone }) {
+// Build 6 wheel segments where the winning slot (index 3) shows the real
+// discount and the rest are plausible decoys, all sorted to look natural.
+function buildSegments(winPct) {
+  const pool = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70].filter(d => d !== winPct)
+  const decoys = pool.slice(0, SEG_COUNT - 1)
+  const labels = [...decoys]
+  labels.splice(WINNER_IDX, 0, winPct)
+  return labels.map((pct, i) => ({ label: `${pct}% OFF`, color: SEG_COLORS[i] }))
+}
+
+function SpinWheel({ onDone, discountPct = 50 }) {
   const [rotation, setRotation] = useState(0)
   const [phase, setPhase] = useState('idle') // idle | spinning | done
+  const segments = useMemo(() => buildSegments(discountPct), [discountPct])
 
   function spin() {
     if (phase !== 'idle') return
@@ -62,7 +67,7 @@ function SpinWheel({ onDone }) {
             : 'none',
           filter: 'drop-shadow(0 8px 24px rgba(108,63,197,0.25))',
         }}>
-          {SEGMENTS.map((seg, i) => {
+          {segments.map((seg, i) => {
             const startRad = (i * SEG_ANGLE - 90) * Math.PI / 180
             const endRad   = ((i + 1) * SEG_ANGLE - 90) * Math.PI / 180
             const midRad   = ((i + 0.5) * SEG_ANGLE - 90) * Math.PI / 180
@@ -97,7 +102,7 @@ function SpinWheel({ onDone }) {
       {phase === 'done' ? (
         <div>
           <div style={{ fontSize: 52, marginBottom: 8 }}>🎉</div>
-          <h3 style={{ fontSize: 26, fontWeight: 900, color: BRAND, margin: '0 0 8px' }}>You Won 50% OFF!</h3>
+          <h3 style={{ fontSize: 26, fontWeight: 900, color: BRAND, margin: '0 0 8px' }}>You Won {discountPct}% OFF!</h3>
           <p style={{ color: '#6b7280', fontSize: 14, margin: '0 0 28px' }}>
             Your discount has been applied automatically.
           </p>
@@ -138,7 +143,8 @@ function buildSteps(form, program) {
   if (!hasEmail) steps.push({ type: 'email' })
   if (!hasName)  steps.push({ type: 'name' })
   if (program?.type === 'paid') {
-    steps.push({ type: 'wheel' })
+    // Only show the spin wheel when the course has a discount configured.
+    if (Number(program.discount) > 0) steps.push({ type: 'wheel' })
     steps.push({ type: 'payment' })
   }
   return steps
@@ -418,7 +424,7 @@ function NameScreen({ value, onChange, onNext, onBack }) {
   )
 }
 
-function PaymentScreen({ program, discountedPrice, email, name, form, formData }) {
+function PaymentScreen({ program, discountedPrice, discountPct, email, name, form, formData }) {
   const [paying, setPaying]  = useState(null)
   const [error,  setError]   = useState('')
   const originalPrice = Number(program.price || 0)
@@ -485,15 +491,17 @@ function PaymentScreen({ program, discountedPrice, email, name, form, formData }
         border: `1px solid ${BRAND}28`, borderRadius: 16,
         padding: '20px 24px', marginBottom: 28, textAlign: 'center',
       }}>
-        <div style={{ marginBottom: 6 }}>
-          <span style={{ textDecoration: 'line-through', color: '#9ca3af', fontSize: 14, marginRight: 10 }}>
-            GHS {originalPrice.toLocaleString()}
-          </span>
-          <span style={{
-            background: '#dcfce7', color: '#16a34a',
-            borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700,
-          }}>50% OFF</span>
-        </div>
+        {discountPct > 0 && (
+          <div style={{ marginBottom: 6 }}>
+            <span style={{ textDecoration: 'line-through', color: '#9ca3af', fontSize: 14, marginRight: 10 }}>
+              GHS {originalPrice.toLocaleString()}
+            </span>
+            <span style={{
+              background: '#dcfce7', color: '#16a34a',
+              borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700,
+            }}>{discountPct}% OFF</span>
+          </div>
+        )}
         <div style={{ fontSize: 38, fontWeight: 900, color: BRAND, lineHeight: 1 }}>
           GHS {discountedPrice.toLocaleString()}
         </div>
@@ -575,7 +583,7 @@ function Confirmation({ program, paymentRef, name, email, accountSetup }) {
           <p style={{ color: '#6b7280', fontSize: 13, margin: 0, lineHeight: 1.7 }}>
             We've sent a verification link to{' '}
             <strong style={{ color: '#374151' }}>{email}</strong>. Click it to confirm your
-            email and create a password — then you can sign in to access your program content.
+            email and create a password — then you can sign in to access your course content.
           </p>
         </div>
       )}
@@ -600,7 +608,7 @@ function Confirmation({ program, paymentRef, name, email, accountSetup }) {
         </p>
       )}
 
-      <button onClick={() => navigate('/')} style={primaryBtn()}>← Back to Programs</button>
+      <button onClick={() => navigate('/')} style={primaryBtn()}>← Back to Courses</button>
     </div>
   )
 }
@@ -618,7 +626,7 @@ function Header({ program, navigate }) {
         background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)',
         borderRadius: 8, padding: '6px 14px', color: 'rgba(255,255,255,0.8)',
         fontSize: 13, fontWeight: 600, cursor: 'pointer',
-      }}>← Programs</button>
+      }}>← Courses</button>
       <div style={{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: 0.4 }}>
         {program?.title || ''}
       </div>
@@ -690,7 +698,7 @@ export default function ProgramOnboarding() {
               id: uid(), programId: p.id, programTitle: p.title,
               participantName: payName, participantEmail: payEmail,
               paymentRef: ret.reference,
-              amountPaid: Math.round(Number(p.price || 0) * 0.5),
+              amountPaid: Math.round(Number(p.price || 0) * (1 - (Number(p.discount) || 0) / 100)),
               currency: 'GHS', enrolledAt: new Date().toISOString(),
               ...(loadedForm && payFormId ? { formSubmissionId: submissionId } : {}),
             })
@@ -746,7 +754,8 @@ export default function ProgramOnboarding() {
   const resolvedName  = name  || (nameFieldId  ? formData[nameFieldId]  : '') || ''
 
   const originalPrice    = Number(program?.price || 0)
-  const discountedPrice  = Math.round(originalPrice * 0.5)
+  const discountPct      = Number(program?.discount) || 0
+  const discountedPrice  = Math.round(originalPrice * (1 - discountPct / 100))
 
   function goNext() {
     if (step < steps.length - 1) {
@@ -865,7 +874,7 @@ export default function ProgramOnboarding() {
             <p style={{ color: '#6b7280', fontSize: 15, margin: '0 0 36px' }}>
               Spin the wheel for an exclusive discount on <strong>{program.title}</strong>.
             </p>
-            <SpinWheel onDone={goNext} />
+            <SpinWheel onDone={goNext} discountPct={discountPct} />
           </div>
         )
 
@@ -874,6 +883,7 @@ export default function ProgramOnboarding() {
           <PaymentScreen
             program={program}
             discountedPrice={discountedPrice}
+            discountPct={discountPct}
             email={resolvedEmail}
             name={resolvedName}
             form={form}
