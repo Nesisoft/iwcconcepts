@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import AdminSelect from '../components/AdminSelect'
 import {
   getProgramById,
   getContentSections, saveContentSection, deleteContentSection,
@@ -278,17 +279,27 @@ function ItemEditor({ item, sections, onChange, onSave, onCancel, saving }) {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <Fld label="Content Type">
-          <select style={inp()} value={item.type} onChange={e => set('type', e.target.value)}>
-            <option value="video">▶ Video</option>
-            <option value="text">📄 Text / Rich Text</option>
-            <option value="file">📎 File / Document</option>
-          </select>
+          <AdminSelect
+            value={item.type}
+            onChange={e => set('type', e.target.value)}
+            options={[
+              { value: 'video', label: '▶ Video' },
+              { value: 'text',  label: '📄 Text / Rich Text' },
+              { value: 'file',  label: '📎 File / Document' },
+            ]}
+            style={{ width: '100%' }}
+          />
         </Fld>
         <Fld label="Module">
-          <select style={inp()} value={item.sectionId || ''} onChange={e => set('sectionId', e.target.value || null)}>
-            <option value="">— No module —</option>
-            {sections.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
-          </select>
+          <AdminSelect
+            value={item.sectionId || ''}
+            onChange={e => set('sectionId', e.target.value || null)}
+            options={[
+              { value: '', label: '— No module —' },
+              ...sections.map(s => ({ value: s.id, label: s.title })),
+            ]}
+            style={{ width: '100%' }}
+          />
         </Fld>
       </div>
 

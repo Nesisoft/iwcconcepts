@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import AdminSelect from '../components/AdminSelect'
 import {
   getAllForms, saveForm, getFormSubmissions, deleteSubmission, exportCSV,
   getEventTasks, saveEventTasks, formatDate, getTimeLeft, uid,
@@ -653,6 +654,13 @@ function RemindersTab({ form, subs }) {
 
 // ── Form selector ─────────────────────────────────────────────────────────────
 function FormSelector({ forms, selected, onSelect }) {
+  const options = [
+    { value: '', label: '— Select a form —' },
+    ...forms.map(f => ({
+      value: f.id,
+      label: `${f.title || 'Untitled'} (${f.type === 'feedback' ? 'Feedback' : 'Registration'})`,
+    })),
+  ]
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
@@ -661,23 +669,13 @@ function FormSelector({ forms, selected, onSelect }) {
       borderBottom: '1px solid rgba(255,255,255,0.07)',
     }}>
       <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', letterSpacing: 1 }}>FORM:</span>
-      <select
+      <AdminSelect
         value={selected || ''}
         onChange={e => onSelect(e.target.value)}
-        style={{
-          ...S.input,
-          width: 'auto',
-          maxWidth: 340,
-          padding: '6px 12px',
-          fontSize: 12,
-          cursor: 'pointer',
-        }}
-      >
-        <option value="">— Select a form —</option>
-        {forms.map(f => (
-          <option key={f.id} value={f.id}>{f.title || 'Untitled'} ({f.type === 'feedback' ? 'Feedback' : 'Registration'})</option>
-        ))}
-      </select>
+        options={options}
+        placeholder="— Select a form —"
+        style={{ minWidth: 220, maxWidth: 400 }}
+      />
     </div>
   )
 }
