@@ -17,9 +17,13 @@ function formatDate(iso) {
   return new Date(iso).toLocaleDateString('en-GH', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-function priceLabel(p) {
-  if (p.type === 'free' || !p.price) return 'FREE'
-  return `GHS ${Number(p.price).toLocaleString()}`
+// Gold star used to mark premium (paid) courses in place of a price.
+function StarIcon({ size = 14, color = '#1A1A2E' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color} aria-hidden="true">
+      <path d="M12 2.5l2.9 6.06 6.6.86-4.86 4.54 1.25 6.54L12 17.9 6.11 21l1.25-6.54L2.5 9.42l6.6-.86L12 2.5z" />
+    </svg>
+  )
 }
 
 // ── Nav ───────────────────────────────────────────────────────────────────────
@@ -96,7 +100,7 @@ function HeroCarousel({ programs }) {
   if (featured.length === 0) {
     return (
       <div style={{
-        height: '92vh', minHeight: 500,
+        height: '100vh', minHeight: 560,
         background: 'linear-gradient(135deg, #0f0a1a 0%, #1e0f3a 50%, #0f0a1a 100%)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
@@ -120,7 +124,7 @@ function HeroCarousel({ programs }) {
   const slide = featured[idx] || featured[0]
 
   return (
-    <div style={{ position: 'relative', height: '92vh', minHeight: 500, overflow: 'hidden' }}>
+    <div style={{ position: 'relative', height: '100vh', minHeight: 560, overflow: 'hidden' }}>
       {/* Slides */}
       {featured.map((p, i) => (
         <div
@@ -251,6 +255,17 @@ function ProgramCard({ program }) {
           fontSize: 11, fontWeight: 700, borderRadius: 20, padding: '3px 10px',
           textTransform: 'capitalize',
         }}>{program.status}</span>
+        {isPaid && (
+          <span style={{
+            position: 'absolute', top: 12, right: 12,
+            background: `linear-gradient(135deg, ${GOLD}, #e8c060)`,
+            borderRadius: '50%', width: 30, height: 30,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+          }} title="Premium course">
+            <StarIcon size={15} />
+          </span>
+        )}
       </div>
 
       {/* Body */}

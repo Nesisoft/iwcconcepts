@@ -200,10 +200,10 @@ export default function Portal() {
                 key={prog.id}
                 program={prog}
                 fallbackTitle={prog.title}
-                badge="Enroll to access"
+                badge="★ Premium"
                 badgeColor="#92400e"
                 badgeBg="#fef3c7"
-                sub={prog.price ? `GHS ${Number(prog.price).toLocaleString()}` : ''}
+                sub="Enroll to unlock"
                 action={{
                   label: 'Enroll Now →',
                   onClick: () => navigate(`/onboard?programId=${prog.id}`),

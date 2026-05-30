@@ -47,6 +47,7 @@ function makeDefault() {
     description: '',
     type: 'free',
     price: 0,
+    discount: 0,
     startDate: '',
     endDate: '',
     status: 'draft',
@@ -344,6 +345,19 @@ export default function ProgramsManager() {
                     {prog.type === 'paid' && (
                       <>
                         <Fld label="Price (GHS)"><input type="number" style={inp()} min={0} value={prog.price} onChange={e => set('price', Number(e.target.value))} /></Fld>
+                        <Fld label="Discount (%) — applied at registration via spin wheel">
+                          <input
+                            type="number" style={inp()} min={0} max={100}
+                            value={prog.discount || 0}
+                            onChange={e => set('discount', Math.max(0, Math.min(100, Number(e.target.value))))}
+                            placeholder="0 = no discount (skips the spin wheel)"
+                          />
+                          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 6, lineHeight: 1.6 }}>
+                            Leave at <strong>0</strong> for no discount — the spin wheel is skipped and the
+                            participant pays full price. Any value above 0 shows the spin wheel landing on
+                            that discount{prog.discount > 0 ? ` (pays GHS ${Math.round(Number(prog.price || 0) * (1 - (prog.discount || 0) / 100)).toLocaleString()})` : ''}.
+                          </div>
+                        </Fld>
                         <div style={divider} />
                         <div style={{ background: 'rgba(228,96,10,0.08)', border: '1px solid rgba(228,96,10,0.2)', borderRadius: 10, padding: 14, marginBottom: 16, fontSize: 11, lineHeight: 1.7, color: 'rgba(255,255,255,0.6)' }}>
                           <strong style={{ color: ACC2 }}>Paystack setup:</strong><br />
