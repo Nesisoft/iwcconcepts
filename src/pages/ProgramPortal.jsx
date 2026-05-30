@@ -81,15 +81,24 @@ export default function ProgramPortal() {
     </div>
   )
 
-  if (error) return (
-    <div style={{ minHeight: '100vh', background: '#f9fafb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, sans-serif', flexDirection: 'column', gap: 16, padding: 24 }}>
-      <div style={{ fontSize: 48 }}>🔒</div>
-      <div style={{ fontSize: 18, fontWeight: 700, color: '#374151', textAlign: 'center' }}>
-        {error.includes('enrolled') ? "You don't have access to this program" : error}
+  if (error) {
+    const isAccessError = error.toLowerCase().includes('enrolled') || error.toLowerCase().includes('access')
+    return (
+      <div style={{ minHeight: '100vh', background: '#f9fafb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, sans-serif', flexDirection: 'column', gap: 16, padding: 24 }}>
+        <div style={{ fontSize: 48 }}>{isAccessError ? '🔒' : '⚠️'}</div>
+        <div style={{ fontSize: 18, fontWeight: 700, color: '#374151', textAlign: 'center' }}>
+          {isAccessError ? "You don't have access to this program" : 'Could not load content'}
+        </div>
+        {!isAccessError && (
+          <div style={{ fontSize: 13, color: '#9ca3af', textAlign: 'center', maxWidth: 400 }}>{error}</div>
+        )}
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <button onClick={load} style={{ background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 8, padding: '10px 20px', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>Try Again</button>
+          <button onClick={() => navigate('/portal')} style={{ background: BRAND, color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 600, cursor: 'pointer' }}>← Back to My Programs</button>
+        </div>
       </div>
-      <button onClick={() => navigate('/portal')} style={{ background: BRAND, color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 600, cursor: 'pointer' }}>← Back to My Programs</button>
-    </div>
-  )
+    )
+  }
 
   const sectionedItems   = sections.map(s => ({ ...s, items: items.filter(i => i.sectionId === s.id) }))
   const unsectionedItems = items.filter(i => !i.sectionId)
