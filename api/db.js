@@ -372,7 +372,11 @@ async function handleAction(db, action, p, user = null) {
         [p.programId]
       )
       const prog = pr[0]?.data
-      const isFreePortal = prog && prog.type === 'free' && prog.hasPortalAccess
+      // hasPortalAccess can be boolean true or string "true" depending on how old
+      // records were saved, so coerce to boolean.
+      const isFreePortal = prog &&
+        prog.type === 'free' &&
+        (prog.hasPortalAccess === true || prog.hasPortalAccess === 'true')
 
       if (!isFreePortal) {
         const { rows: er } = await db.query(
