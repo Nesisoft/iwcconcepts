@@ -352,22 +352,36 @@ async function handleAction(db, action, p, user = null) {
 
     // ── Customer portal actions ───────────────────────────────────────────────
     case 'getMyEnrollments': {
+      // DISTINCT ON deduplicates by program — keeps only the most recent
+      // enrollment per program so repeated signups don't appear twice.
       const { rows } = await db.query(
-        `SELECT data FROM enrollments WHERE data->>'participantEmail' = $1
-         ORDER BY created_at DESC`,
+        `SELECT DISTINCT ON (program_id) data
+         FROM enrollments
+         WHERE data->>'participantEmail' = $1
+         ORDER BY program_id, created_at DESC`,
         [user.email]
       )
       return rows.map(r => r.data)
     }
 
     case 'getPortalContent': {
-      // Verify the caller is enrolled in this program
-      const { rows: er } = await db.query(
-        `SELECT id FROM enrollments
-         WHERE program_id = $1 AND data->>'participantEmail' = $2`,
-        [p.programId, user.email]
+      // Free programs with portal access are open to all portal users —
+      // no enrollment record required.
+      const { rows: pr } = await db.query(
+        'SELECT data FROM programs WHERE id = $1',
+        [p.programId]
       )
-      if (er.length === 0) throw new Error('Not enrolled in this program')
+      const prog = pr[0]?.data
+      const isFreePortal = prog && prog.type === 'free' && prog.hasPortalAccess
+
+      if (!isFreePortal) {
+        const { rows: er } = await db.query(
+          `SELECT id FROM enrollments
+           WHERE program_id = $1 AND data->>'participantEmail' = $2`,
+          [p.programId, user.email]
+        )
+        if (er.length === 0) throw new Error('Not enrolled in this program')
+      }
 
       const [sr, ir] = await Promise.all([
         db.query(
