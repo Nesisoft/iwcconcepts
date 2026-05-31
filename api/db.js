@@ -26,10 +26,10 @@ async function loadEmailSettings(db) {
 }
 
 // Best-effort send — never throws into the calling action.
-async function trySend(db, { to, subject, text }) {
+async function trySend(db, { to, subject, text, settings }) {
   try {
-    const settings = await loadEmailSettings(db)
-    return await sendMail({ to, subject, text, settings })
+    const s = settings || await loadEmailSettings(db)
+    return await sendMail({ to, subject, text, settings: s })
   } catch (e) {
     console.warn('[email] send failed:', e.message)
     return { skipped: true, reason: 'error' }
@@ -292,12 +292,25 @@ async function handleAction(db, action, p, user = null) {
     // ── Enrollments ───────────────────────────────────────────────────────────
     case 'addEnrollment': {
       const e = p.enrollment
-      await db.query(
+      const result = await db.query(
         `INSERT INTO enrollments (id, program_id, data, created_at)
          VALUES ($1, $2, $3, $4)
          ON CONFLICT (id) DO NOTHING`,
         [e.id, e.programId, e, e.enrolledAt || new Date().toISOString()]
       )
+      // Welcome email — only on a genuinely new enrollment row.
+      if (result.rowCount > 0 && e.participantEmail) {
+        const settings = await loadEmailSettings(db)
+        if (settings.welcomeEnabled) {
+          const vars = emailVars({ name: e.participantName, course: e.programTitle, baseUrl: p.baseUrl })
+          await trySend(db, {
+            to: e.participantEmail,
+            subject: renderTemplate(settings.welcomeSubject, vars),
+            text: renderTemplate(settings.welcomeBody, vars),
+            settings,
+          })
+        }
+      }
       return e
     }
 
@@ -457,12 +470,54 @@ async function handleAction(db, action, p, user = null) {
     }
 
     case 'markItemComplete': {
-      await db.query(
+      const ins = await db.query(
         `INSERT INTO course_progress (user_email, item_id, program_id, completed_at)
          VALUES ($1, $2, $3, NOW())
          ON CONFLICT (user_email, item_id) DO NOTHING`,
         [user.email, p.itemId, p.programId]
       )
+
+      // If this insert just completed the course, send a completion email once.
+      if (ins.rowCount > 0) {
+        const [{ rows: totalR }, { rows: doneR }] = await Promise.all([
+          db.query(
+            `SELECT COUNT(*)::int AS n FROM content_items
+             WHERE program_id = $1 AND (data->>'isPublished')::boolean = true`,
+            [p.programId]
+          ),
+          db.query(
+            `SELECT COUNT(*)::int AS n FROM course_progress
+             WHERE program_id = $1 AND user_email = $2`,
+            [p.programId, user.email]
+          ),
+        ])
+        const total = totalR[0]?.n || 0
+        const done  = doneR[0]?.n || 0
+        if (total > 0 && done >= total) {
+          const settings = await loadEmailSettings(db)
+          if (settings.completionEnabled) {
+            const { rows: pr } = await db.query('SELECT data FROM programs WHERE id = $1', [p.programId])
+            const prog = pr[0]?.data
+            const { rows: er } = await db.query(
+              `SELECT data FROM enrollments
+               WHERE program_id = $1 AND data->>'participantEmail' = $2
+               ORDER BY created_at DESC LIMIT 1`,
+              [p.programId, user.email]
+            )
+            const name = er[0]?.data?.participantName || user.email.split('@')[0]
+            const certificateUrl = (prog?.awardsCertificate && p.baseUrl)
+              ? `${p.baseUrl}/#/portal/certificate/${p.programId}`
+              : ''
+            const vars = emailVars({ name, course: prog?.title, baseUrl: p.baseUrl, certificateUrl })
+            await trySend(db, {
+              to: user.email,
+              subject: renderTemplate(settings.completionSubject, vars),
+              text: renderTemplate(settings.completionBody, vars),
+              settings,
+            })
+          }
+        }
+      }
       return { ok: true, itemId: p.itemId }
     }
 

@@ -268,7 +268,8 @@ export async function addEnrollment(enrollment) {
     id:         enrollment.id         || uid(),
     enrolledAt: enrollment.enrolledAt || new Date().toISOString(),
   }
-  return api('addEnrollment', { enrollment: record })
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+  return api('addEnrollment', { enrollment: record, baseUrl })
 }
 
 export async function getEnrollmentsByProgram(programId) {
@@ -345,7 +346,7 @@ export const getMyProgress = (programId, token) =>
   api('getMyProgress', { programId }, token)
 
 export const markItemComplete = (programId, itemId, token) =>
-  api('markItemComplete', { programId, itemId }, token)
+  api('markItemComplete', { programId, itemId, baseUrl: typeof window !== 'undefined' ? window.location.origin : '' }, token)
 
 export const getEnrolledUsersProgress = () =>
   adminToken().then(t => api('getEnrolledUsersProgress', {}, t))
