@@ -94,7 +94,16 @@ create table if not exists settings (
   key        text        primary key,
   data       jsonb       not null,
   updated_at timestamptz not null default now()
-);`
+);
+
+create table if not exists lesson_comments (
+  id         text        primary key,
+  program_id text        not null,
+  item_id    text        not null,
+  data       jsonb       not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists lesson_comments_item_idx on lesson_comments(program_id, item_id);`
 
 // ── Vercel env vars ────────────────────────────────────────────────────────────
 const SERVER_ENV = `# ── Vercel Dashboard → Project → Settings → Environment Variables ──────────

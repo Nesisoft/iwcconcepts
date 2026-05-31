@@ -360,6 +360,29 @@ export const saveSetting = (key, value) =>
   adminToken().then(t => api('saveSetting', { key, value }, t))
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Lesson discussion / Q&A
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const getLessonComments = (programId, itemId, token) =>
+  api('getLessonComments', { programId, itemId }, token)
+
+export const addLessonComment = (payload, token) =>
+  api('addLessonComment', payload, token)
+
+export const deleteLessonComment = (id, token, asAdmin = false) =>
+  api('deleteLessonComment', { id, asAdmin }, token)
+
+// Admin Q&A console
+export const getAllLessonComments = () =>
+  adminToken().then(t => api('getAllLessonComments', {}, t))
+
+export const addAdminLessonComment = (payload) =>
+  adminToken().then(t => api('addLessonComment', { ...payload, asAdmin: true }, t))
+
+export const deleteLessonCommentAdmin = (id) =>
+  adminToken().then(t => api('deleteLessonComment', { id, asAdmin: true }, t))
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Utility helpers (unchanged — no DB calls)
 // ═══════════════════════════════════════════════════════════════════════════════
 

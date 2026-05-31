@@ -39,7 +39,17 @@ const ADMIN_ACTIONS = new Set([
   'getContentItems',    'saveContentItem',    'deleteContentItem',
   'getEnrolledUsersProgress',
   'saveSetting',
+  'getAllLessonComments',
 ])
+
+// Optional: comma-separated admin emails. When set, only these accounts can post
+// with the "Instructor" badge. When unset, the client-provided flag is trusted
+// (consistent with the app's existing auth posture).
+function isAdminEmail(email) {
+  const list = (process.env.ADMIN_EMAILS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+  if (list.length === 0) return null // unknown / not configured
+  return list.includes((email || '').toLowerCase())
+}
 
 // Actions requiring any valid Supabase session (customer or admin).
 // The server uses the verified user.email to scope the response.
@@ -48,6 +58,9 @@ const CUSTOMER_ACTIONS = new Set([
   'getPortalContent',
   'getMyProgress',
   'markItemComplete',
+  'getLessonComments',
+  'addLessonComment',
+  'deleteLessonComment',
 ])
 
 // ── Database connection ────────────────────────────────────────────────────────
@@ -454,6 +467,65 @@ async function handleAction(db, action, p, user = null) {
         programs:     progR.rows.map(r => ({ id: r.id, ...r.data })),
         lessonCounts: Object.fromEntries(ciR.rows.map(r => [r.program_id, Number(r.total)])),
       }
+    }
+
+    // ── Lesson discussion / Q&A ───────────────────────────────────────────────
+    case 'getLessonComments': {
+      const { rows } = await db.query(
+        `SELECT id, data, created_at FROM lesson_comments
+         WHERE program_id = $1 AND item_id = $2
+         ORDER BY created_at ASC`,
+        [p.programId, p.itemId]
+      )
+      return rows.map(r => ({ id: r.id, createdAt: r.created_at, ...r.data }))
+    }
+
+    case 'addLessonComment': {
+      const adminCheck = isAdminEmail(user.email)
+      const isAdmin = adminCheck === null ? !!p.asAdmin : adminCheck
+      const comment = {
+        authorEmail:  user.email,
+        authorName:   p.authorName || user.email.split('@')[0],
+        body:         String(p.body || '').slice(0, 4000),
+        isAdmin,
+        parentId:     p.parentId || null,
+        programTitle: p.programTitle || null,
+        lessonTitle:  p.lessonTitle || null,
+      }
+      if (!comment.body.trim()) throw new Error('Comment cannot be empty')
+      const id  = Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
+      const now = new Date().toISOString()
+      await db.query(
+        `INSERT INTO lesson_comments (id, program_id, item_id, data, created_at)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [id, p.programId, p.itemId, comment, now]
+      )
+      return { id, createdAt: now, ...comment }
+    }
+
+    case 'deleteLessonComment': {
+      const { rows } = await db.query('SELECT data FROM lesson_comments WHERE id = $1', [p.id])
+      const existing = rows[0]?.data
+      if (!existing) return { ok: true }
+      const adminCheck = isAdminEmail(user.email)
+      const canModerate = adminCheck === true || (adminCheck === null && !!p.asAdmin)
+      if (existing.authorEmail !== user.email && !canModerate) {
+        throw new Error('You can only delete your own comment')
+      }
+      // Delete the comment and any replies to it
+      await db.query(
+        `DELETE FROM lesson_comments WHERE id = $1 OR data->>'parentId' = $1`,
+        [p.id]
+      )
+      return { ok: true }
+    }
+
+    case 'getAllLessonComments': {
+      const { rows } = await db.query(
+        `SELECT id, program_id, item_id, data, created_at FROM lesson_comments
+         ORDER BY created_at DESC`
+      )
+      return rows.map(r => ({ id: r.id, programId: r.program_id, itemId: r.item_id, createdAt: r.created_at, ...r.data }))
     }
 
     // ── Settings (public read, admin write) ──────────────────────────────────

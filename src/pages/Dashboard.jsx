@@ -4,7 +4,7 @@ import { isConfigured } from '../utils/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import {
   MessageSquare, Megaphone, ClipboardList, BarChart3, Database,
-  GraduationCap, Star, Globe, Users, Award, LineChart,
+  GraduationCap, Star, Globe, Users, Award, LineChart, MessagesSquare,
 } from 'lucide-react'
 
 const tools = [
@@ -106,6 +106,16 @@ const tools = [
     desc: 'Track revenue, enrollments over time, completion rates, certificates, and per-course performance at a glance.',
     tags: ['Revenue', 'Enrollments', 'Completion', 'Trends'],
     accent: '#9B59B6',
+    available: true,
+  },
+  {
+    id: 'discussions',
+    path: '/discussions',
+    Icon: MessagesSquare,
+    title: 'Discussions & Q&A',
+    desc: 'Read and answer learner questions from every lesson. Replies post as Instructor; moderate or delete any comment.',
+    tags: ['Q&A', 'Replies', 'Moderation', 'Community'],
+    accent: '#9333ea',
     available: true,
   },
   {
