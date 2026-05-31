@@ -103,7 +103,14 @@ create table if not exists lesson_comments (
   data       jsonb       not null,
   created_at timestamptz not null default now()
 );
-create index if not exists lesson_comments_item_idx on lesson_comments(program_id, item_id);`
+create index if not exists lesson_comments_item_idx on lesson_comments(program_id, item_id);
+
+create table if not exists email_reminders (
+  user_email text        not null,
+  program_id text        not null,
+  last_sent  timestamptz not null default now(),
+  primary key (user_email, program_id)
+);`
 
 // ── Vercel env vars ────────────────────────────────────────────────────────────
 const SERVER_ENV = `# ── Vercel Dashboard → Project → Settings → Environment Variables ──────────
