@@ -341,6 +341,15 @@ export const getMyEnrollments = (token) =>
 export const getPortalContent = (programId, token) =>
   api('getPortalContent', { programId }, token)
 
+export const getMyProgress = (programId, token) =>
+  api('getMyProgress', { programId }, token)
+
+export const markItemComplete = (programId, itemId, token) =>
+  api('markItemComplete', { programId, itemId }, token)
+
+export const getEnrolledUsersProgress = () =>
+  adminToken().then(t => api('getEnrolledUsersProgress', {}, t))
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Utility helpers (unchanged — no DB calls)
 // ═══════════════════════════════════════════════════════════════════════════════

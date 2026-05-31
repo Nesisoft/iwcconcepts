@@ -2,12 +2,16 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { isConfigured } from '../utils/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import {
+  MessageSquare, Megaphone, ClipboardList, BarChart3, Database,
+  GraduationCap, Star, Globe, Users,
+} from 'lucide-react'
 
 const tools = [
   {
     id: 'quote-studio',
     path: '/quote-studio',
-    icon: '💬',
+    Icon: MessageSquare,
     title: 'Quote Card Studio',
     desc: 'Design branded quote cards for social media with custom templates, typography, profile photos, and platform icons.',
     tags: ['Templates', 'Photo', 'Typography', 'Export'],
@@ -17,7 +21,7 @@ const tools = [
   {
     id: 'flyer-studio',
     path: '/flyer-studio',
-    icon: '📣',
+    Icon: Megaphone,
     title: 'Event Flyer Studio',
     desc: 'Generate professional event flyers for day-by-day programs, speaker grids, and announcement graphics.',
     tags: ['Events', 'Speakers', 'Day Cards', 'Export'],
@@ -27,7 +31,7 @@ const tools = [
   {
     id: 'form-builder',
     path: '/form-builder',
-    icon: '📋',
+    Icon: ClipboardList,
     title: 'Form Builder',
     desc: 'Build branded registration and feedback forms with countdown timers, speaker previews, email confirmations, and shareable links.',
     tags: ['Registration', 'Feedback', 'Email', 'Shareable'],
@@ -37,7 +41,7 @@ const tools = [
   {
     id: 'event-dashboard',
     path: '/event-dashboard',
-    icon: '📊',
+    Icon: BarChart3,
     title: 'Event Dashboard',
     desc: 'Manage event submissions in real-time, track registrations, manage speaker lineups, checklists, and generate email reminders.',
     tags: ['Analytics', 'Speakers', 'Checklist', 'Reminders'],
@@ -47,7 +51,7 @@ const tools = [
   {
     id: 'db-setup',
     path: '/db-setup',
-    icon: '🗄️',
+    Icon: Database,
     title: 'Database Setup',
     desc: 'Connect Supabase for cloud persistence. Access your forms, submissions, and speaker data from any device or browser.',
     tags: ['Cloud', 'Supabase', 'Sync', 'Setup'],
@@ -57,7 +61,7 @@ const tools = [
   {
     id: 'programs-admin',
     path: '/programs-admin',
-    icon: '🎓',
+    Icon: GraduationCap,
     title: 'Courses Manager',
     desc: 'Create and manage courses. Control the hero carousel, set pricing, link registration forms, and publish to the public landing page.',
     tags: ['Courses', 'Carousel', 'Paystack', 'Publish'],
@@ -67,7 +71,7 @@ const tools = [
   {
     id: 'testimonials-admin',
     path: '/testimonials-admin',
-    icon: '💬',
+    Icon: Star,
     title: 'Testimonials Manager',
     desc: 'Collect and curate testimonials from participants. Control visibility, link to courses, and showcase them on the landing page.',
     tags: ['Testimonials', 'Reviews', 'Social Proof'],
@@ -75,9 +79,19 @@ const tools = [
     available: true,
   },
   {
+    id: 'user-progress',
+    path: '/user-progress',
+    Icon: Users,
+    title: 'User Progress',
+    desc: 'See every enrolled learner, their lesson completion, XP earned, and certificates awarded across all courses.',
+    tags: ['Learners', 'Progress', 'XP', 'Certificates'],
+    accent: '#0891b2',
+    available: true,
+  },
+  {
     id: 'landing',
     path: '/',
-    icon: '🌐',
+    Icon: Globe,
     title: 'Public Landing Page',
     desc: 'View the public-facing page your customers see — hero carousel, courses grid, and testimonials.',
     tags: ['Public', 'Landing Page', 'Preview'],
@@ -227,7 +241,7 @@ export default function Dashboard() {
               borderRadius: '0 16px 0 0',
             }} />
 
-            <div style={{ fontSize: 36, marginBottom: 16 }}>{tool.icon}</div>
+            <div style={{ marginBottom: 16 }}><tool.Icon size={34} color={tool.accent} strokeWidth={1.5} /></div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
               <h2 style={{ fontSize: 17, fontWeight: 800 }}>{tool.title}</h2>

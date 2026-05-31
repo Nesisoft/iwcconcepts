@@ -8,8 +8,8 @@ const BRAND2 = '#9333ea'
 const GOLD   = '#C9A84C'
 
 // Edit these to your real details.
-const CONTACT_EMAIL = 'hello@iwcconcepts.com'
-const CONTACT_PHONE = '+233 00 000 0000'
+const CONTACT_EMAIL = 'info@iwcconcepts.com'
+const CONTACT_PHONE = '+233 000 000 000'
 const WHATSAPP_NUMBER = '233000000000' // digits only, with country code
 const LOCATION = 'Accra, Ghana'
 

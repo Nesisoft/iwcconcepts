@@ -79,7 +79,16 @@ create table if not exists content_items (
   data       jsonb       not null,
   created_at timestamptz not null default now()
 );
-create index if not exists content_items_program_id_idx on content_items(program_id);`
+create index if not exists content_items_program_id_idx on content_items(program_id);
+
+create table if not exists course_progress (
+  user_email   text        not null,
+  item_id      text        not null,
+  program_id   text        not null,
+  completed_at timestamptz not null default now(),
+  primary key (user_email, item_id)
+);
+create index if not exists course_progress_program_user_idx on course_progress(program_id, user_email);`
 
 // ── Vercel env vars ────────────────────────────────────────────────────────────
 const SERVER_ENV = `# ── Vercel Dashboard → Project → Settings → Environment Variables ──────────
