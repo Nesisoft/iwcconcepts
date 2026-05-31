@@ -6,7 +6,7 @@ import {
 } from '../utils/formStorage'
 import {
   Play, FileText, Paperclip, BookOpen, Lock, AlertTriangle,
-  ArrowLeft, ArrowRight, Menu, X, CheckCircle, Clock, Award, Zap,
+  ArrowLeft, ArrowRight, Menu, X, CheckCircle, Clock, Award, Zap, Printer,
 } from 'lucide-react'
 
 const BRAND  = '#6c3fc5'
@@ -284,6 +284,7 @@ export default function ProgramPortal() {
             firstIncomplete={firstIncomplete}
             isMobile={isMobile}
             onStart={handleStart}
+            onViewCertificate={() => navigate(`/portal/certificate/${programId}`)}
           />
         </div>
 
@@ -324,9 +325,15 @@ export default function ProgramPortal() {
           <main style={{ flex: 1, overflowY: 'auto', background: '#fff' }}>
             {/* Certificate banner */}
             {earnedCert && (
-              <div style={{ background: 'linear-gradient(135deg, #fef3c7, #fffbeb)', borderBottom: '2px solid #f59e0b', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ background: 'linear-gradient(135deg, #fef3c7, #fffbeb)', borderBottom: '2px solid #f59e0b', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <Award size={20} color="#d97706" />
-                <span style={{ fontSize: 14, fontWeight: 800, color: '#92400e' }}>Certificate Earned — you've completed this course!</span>
+                <span style={{ fontSize: 14, fontWeight: 800, color: '#92400e', flex: 1 }}>Certificate Earned — you've completed this course!</span>
+                <button
+                  onClick={() => navigate(`/portal/certificate/${programId}`)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#d97706', color: '#fff', border: 'none', borderRadius: 7, padding: '7px 14px', fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                >
+                  <Printer size={13} /> View Certificate
+                </button>
               </div>
             )}
 
@@ -365,7 +372,7 @@ export default function ProgramPortal() {
 
 // ── Course overview screen ─────────────────────────────────────────────────────
 
-function CourseOverview({ program, items, completedIds, earnedCert, firstIncomplete, isMobile, onStart }) {
+function CourseOverview({ program, items, completedIds, earnedCert, firstIncomplete, isMobile, onStart, onViewCertificate }) {
   const total    = items.length
   const done     = completedIds.size
   const pct      = total > 0 ? Math.round(done / total * 100) : 0
@@ -441,12 +448,23 @@ function CourseOverview({ program, items, completedIds, earnedCert, firstIncompl
 
       {/* Certificate banner */}
       {earnedCert && (
-        <div style={{ background: 'linear-gradient(135deg, #fef3c7, #fffbeb)', border: '2px solid #f59e0b', borderRadius: 14, padding: '16px 20px', marginBottom: 28, display: 'flex', gap: 14, alignItems: 'center' }}>
+        <div style={{ background: 'linear-gradient(135deg, #fef3c7, #fffbeb)', border: '2px solid #f59e0b', borderRadius: 14, padding: '16px 20px', marginBottom: 28, display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
           <Award size={30} color="#d97706" style={{ flexShrink: 0 }} />
-          <div>
+          <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 800, color: '#92400e', fontSize: 15, marginBottom: 2 }}>Certificate Earned!</div>
             <div style={{ fontSize: 13, color: '#b45309' }}>You've completed every lesson in this course.</div>
           </div>
+          <button
+            onClick={onViewCertificate}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 7,
+              background: '#d97706', color: '#fff', border: 'none',
+              borderRadius: 8, padding: '9px 18px',
+              fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap',
+            }}
+          >
+            <Printer size={14} /> View & Print Certificate
+          </button>
         </div>
       )}
 

@@ -412,11 +412,11 @@ async function handleAction(db, action, p, user = null) {
     // ── Course progress (customer) ────────────────────────────────────────────
     case 'getMyProgress': {
       const { rows } = await db.query(
-        `SELECT item_id FROM course_progress
+        `SELECT item_id, completed_at FROM course_progress
          WHERE program_id = $1 AND user_email = $2`,
         [p.programId, user.email]
       )
-      return rows.map(r => ({ itemId: r.item_id }))
+      return rows.map(r => ({ itemId: r.item_id, completedAt: r.completed_at }))
     }
 
     case 'markItemComplete': {

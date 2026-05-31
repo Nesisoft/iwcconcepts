@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getEnrolledUsersProgress } from '../utils/formStorage'
-import { Users, Award, Zap, BookOpen, ChevronDown, ChevronRight } from 'lucide-react'
+import { Users, Award, Zap, BookOpen, ChevronDown, ChevronRight, X, Printer } from 'lucide-react'
+import CertificateCard, { certIdFor } from '../components/CertificateCard'
 
 const ACC  = '#0891b2'
 const DARK = '#0e0a1e'
@@ -13,10 +14,11 @@ function formatDate(iso) {
 
 export default function UserProgressAdmin() {
   const navigate = useNavigate()
-  const [data,     setData]     = useState(null)
-  const [loading,  setLoading]  = useState(true)
-  const [error,    setError]    = useState('')
-  const [expanded, setExpanded] = useState({}) // programId → bool
+  const [data,      setData]      = useState(null)
+  const [loading,   setLoading]   = useState(true)
+  const [error,     setError]     = useState('')
+  const [expanded,  setExpanded]  = useState({}) // programId → bool
+  const [certModal, setCertModal] = useState(null) // { name, courseName, completedAt, certId }
 
   useEffect(() => { load() }, [])
 
@@ -137,9 +139,17 @@ export default function UserProgressAdmin() {
                       {/* Certificate */}
                       <div>
                         {u.certificate ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#fbbf24', fontWeight: 700, fontSize: 11 }}>
-                            <Award size={13} /> Earned
-                          </span>
+                          <button
+                            onClick={() => setCertModal({
+                              name: u.name || u.email.split('@')[0],
+                              courseName: course.title,
+                              completedAt: u.lastCompletedAt,
+                              certId: certIdFor(u.email, course.id, u.lastCompletedAt),
+                            })}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#fbbf24', fontWeight: 700, fontSize: 11, background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}
+                          >
+                            <Award size={12} /> View
+                          </button>
                         ) : course.awardsCertificate ? (
                           <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11 }}>In progress</span>
                         ) : (
@@ -157,6 +167,41 @@ export default function UserProgressAdmin() {
           )
         })}
       </div>
+
+      {/* ── Certificate preview modal ──────────────────────────────────────── */}
+      {certModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          onClick={e => { if (e.target === e.currentTarget) setCertModal(null) }}>
+          <div style={{ background: '#fff', borderRadius: 16, maxWidth: 860, width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+            {/* Modal header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: '1px solid #f3f4f6' }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#111827' }}>Certificate Preview</div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  onClick={() => window.print()}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#d97706', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+                >
+                  <Printer size={14} /> Print / Save PDF
+                </button>
+                <button
+                  onClick={() => setCertModal(null)}
+                  style={{ background: '#f3f4f6', border: 'none', borderRadius: 8, width: 36, height: 36, cursor: 'pointer', color: '#6b7280', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+            <div style={{ padding: '24px 20px 32px', overflowX: 'auto' }}>
+              <CertificateCard
+                name={certModal.name}
+                courseName={certModal.courseName}
+                completedAt={certModal.completedAt}
+                certId={certModal.certId}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -170,13 +215,16 @@ function buildGrouped(data) {
   // Map programs by id
   const progMap = Object.fromEntries(programs.map(p => [p.id, p]))
 
-  // Build progress lookup: programId → email → Set(itemId)
+  // Build progress lookup: programId → email → { itemIds: Set, lastCompletedAt }
   const progLookup = {}
   for (const row of progress) {
-    const { program_id, user_email, item_id } = row
+    const { program_id, user_email, item_id, completed_at } = row
     if (!progLookup[program_id]) progLookup[program_id] = {}
-    if (!progLookup[program_id][user_email]) progLookup[program_id][user_email] = new Set()
-    progLookup[program_id][user_email].add(item_id)
+    if (!progLookup[program_id][user_email]) progLookup[program_id][user_email] = { itemIds: new Set(), lastCompletedAt: null }
+    progLookup[program_id][user_email].itemIds.add(item_id)
+    if (!progLookup[program_id][user_email].lastCompletedAt || (completed_at && completed_at > progLookup[program_id][user_email].lastCompletedAt)) {
+      progLookup[program_id][user_email].lastCompletedAt = completed_at
+    }
   }
 
   // Group enrollments by program
@@ -193,12 +241,14 @@ function buildGrouped(data) {
     const certEnabled  = prog?.awardsCertificate || false
 
     const enriched = users.map(u => {
-      const completed = (progLookup[programId]?.[u.email]?.size) || 0
+      const userProg  = progLookup[programId]?.[u.email]
+      const completed = userProg?.itemIds?.size || 0
       const pct       = totalLessons > 0 ? Math.round(completed / totalLessons * 100) : 0
       const complete  = totalLessons > 0 && completed >= totalLessons
       return {
         ...u,
         completed, pct, complete,
+        lastCompletedAt: userProg?.lastCompletedAt || null,
         certificate: certEnabled && complete,
       }
     })
