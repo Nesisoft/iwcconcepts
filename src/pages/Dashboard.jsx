@@ -4,7 +4,7 @@ import { isConfigured } from '../utils/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import {
   MessageSquare, Megaphone, ClipboardList, BarChart3, Database,
-  GraduationCap, Star, Globe, Users, Award, LineChart, MessagesSquare,
+  GraduationCap, Star, Globe, Users, Award, LineChart, MessagesSquare, Mail,
 } from 'lucide-react'
 
 const tools = [
@@ -116,6 +116,16 @@ const tools = [
     desc: 'Read and answer learner questions from every lesson. Replies post as Instructor; moderate or delete any comment.',
     tags: ['Q&A', 'Replies', 'Moderation', 'Community'],
     accent: '#9333ea',
+    available: true,
+  },
+  {
+    id: 'email-admin',
+    path: '/email-admin',
+    Icon: Mail,
+    title: 'Email Center',
+    desc: 'Configure the sender, edit welcome / completion / reminder email templates, toggle each on or off, and send a test.',
+    tags: ['Welcome', 'Completion', 'Reminders', 'Templates'],
+    accent: '#2ECC71',
     available: true,
   },
   {

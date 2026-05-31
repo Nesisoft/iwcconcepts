@@ -30,6 +30,7 @@ import UserProgressAdmin from './pages/UserProgressAdmin'
 import CertificateAdmin from './pages/CertificateAdmin'
 import AnalyticsAdmin from './pages/AnalyticsAdmin'
 import DiscussionsAdmin from './pages/DiscussionsAdmin'
+import EmailAdmin from './pages/EmailAdmin'
 import PortalCertificate from './pages/PortalCertificate'
 
 // Pages that are publicly accessible (no login required)
@@ -87,6 +88,7 @@ export default function App() {
             <Route path="/certificate-admin"   element={<AdminRoute element={<CertificateAdmin />} />} />
             <Route path="/analytics"           element={<AdminRoute element={<AnalyticsAdmin />} />} />
             <Route path="/discussions"         element={<AdminRoute element={<DiscussionsAdmin />} />} />
+            <Route path="/email-admin"         element={<AdminRoute element={<EmailAdmin />} />} />
           </Routes>
         </CustomerAuthProvider>
       </AuthProvider>
