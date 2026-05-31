@@ -359,6 +359,10 @@ export const getSetting = (key) => api('getSetting', { key })
 export const saveSetting = (key, value) =>
   adminToken().then(t => api('saveSetting', { key, value }, t))
 
+// Email — admin send-test (server holds the provider key; never exposed here)
+export const sendTestEmail = (to, baseUrl) =>
+  adminToken().then(t => api('sendTestEmail', { to, baseUrl }, t))
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Lesson discussion / Q&A
 // ═══════════════════════════════════════════════════════════════════════════════

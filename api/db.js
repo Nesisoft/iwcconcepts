@@ -13,6 +13,28 @@
 
 import pg from 'pg'
 import { createClient } from '@supabase/supabase-js'
+import {
+  sendMail, renderTemplate, emailVars, DEFAULT_EMAIL_SETTINGS,
+} from './_email.js'
+
+const EMAIL_SETTINGS_KEY = 'emailSettings'
+
+// Load merged email settings from the settings table (+ code defaults).
+async function loadEmailSettings(db) {
+  const { rows } = await db.query('SELECT data FROM settings WHERE key = $1', [EMAIL_SETTINGS_KEY])
+  return { ...DEFAULT_EMAIL_SETTINGS, ...(rows[0]?.data || {}) }
+}
+
+// Best-effort send — never throws into the calling action.
+async function trySend(db, { to, subject, text }) {
+  try {
+    const settings = await loadEmailSettings(db)
+    return await sendMail({ to, subject, text, settings })
+  } catch (e) {
+    console.warn('[email] send failed:', e.message)
+    return { skipped: true, reason: 'error' }
+  }
+}
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 // Verifies the caller's Supabase session token by asking Supabase Auth.
@@ -40,6 +62,7 @@ const ADMIN_ACTIONS = new Set([
   'getEnrolledUsersProgress',
   'saveSetting',
   'getAllLessonComments',
+  'sendTestEmail',
 ])
 
 // Optional: comma-separated admin emails. When set, only these accounts can post
@@ -545,6 +568,20 @@ async function handleAction(db, action, p, user = null) {
         [p.key, p.value]
       )
       return { ok: true, key: p.key }
+    }
+
+    // ── Email: admin "send test" ──────────────────────────────────────────────
+    case 'sendTestEmail': {
+      const to = p.to || user.email
+      const settings = await loadEmailSettings(db)
+      const vars = emailVars({ name: 'there', course: 'Sample Course', baseUrl: p.baseUrl })
+      const subject = renderTemplate(settings.welcomeSubject, vars)
+      const text = renderTemplate(settings.welcomeBody, vars)
+      const result = await sendMail({ to, subject, text, settings })
+      if (result.skipped) {
+        return { ok: false, skipped: true, reason: result.reason }
+      }
+      return { ok: true, to }
     }
 
     default:
