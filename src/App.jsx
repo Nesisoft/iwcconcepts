@@ -26,6 +26,7 @@ import ProgramPortal from './pages/ProgramPortal'
 import About from './pages/About'
 import Contact from './pages/Contact'
 import UserProgressAdmin from './pages/UserProgressAdmin'
+import PortalCertificate from './pages/PortalCertificate'
 
 // Pages that are publicly accessible (no login required)
 const PUBLIC_ROUTES = (
@@ -65,6 +66,7 @@ export default function App() {
             <Route path="/portal/set-password"    element={<SetPassword />} />
             <Route path="/portal"                 element={<PortalRoute element={<Portal />} />} />
             <Route path="/portal/program/:programId" element={<PortalRoute element={<ProgramPortal />} />} />
+            <Route path="/portal/certificate/:programId" element={<PortalRoute element={<PortalCertificate />} />} />
 
             {/* Protected admin pages */}
             <Route path="/admin"               element={<AdminRoute element={<Dashboard />} />} />
