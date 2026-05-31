@@ -351,6 +351,15 @@ export const getEnrolledUsersProgress = () =>
   adminToken().then(t => api('getEnrolledUsersProgress', {}, t))
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Settings  (public reads, admin writes)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const getSetting = (key) => api('getSetting', { key })
+
+export const saveSetting = (key, value) =>
+  adminToken().then(t => api('saveSetting', { key, value }, t))
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Utility helpers (unchanged — no DB calls)
 // ═══════════════════════════════════════════════════════════════════════════════
 

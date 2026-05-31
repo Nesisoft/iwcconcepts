@@ -38,6 +38,7 @@ const ADMIN_ACTIONS = new Set([
   'getContentSections', 'saveContentSection', 'deleteContentSection',
   'getContentItems',    'saveContentItem',    'deleteContentItem',
   'getEnrolledUsersProgress',
+  'saveSetting',
 ])
 
 // Actions requiring any valid Supabase session (customer or admin).
@@ -453,6 +454,25 @@ async function handleAction(db, action, p, user = null) {
         programs:     progR.rows.map(r => ({ id: r.id, ...r.data })),
         lessonCounts: Object.fromEntries(ciR.rows.map(r => [r.program_id, Number(r.total)])),
       }
+    }
+
+    // ── Settings (public read, admin write) ──────────────────────────────────
+    case 'getSetting': {
+      const { rows } = await db.query(
+        'SELECT data FROM settings WHERE key = $1',
+        [p.key]
+      )
+      return rows[0]?.data ?? null
+    }
+
+    case 'saveSetting': {
+      await db.query(
+        `INSERT INTO settings (key, data, updated_at)
+         VALUES ($1, $2, NOW())
+         ON CONFLICT (key) DO UPDATE SET data = $2, updated_at = NOW()`,
+        [p.key, p.value]
+      )
+      return { ok: true, key: p.key }
     }
 
     default:

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getEnrolledUsersProgress } from '../utils/formStorage'
+import { getEnrolledUsersProgress, getSetting } from '../utils/formStorage'
 import { Users, Award, Zap, BookOpen, ChevronDown, ChevronRight, X, Printer } from 'lucide-react'
-import CertificateCard, { certIdFor } from '../components/CertificateCard'
+import CertificateCard, { certIdFor, DEFAULT_CERT_TEMPLATE } from '../components/CertificateCard'
 
 const ACC  = '#0891b2'
 const DARK = '#0e0a1e'
@@ -15,6 +15,7 @@ function formatDate(iso) {
 export default function UserProgressAdmin() {
   const navigate = useNavigate()
   const [data,      setData]      = useState(null)
+  const [template,  setTemplate]  = useState(DEFAULT_CERT_TEMPLATE)
   const [loading,   setLoading]   = useState(true)
   const [error,     setError]     = useState('')
   const [expanded,  setExpanded]  = useState({}) // programId → bool
@@ -26,8 +27,12 @@ export default function UserProgressAdmin() {
     setLoading(true)
     setError('')
     try {
-      const result = await getEnrolledUsersProgress()
+      const [result, storedTpl] = await Promise.all([
+        getEnrolledUsersProgress(),
+        getSetting('certificateTemplate').catch(() => null),
+      ])
       setData(result)
+      if (storedTpl) setTemplate({ ...DEFAULT_CERT_TEMPLATE, ...storedTpl })
     } catch (e) {
       setError(e.message)
     } finally {
@@ -144,7 +149,7 @@ export default function UserProgressAdmin() {
                               name: u.name || u.email.split('@')[0],
                               courseName: course.title,
                               completedAt: u.lastCompletedAt,
-                              certId: certIdFor(u.email, course.id, u.lastCompletedAt),
+                              certId: certIdFor(u.email, course.id, u.lastCompletedAt, template.idPrefix),
                             })}
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#fbbf24', fontWeight: 700, fontSize: 11, background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}
                           >
@@ -172,6 +177,7 @@ export default function UserProgressAdmin() {
       {certModal && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
           onClick={e => { if (e.target === e.currentTarget) setCertModal(null) }}>
+          <style>{`@media print { @page { size: landscape; margin: 0.5in; } body * { visibility: hidden; } #certificate-card, #certificate-card * { visibility: visible; } #certificate-card { position: absolute; left: 0; top: 0; } }`}</style>
           <div style={{ background: '#fff', borderRadius: 16, maxWidth: 860, width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
             {/* Modal header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: '1px solid #f3f4f6' }}>
@@ -197,6 +203,7 @@ export default function UserProgressAdmin() {
                 courseName={certModal.courseName}
                 completedAt={certModal.completedAt}
                 certId={certModal.certId}
+                template={template}
               />
             </div>
           </div>

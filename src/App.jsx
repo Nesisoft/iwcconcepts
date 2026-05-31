@@ -25,7 +25,9 @@ import Portal from './pages/Portal'
 import ProgramPortal from './pages/ProgramPortal'
 import About from './pages/About'
 import Contact from './pages/Contact'
+import Courses from './pages/Courses'
 import UserProgressAdmin from './pages/UserProgressAdmin'
+import CertificateAdmin from './pages/CertificateAdmin'
 import PortalCertificate from './pages/PortalCertificate'
 
 // Pages that are publicly accessible (no login required)
@@ -58,6 +60,7 @@ export default function App() {
             <Route path="/"       element={<LandingPage />} />
             <Route path="/about"  element={<About />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/courses" element={<Courses />} />
             <Route path="/login"  element={<Login />} />
             {PUBLIC_ROUTES}
 
@@ -79,6 +82,7 @@ export default function App() {
             <Route path="/testimonials-admin"  element={<AdminRoute element={<TestimonialsManager />} />} />
             <Route path="/content-admin"       element={<AdminRoute element={<ContentManager />} />} />
             <Route path="/user-progress"       element={<AdminRoute element={<UserProgressAdmin />} />} />
+            <Route path="/certificate-admin"   element={<AdminRoute element={<CertificateAdmin />} />} />
           </Routes>
         </CustomerAuthProvider>
       </AuthProvider>

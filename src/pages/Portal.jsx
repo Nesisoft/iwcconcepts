@@ -157,7 +157,7 @@ export default function Portal() {
             <p style={{ color: '#9ca3af', fontSize: 15, maxWidth: 360, margin: '0 auto 28px' }}>
               Browse available courses and register to get started.
             </p>
-            <button onClick={() => navigate('/')} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: BRAND, color: '#fff', border: 'none', borderRadius: 10, padding: '12px 28px', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+            <button onClick={() => navigate('/courses')} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: BRAND, color: '#fff', border: 'none', borderRadius: 10, padding: '12px 28px', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
               Browse Courses <ArrowRight size={16} />
             </button>
           </div>
@@ -193,7 +193,7 @@ export default function Portal() {
 
         {/* ── Section 2: Free resources (all portal users) ─────────────────── */}
         {!loading && freePortalPrograms.length > 0 && (
-          <Section title="Free Learning Resources" subtitle="Open to all members — dive in anytime" horizontal>
+          <Section title="Free Learning Resources" subtitle="Open to all members — dive in anytime" horizontal onViewAll={() => navigate('/courses')}>
             {freePortalPrograms.map(prog => (
               <ProgramCard
                 key={prog.id}
@@ -215,7 +215,7 @@ export default function Portal() {
 
         {/* ── Section 3: More paid programs with portal access ─────────────── */}
         {!loading && morePrograms.length > 0 && (
-          <Section title="More Courses" subtitle="Enroll to unlock full access" horizontal>
+          <Section title="More Courses" subtitle="Enroll to unlock full access" horizontal onViewAll={() => navigate('/courses')}>
             {morePrograms.map(prog => (
               <ProgramCard
                 key={prog.id}
@@ -245,13 +245,20 @@ export default function Portal() {
 
 // ── Section wrapper ────────────────────────────────────────────────────────────
 
-function Section({ title, subtitle, children, horizontal }) {
+function Section({ title, subtitle, children, horizontal, onViewAll }) {
   const kids = [].concat(children).filter(Boolean)
   return (
     <div style={{ marginBottom: 52 }}>
-      <div style={{ marginBottom: 20 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 800, color: '#111827', margin: '0 0 4px' }}>{title}</h2>
-        {subtitle && <p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>{subtitle}</p>}
+      <div style={{ marginBottom: 20, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+        <div>
+          <h2 style={{ fontSize: 18, fontWeight: 800, color: '#111827', margin: '0 0 4px' }}>{title}</h2>
+          {subtitle && <p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>{subtitle}</p>}
+        </div>
+        {onViewAll && (
+          <button onClick={onViewAll} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', color: BRAND, fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+            View all <ArrowRight size={14} />
+          </button>
+        )}
       </div>
       {horizontal ? (
         <div style={{

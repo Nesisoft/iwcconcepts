@@ -4,7 +4,7 @@ import { isConfigured } from '../utils/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import {
   MessageSquare, Megaphone, ClipboardList, BarChart3, Database,
-  GraduationCap, Star, Globe, Users,
+  GraduationCap, Star, Globe, Users, Award,
 } from 'lucide-react'
 
 const tools = [
@@ -86,6 +86,16 @@ const tools = [
     desc: 'See every enrolled learner, their lesson completion, XP earned, and certificates awarded across all courses.',
     tags: ['Learners', 'Progress', 'XP', 'Certificates'],
     accent: '#0891b2',
+    available: true,
+  },
+  {
+    id: 'certificate-admin',
+    path: '/certificate-admin',
+    Icon: Award,
+    title: 'Certificate Designer',
+    desc: 'Customize the completion certificate — wording, signature, colours, and ID prefix — with a live preview and test print.',
+    tags: ['Certificate', 'Branding', 'Preview', 'Print'],
+    accent: '#d97706',
     available: true,
   },
   {

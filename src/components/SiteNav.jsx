@@ -33,9 +33,7 @@ export default function SiteNav({ solid = false }) {
   ]
 
   function goToCourses() {
-    const el = document.getElementById('programs')
-    if (el) el.scrollIntoView({ behavior: 'smooth' })
-    else navigate('/')
+    navigate('/courses')
     setMenuOpen(false)
   }
 

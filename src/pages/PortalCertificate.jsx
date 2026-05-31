@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useCustomerAuth } from '../contexts/CustomerAuthContext'
-import { getProgramById, getMyEnrollments, getMyProgress } from '../utils/formStorage'
-import CertificateCard, { certIdFor } from '../components/CertificateCard'
+import { getProgramById, getMyEnrollments, getMyProgress, getPortalContent, getSetting } from '../utils/formStorage'
+import CertificateCard, { certIdFor, DEFAULT_CERT_TEMPLATE } from '../components/CertificateCard'
 import { ArrowLeft, Printer, Award } from 'lucide-react'
 
 const BRAND  = '#6c3fc5'
@@ -15,6 +15,7 @@ export default function PortalCertificate() {
   const { user, getAccessToken } = useCustomerAuth()
 
   const [certData, setCertData] = useState(null) // { name, courseName, completedAt, certId }
+  const [template, setTemplate] = useState(DEFAULT_CERT_TEMPLATE)
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState('')
 
@@ -28,36 +29,40 @@ export default function PortalCertificate() {
     setError('')
     try {
       const token = await getAccessToken()
-      const [program, enrollments, progress] = await Promise.all([
+      const [program, enrollments, progress, content, storedTpl] = await Promise.all([
         getProgramById(programId),
         getMyEnrollments(token),
         getMyProgress(programId, token),
+        getPortalContent(programId, token).catch(() => ({ items: [] })),
+        getSetting('certificateTemplate').catch(() => null),
       ])
+
+      const tpl = storedTpl ? { ...DEFAULT_CERT_TEMPLATE, ...storedTpl } : DEFAULT_CERT_TEMPLATE
+      setTemplate(tpl)
 
       if (!program) { setError('Course not found.'); return }
       if (!program.awardsCertificate) { setError('This course does not award a certificate.'); return }
 
-      // Find this program's enrollment for the user's name
-      const enrollment = enrollments?.find(e => e.programId === programId)
-
-      // Determine if all lessons are complete — progress must cover all published items
-      // We don't have the total item count here, so we check via getPortalContent
-      // Instead, we trust that the certificate page is only reachable when earned.
-      // But let's still verify: need at least one progress item.
-      if (!progress || progress.length === 0) {
+      // Verify every published lesson is complete
+      const totalItems     = (content?.items || []).length
+      const completedCount = (progress || []).length
+      if (totalItems === 0 || completedCount < totalItems) {
         setError('You have not completed this course yet. Complete all lessons to earn your certificate.')
         return
       }
 
-      // Completion date = max completedAt across all progress items
-      const completedAt = progress
+      // Find this program's enrollment for the user's name
+      const enrollment = enrollments?.find(e => e.programId === programId)
+
+      // Completion date = latest completedAt across all progress items
+      const completedAt = (progress || [])
         .map(p => p.completedAt)
         .filter(Boolean)
         .sort()
         .at(-1) ?? new Date().toISOString()
 
-      const name    = enrollment?.participantName || user.email.split('@')[0]
-      const certId  = certIdFor(user.email, programId, completedAt)
+      const name   = enrollment?.participantName || user.email.split('@')[0]
+      const certId = certIdFor(user.email, programId, completedAt, tpl.idPrefix)
 
       setCertData({ name, courseName: program.title, completedAt, certId })
     } catch (e) {
@@ -161,6 +166,7 @@ export default function PortalCertificate() {
               courseName={certData.courseName}
               completedAt={certData.completedAt}
               certId={certData.certId}
+              template={template}
             />
           </>
         )}
