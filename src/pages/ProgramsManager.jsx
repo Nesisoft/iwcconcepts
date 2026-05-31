@@ -61,6 +61,8 @@ function makeDefault() {
     onboardingMode: 'steps',
     paystackPublicKey: '',
     hasPortalAccess: false,
+    awardsCertificate: false,
+    duration: '',
     createdAt: new Date().toISOString(),
   }
 }
@@ -250,6 +252,9 @@ export default function ProgramsManager() {
                       <Fld label="Venue / Location"><input style={inp()} value={prog.venue} onChange={e => set('venue', e.target.value)} placeholder="Online / Accra, Ghana" /></Fld>
                       <Fld label="Capacity (0 = unlimited)"><input type="number" style={inp()} min={0} value={prog.capacity} onChange={e => set('capacity', Number(e.target.value))} /></Fld>
                     </div>
+                    <Fld label="Duration (e.g. 4 weeks, 3 months)">
+                      <input style={inp()} value={prog.duration || ''} onChange={e => set('duration', e.target.value)} placeholder="e.g. 4 weeks" />
+                    </Fld>
                     <Fld label="Tags">
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 6 }}>
                         {prog.tags.map(tag => (
@@ -418,6 +423,7 @@ export default function ProgramsManager() {
                       <strong style={{ color: '#3498DB' }}>Completed</strong> — visible as past program
                     </div>
                     <Toggle label="Allow portal access (learning portal)" checked={prog.hasPortalAccess} onChange={e => set('hasPortalAccess', e.target.checked)} />
+                    <Toggle label="Award a certificate on course completion" checked={prog.awardsCertificate} onChange={e => set('awardsCertificate', e.target.checked)} />
                     <div style={divider} />
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       <button onClick={() => openOnboarding(prog.id)} style={{ width: '100%', background: 'rgba(52,152,219,0.2)', border: '1px solid rgba(52,152,219,0.4)', borderRadius: 8, color: '#74b9e8', fontSize: 11, fontWeight: 700, padding: '10px', cursor: 'pointer' }}>

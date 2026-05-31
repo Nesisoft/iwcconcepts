@@ -29,9 +29,26 @@ export default function Portal() {
     load()
   }, [user])
 
-  async function load() {
-    setLoading(true)
+  async function load(force = false) {
     setError('')
+    const CACHE_KEY = `iwc_portal_${user?.email}`
+    const CACHE_TTL = 5 * 60 * 1000
+
+    if (!force) {
+      try {
+        const cached = sessionStorage.getItem(CACHE_KEY)
+        if (cached) {
+          const { enrollments: ce, free: cf, more: cm, programs: cp, exp } = JSON.parse(cached)
+          if (Date.now() < exp) {
+            setEnrollments(ce); setFreePortalPrograms(cf); setMorePrograms(cm); setPrograms(cp)
+            setLoading(false)
+            return
+          }
+        }
+      } catch {}
+    }
+
+    setLoading(true)
     try {
       const token = await getAccessToken()
       const [rawEnrollments, allProgs] = await Promise.all([
@@ -57,15 +74,18 @@ export default function Portal() {
 
       const enrolledIds = new Set(dedupedEnrollments.map(e => e.programId))
 
-      // Free programs with portal access — open to all portal users
-      setFreePortalPrograms(
-        (allProgs || []).filter(p => p.type === 'free' && p.hasPortalAccess && !enrolledIds.has(p.id))
-      )
+      const freeProgs = (allProgs || []).filter(p => p.type === 'free' && p.hasPortalAccess && !enrolledIds.has(p.id))
+      const moreProgs = (allProgs || []).filter(p => p.type === 'paid' && p.hasPortalAccess && !enrolledIds.has(p.id))
 
-      // Paid programs with portal access the user hasn't enrolled in yet
-      setMorePrograms(
-        (allProgs || []).filter(p => p.type === 'paid' && p.hasPortalAccess && !enrolledIds.has(p.id))
-      )
+      setMorePrograms(moreProgs)
+      setFreePortalPrograms(freeProgs)
+
+      try {
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+          enrollments: dedupedEnrollments, free: freeProgs, more: moreProgs, programs: map,
+          exp: Date.now() + CACHE_TTL,
+        }))
+      } catch {}
     } catch (e) {
       setError(e.message)
     } finally {
@@ -173,7 +193,7 @@ export default function Portal() {
 
         {/* ── Section 2: Free resources (all portal users) ─────────────────── */}
         {!loading && freePortalPrograms.length > 0 && (
-          <Section title="Free Learning Resources" subtitle="Open to all members — dive in anytime">
+          <Section title="Free Learning Resources" subtitle="Open to all members — dive in anytime" horizontal>
             {freePortalPrograms.map(prog => (
               <ProgramCard
                 key={prog.id}
@@ -195,7 +215,7 @@ export default function Portal() {
 
         {/* ── Section 3: More paid programs with portal access ─────────────── */}
         {!loading && morePrograms.length > 0 && (
-          <Section title="More Courses" subtitle="Enroll to unlock full access">
+          <Section title="More Courses" subtitle="Enroll to unlock full access" horizontal>
             {morePrograms.map(prog => (
               <ProgramCard
                 key={prog.id}
@@ -225,16 +245,32 @@ export default function Portal() {
 
 // ── Section wrapper ────────────────────────────────────────────────────────────
 
-function Section({ title, subtitle, children }) {
+function Section({ title, subtitle, children, horizontal }) {
+  const kids = [].concat(children).filter(Boolean)
   return (
     <div style={{ marginBottom: 52 }}>
       <div style={{ marginBottom: 20 }}>
         <h2 style={{ fontSize: 18, fontWeight: 800, color: '#111827', margin: '0 0 4px' }}>{title}</h2>
         {subtitle && <p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>{subtitle}</p>}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 18 }}>
-        {children}
-      </div>
+      {horizontal ? (
+        <div style={{
+          display: 'flex', gap: 18, overflowX: 'auto',
+          paddingBottom: 8, paddingRight: 4,
+          scrollSnapType: 'x mandatory',
+          WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#e5e7eb transparent',
+        }}>
+          {kids.map((child, i) => (
+            <div key={i} style={{ flexShrink: 0, width: 280, scrollSnapAlign: 'start' }}>{child}</div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 18 }}>
+          {children}
+        </div>
+      )}
     </div>
   )
 }

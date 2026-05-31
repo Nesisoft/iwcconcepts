@@ -79,8 +79,8 @@ export default function SiteFooter() {
         {/* Contact */}
         <div>
           <div style={{ color: 'white', fontWeight: 700, fontSize: 13, marginBottom: 14, letterSpacing: 1, textTransform: 'uppercase' }}>Get in touch</div>
-          <a href="mailto:hello@iwcconcepts.com" style={contactRow}><Mail size={15} /> hello@iwcconcepts.com</a>
-          <a href="tel:+233000000000" style={contactRow}><Phone size={15} /> +233 00 000 0000</a>
+          <a href="mailto:info@iwcconcepts.com" style={contactRow}><Mail size={15} /> info@iwcconcepts.com</a>
+          <a href="tel:+233000000000" style={contactRow}><Phone size={15} /> +233 000 000 000</a>
           <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
             {SOCIALS.map(({ icon: Icon, href, label }) => (
               <a key={label} href={href} target="_blank" rel="noopener noreferrer" aria-label={label} style={socialBtn}>

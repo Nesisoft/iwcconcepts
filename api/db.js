@@ -37,6 +37,7 @@ const ADMIN_ACTIONS = new Set([
   'saveTestimonial', 'deleteTestimonial',
   'getContentSections', 'saveContentSection', 'deleteContentSection',
   'getContentItems',    'saveContentItem',    'deleteContentItem',
+  'getEnrolledUsersProgress',
 ])
 
 // Actions requiring any valid Supabase session (customer or admin).
@@ -44,6 +45,8 @@ const ADMIN_ACTIONS = new Set([
 const CUSTOMER_ACTIONS = new Set([
   'getMyEnrollments',
   'getPortalContent',
+  'getMyProgress',
+  'markItemComplete',
 ])
 
 // ── Database connection ────────────────────────────────────────────────────────
@@ -403,6 +406,52 @@ async function handleAction(db, action, p, user = null) {
       return {
         sections: sr.rows.map(r => r.data),
         items: ir.rows.map(r => r.data),
+      }
+    }
+
+    // ── Course progress (customer) ────────────────────────────────────────────
+    case 'getMyProgress': {
+      const { rows } = await db.query(
+        `SELECT item_id FROM course_progress
+         WHERE program_id = $1 AND user_email = $2`,
+        [p.programId, user.email]
+      )
+      return rows.map(r => ({ itemId: r.item_id }))
+    }
+
+    case 'markItemComplete': {
+      await db.query(
+        `INSERT INTO course_progress (user_email, item_id, program_id, completed_at)
+         VALUES ($1, $2, $3, NOW())
+         ON CONFLICT (user_email, item_id) DO NOTHING`,
+        [user.email, p.itemId, p.programId]
+      )
+      return { ok: true, itemId: p.itemId }
+    }
+
+    // ── Enrolled users progress (admin) ──────────────────────────────────────
+    case 'getEnrolledUsersProgress': {
+      const [er, pr, progR, ciR] = await Promise.all([
+        db.query(
+          `SELECT DISTINCT ON (program_id, data->>'participantEmail') program_id, data
+           FROM enrollments
+           ORDER BY program_id, data->>'participantEmail', created_at DESC`
+        ),
+        db.query(
+          `SELECT program_id, user_email, item_id, completed_at
+           FROM course_progress ORDER BY completed_at ASC`
+        ),
+        db.query('SELECT id, data FROM programs'),
+        db.query(
+          `SELECT program_id, COUNT(*) AS total FROM content_items
+           WHERE (data->>'isPublished')::boolean = true GROUP BY program_id`
+        ),
+      ])
+      return {
+        enrollments:  er.rows.map(r => ({ programId: r.program_id, ...r.data })),
+        progress:     pr.rows,
+        programs:     progR.rows.map(r => ({ id: r.id, ...r.data })),
+        lessonCounts: Object.fromEntries(ciR.rows.map(r => [r.program_id, Number(r.total)])),
       }
     }
 

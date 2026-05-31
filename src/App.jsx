@@ -25,6 +25,7 @@ import Portal from './pages/Portal'
 import ProgramPortal from './pages/ProgramPortal'
 import About from './pages/About'
 import Contact from './pages/Contact'
+import UserProgressAdmin from './pages/UserProgressAdmin'
 
 // Pages that are publicly accessible (no login required)
 const PUBLIC_ROUTES = (
@@ -75,6 +76,7 @@ export default function App() {
             <Route path="/programs-admin"      element={<AdminRoute element={<ProgramsManager />} />} />
             <Route path="/testimonials-admin"  element={<AdminRoute element={<TestimonialsManager />} />} />
             <Route path="/content-admin"       element={<AdminRoute element={<ContentManager />} />} />
+            <Route path="/user-progress"       element={<AdminRoute element={<UserProgressAdmin />} />} />
           </Routes>
         </CustomerAuthProvider>
       </AuthProvider>
