@@ -4,7 +4,7 @@ import { isConfigured } from '../utils/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import {
   MessageSquare, Megaphone, ClipboardList, BarChart3, Database,
-  GraduationCap, Star, Globe, Users, Award,
+  GraduationCap, Star, Globe, Users, Award, LineChart,
 } from 'lucide-react'
 
 const tools = [
@@ -96,6 +96,16 @@ const tools = [
     desc: 'Customize the completion certificate — wording, signature, colours, and ID prefix — with a live preview and test print.',
     tags: ['Certificate', 'Branding', 'Preview', 'Print'],
     accent: '#d97706',
+    available: true,
+  },
+  {
+    id: 'analytics',
+    path: '/analytics',
+    Icon: LineChart,
+    title: 'Analytics',
+    desc: 'Track revenue, enrollments over time, completion rates, certificates, and per-course performance at a glance.',
+    tags: ['Revenue', 'Enrollments', 'Completion', 'Trends'],
+    accent: '#9B59B6',
     available: true,
   },
   {
