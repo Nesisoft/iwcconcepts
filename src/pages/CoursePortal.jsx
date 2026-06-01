@@ -707,7 +707,7 @@ function LessonDiscussion({ courseId, courseTitle, item, user, getAccessToken, i
             onChange={e => setBody(e.target.value)}
             placeholder="Ask a question or share a thought…"
             rows={2}
-            style={{ width: '100%', boxSizing: 'border-box', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '10px 12px', fontSize: 14, fontFamily: 'inherit', resize: 'vertical', outline: 'none', lineHeight: 1.5 }}
+            style={{ width: '100%', boxSizing: 'border-box', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '10px 12px', fontSize: 14, fontFamily: 'inherit', resize: 'vertical', outline: 'none', lineHeight: 1.5, background: '#fff', color: '#111827' }}
           />
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
             <button
