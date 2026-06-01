@@ -12,9 +12,10 @@
 --   3. Renames four indexes that contained "program_id" in their names.
 --      (lesson_comments_item_idx had no "program" in its name — no rename.)
 --   4. Rewrites the JSONB keys `programId` → `courseId` and
---      `programTitle` → `courseTitle` inside existing rows (only touches rows
---      that actually have those keys, so the update is a no-op on already-
---      migrated rows).
+--      `programTitle` → `courseTitle` inside existing rows for the four tables
+--      that store a `data` JSONB column: enrollments, content_sections,
+--      content_items, lesson_comments. (course_progress and email_reminders
+--      use only flat columns — no JSONB to rewrite.)
 --
 -- Safe to re-run: IF EXISTS / WHERE data ? 'key' guards make every statement
 -- idempotent (a second run is a silent no-op).
@@ -68,10 +69,7 @@ UPDATE content_items
    SET data = jsonb_set(data - 'programId', '{courseId}', data->'programId')
  WHERE data ? 'programId';
 
--- course_progress: programId → courseId
-UPDATE course_progress
-   SET data = jsonb_set(data - 'programId', '{courseId}', data->'programId')
- WHERE data ? 'programId';
+-- course_progress: flat columns only (user_email, course_id, completed_at) — no data JSONB, nothing to rename here.
 
 -- lesson_comments: programId → courseId, programTitle → courseTitle
 UPDATE lesson_comments
@@ -82,13 +80,6 @@ UPDATE lesson_comments
    SET data = jsonb_set(data - 'programTitle', '{courseTitle}', data->'programTitle')
  WHERE data ? 'programTitle';
 
--- email_reminders: programId → courseId, programTitle → courseTitle
-UPDATE email_reminders
-   SET data = jsonb_set(data - 'programId', '{courseId}', data->'programId')
- WHERE data ? 'programId';
-
-UPDATE email_reminders
-   SET data = jsonb_set(data - 'programTitle', '{courseTitle}', data->'programTitle')
- WHERE data ? 'programTitle';
+-- email_reminders: flat columns only (user_email, course_id, last_sent) — no data JSONB, nothing to rename here.
 
 COMMIT;
