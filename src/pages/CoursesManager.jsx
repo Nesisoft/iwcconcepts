@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { uid, getAllForms, getAllCourses, saveCourse, deleteCourse } from '../utils/formStorage'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import AdminSelect from '../components/AdminSelect'
+import RichTextEditor from '../components/RichTextEditor'
 
 const ACC = '#E4600A'
 const ACC2 = '#F5B800'
@@ -45,6 +46,7 @@ function makeDefault() {
     title: 'New Course',
     tagline: '',
     description: '',
+    courseType: 'course',
     type: 'free',
     price: 0,
     discount: 0,
@@ -242,7 +244,26 @@ export default function CoursesManager() {
                     <Fld label="Course Title"><input style={inp()} value={prog.title} onChange={e => set('title', e.target.value)} /></Fld>
                     <Fld label="Tagline (short subtitle shown on card)"><input style={inp()} value={prog.tagline} onChange={e => set('tagline', e.target.value)} placeholder="e.g. Build a business that works for you" /></Fld>
                     <Fld label="Description">
-                      <textarea style={inp({ resize: 'vertical', lineHeight: 1.6 })} rows={5} value={prog.description} onChange={e => set('description', e.target.value)} placeholder="Full course description…" />
+                      <RichTextEditor
+                        dark
+                        value={prog.description || ''}
+                        onChange={v => set('description', v)}
+                        placeholder="Full course description…"
+                        minRows={5}
+                      />
+                    </Fld>
+                    <Fld label="Content Type">
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {[{ v: 'course', label: '🎓 Course' }, { v: 'event', label: '🎪 Event' }].map(opt => (
+                          <button key={opt.v} type="button" onClick={() => set('courseType', opt.v)} style={{
+                            flex: 1, padding: '8px 0', borderRadius: 8, fontWeight: 700, fontSize: 12,
+                            border: `1.5px solid ${(prog.courseType || 'course') === opt.v ? ACC : 'rgba(255,255,255,0.15)'}`,
+                            background: (prog.courseType || 'course') === opt.v ? `${ACC}25` : 'transparent',
+                            color: (prog.courseType || 'course') === opt.v ? '#fff' : 'rgba(255,255,255,0.45)',
+                            cursor: 'pointer', transition: 'all 0.2s',
+                          }}>{opt.label}</button>
+                        ))}
+                      </div>
                     </Fld>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       <Fld label="Start Date"><input type="datetime-local" style={inp()} value={prog.startDate} onChange={e => set('startDate', e.target.value)} /></Fld>

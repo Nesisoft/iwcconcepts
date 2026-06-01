@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AdminSelect from '../components/AdminSelect'
+import RichTextEditor from '../components/RichTextEditor'
 import {
   uid, getAllForms, saveForm, deleteForm, getFormSubmissions,
   DEFAULT_REGISTRATION_FIELDS, DEFAULT_FEEDBACK_FIELDS, encodeFormConfig,
@@ -535,7 +536,7 @@ export default function FormBuilder() {
                     <input style={inp()} value={form.title} onChange={e => setF('title', e.target.value)} />
                   </Field>
                   <Field label="Description">
-                    <textarea style={inp({ resize: 'vertical', lineHeight: 1.6 })} rows={3} value={form.description} onChange={e => setF('description', e.target.value)} />
+                    <RichTextEditor dark value={form.description || ''} onChange={v => setF('description', v)} placeholder="Describe this form or event…" minRows={3} />
                   </Field>
                   <Field label="Event Date & Time">
                     <input type="datetime-local" style={inp()} value={form.eventDate} onChange={e => setF('eventDate', e.target.value)} />
