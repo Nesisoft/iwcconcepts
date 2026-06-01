@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useCustomerAuth } from '../contexts/CustomerAuthContext'
 import {
-  getPortalContent, getProgramById, getMyProgress, markItemComplete,
+  getPortalContent, getCourseById, getMyProgress, markItemComplete,
   getLessonComments, addLessonComment, deleteLessonComment,
 } from '../utils/formStorage'
 import {
@@ -40,14 +40,14 @@ function useWindowWidth() {
   return width
 }
 
-export default function ProgramPortal() {
+export default function CoursePortal() {
   const navigate    = useNavigate()
-  const { programId } = useParams()
+  const { courseId } = useParams()
   const { user, getAccessToken } = useCustomerAuth()
   const windowWidth = useWindowWidth()
   const isMobile    = windowWidth < 768
 
-  const [program,      setProgram]      = useState(null)
+  const [course,      setCourse]      = useState(null)
   const [sections,     setSections]     = useState([])
   const [items,        setItems]        = useState([])
   const [loading,      setLoading]      = useState(true)
@@ -60,9 +60,9 @@ export default function ProgramPortal() {
   const [xpToast,      setXpToast]      = useState(false)
 
   useEffect(() => {
-    if (!user || !programId) return
+    if (!user || !courseId) return
     load()
-  }, [user, programId])
+  }, [user, courseId])
 
   useEffect(() => {
     if (!isMobile) setSideOpen(true)
@@ -70,20 +70,20 @@ export default function ProgramPortal() {
 
   async function load() {
     setError('')
-    const CACHE_KEY  = `iwc_content_${programId}`
+    const CACHE_KEY  = `iwc_content_${courseId}`
     const CACHE_TTL  = 10 * 60 * 1000
 
     // Try cached content first (avoids blank screen on revisit)
     try {
       const cached = sessionStorage.getItem(CACHE_KEY)
       if (cached) {
-        const { program: cp, sections: cs, items: ci, exp } = JSON.parse(cached)
+        const { course: cp, sections: cs, items: ci, exp } = JSON.parse(cached)
         if (Date.now() < exp) {
-          setProgram(cp); setSections(cs); setItems(ci)
+          setCourse(cp); setSections(cs); setItems(ci)
           setLoading(false)
           // Still refresh progress live
           const token = await getAccessToken()
-          const prog = await getMyProgress(programId, token).catch(() => [])
+          const prog = await getMyProgress(courseId, token).catch(() => [])
           setCompletedIds(new Set(prog.map(p => p.itemId)))
           return
         }
@@ -92,11 +92,11 @@ export default function ProgramPortal() {
 
     setLoading(true)
     try {
-      const [prog, token] = await Promise.all([getProgramById(programId), getAccessToken()])
-      setProgram(prog)
+      const [prog, token] = await Promise.all([getCourseById(courseId), getAccessToken()])
+      setCourse(prog)
       const [content, progressList] = await Promise.all([
-        getPortalContent(programId, token),
-        getMyProgress(programId, token).catch(() => []),
+        getPortalContent(courseId, token),
+        getMyProgress(courseId, token).catch(() => []),
       ])
       const { sections: s, items: it } = content
       setSections(s || [])
@@ -104,7 +104,7 @@ export default function ProgramPortal() {
       setCompletedIds(new Set(progressList.map(p => p.itemId)))
       try {
         sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-          program: prog, sections: s || [], items: it || [],
+          course: prog, sections: s || [], items: it || [],
           exp: Date.now() + CACHE_TTL,
         }))
       } catch {}
@@ -132,7 +132,7 @@ export default function ProgramPortal() {
     setMarking(true)
     try {
       const token = await getAccessToken()
-      await markItemComplete(programId, item.id, token)
+      await markItemComplete(courseId, item.id, token)
       setCompletedIds(prev => new Set([...prev, item.id]))
       setXpToast(true)
       setTimeout(() => setXpToast(false), 2500)
@@ -146,7 +146,7 @@ export default function ProgramPortal() {
   // ── Derived ────────────────────────────────────────────────────────────────
   const totalItems       = items.length
   const isComplete       = totalItems > 0 && completedIds.size >= totalItems
-  const earnedCert       = program?.awardsCertificate && isComplete
+  const earnedCert       = course?.awardsCertificate && isComplete
   const firstIncomplete  = items.find(i => !completedIds.has(i.id))
   const sectionedItems   = sections.map(s => ({ ...s, items: items.filter(i => i.sectionId === s.id) }))
   const unsectionedItems = items.filter(i => !i.sectionId)
@@ -242,7 +242,7 @@ export default function ProgramPortal() {
         )}
 
         <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.7)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {program?.title || 'Course'}
+          {course?.title || 'Course'}
         </div>
 
         {/* XP badge */}
@@ -279,14 +279,14 @@ export default function ProgramPortal() {
         /* ── Overview screen ─────────────────────────────────────────────── */
         <div style={{ flex: 1, overflowY: 'auto', background: '#fff' }}>
           <CourseOverview
-            program={program}
+            course={course}
             items={items}
             completedIds={completedIds}
             earnedCert={earnedCert}
             firstIncomplete={firstIncomplete}
             isMobile={isMobile}
             onStart={handleStart}
-            onViewCertificate={() => navigate(`/portal/certificate/${programId}`)}
+            onViewCertificate={() => navigate(`/portal/certificate/${courseId}`)}
           />
         </div>
 
@@ -331,7 +331,7 @@ export default function ProgramPortal() {
                 <Award size={20} color="#d97706" />
                 <span style={{ fontSize: 14, fontWeight: 800, color: '#92400e', flex: 1 }}>Certificate Earned — you've completed this course!</span>
                 <button
-                  onClick={() => navigate(`/portal/certificate/${programId}`)}
+                  onClick={() => navigate(`/portal/certificate/${courseId}`)}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#d97706', color: '#fff', border: 'none', borderRadius: 7, padding: '7px 14px', fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}
                 >
                   <Printer size={13} /> View Certificate
@@ -363,8 +363,8 @@ export default function ProgramPortal() {
                   if (idx < items.length - 1) setActive(items[idx + 1])
                 }}
                 hasNext={items.findIndex(i => i.id === active.id) < items.length - 1}
-                programId={programId}
-                programTitle={program?.title}
+                courseId={courseId}
+                courseTitle={course?.title}
                 user={user}
                 getAccessToken={getAccessToken}
               />
@@ -378,7 +378,7 @@ export default function ProgramPortal() {
 
 // ── Course overview screen ─────────────────────────────────────────────────────
 
-function CourseOverview({ program, items, completedIds, earnedCert, firstIncomplete, isMobile, onStart, onViewCertificate }) {
+function CourseOverview({ course, items, completedIds, earnedCert, firstIncomplete, isMobile, onStart, onViewCertificate }) {
   const total    = items.length
   const done     = completedIds.size
   const pct      = total > 0 ? Math.round(done / total * 100) : 0
@@ -388,34 +388,34 @@ function CourseOverview({ program, items, completedIds, earnedCert, firstIncompl
     <div style={{ maxWidth: 720, margin: '0 auto', padding: isMobile ? '28px 20px 80px' : '40px 32px 80px' }}>
 
       {/* Course image */}
-      {program?.image && (
+      {course?.image && (
         <div style={{ borderRadius: 16, overflow: 'hidden', marginBottom: 28, height: isMobile ? 180 : 240 }}>
-          <img src={program.image} alt={program.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={course.image} alt={course.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
       )}
 
       {/* Tags */}
-      {program?.tags?.length > 0 && (
+      {course?.tags?.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-          {program.tags.map(tag => (
+          {course.tags.map(tag => (
             <span key={tag} style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 20, background: '#f5f0ff', color: BRAND }}>{tag}</span>
           ))}
         </div>
       )}
 
       <h1 style={{ fontSize: isMobile ? 26 : 'clamp(26px, 4vw, 38px)', fontWeight: 900, color: '#111827', margin: '0 0 10px', lineHeight: 1.2 }}>
-        {program?.title}
+        {course?.title}
       </h1>
 
-      {program?.tagline && (
-        <p style={{ fontSize: 17, color: BRAND, fontWeight: 600, margin: '0 0 16px', lineHeight: 1.5 }}>{program.tagline}</p>
+      {course?.tagline && (
+        <p style={{ fontSize: 17, color: BRAND, fontWeight: 600, margin: '0 0 16px', lineHeight: 1.5 }}>{course.tagline}</p>
       )}
 
       {/* Meta row */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18, marginBottom: 24, color: '#6b7280', fontSize: 14 }}>
-        {program?.duration && (
+        {course?.duration && (
           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Clock size={15} /> {program.duration}
+            <Clock size={15} /> {course.duration}
           </span>
         )}
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -426,16 +426,16 @@ function CourseOverview({ program, items, completedIds, earnedCert, firstIncompl
             <Zap size={15} /> {done} XP earned
           </span>
         )}
-        {program?.awardsCertificate && (
+        {course?.awardsCertificate && (
           <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: earnedCert ? '#d97706' : '#9ca3af' }}>
             <Award size={15} /> {earnedCert ? 'Certificate earned' : 'Certificate on completion'}
           </span>
         )}
       </div>
 
-      {program?.description && (
+      {course?.description && (
         <p style={{ fontSize: 15, color: '#374151', lineHeight: 1.8, marginBottom: 28, whiteSpace: 'pre-line' }}>
-          {program.description}
+          {course.description}
         </p>
       )}
 
@@ -533,7 +533,7 @@ function SidebarItem({ item, active, done, onClick }) {
 
 // ── Lesson content view ────────────────────────────────────────────────────────
 
-function ContentView({ item, onNext, hasNext, isMobile, done, marking, onMarkComplete, programId, programTitle, user, getAccessToken }) {
+function ContentView({ item, onNext, hasNext, isMobile, done, marking, onMarkComplete, courseId, courseTitle, user, getAccessToken }) {
   const video = item.type === 'video' ? parseVideo(item.videoUrl) : null
 
   return (
@@ -616,8 +616,8 @@ function ContentView({ item, onNext, hasNext, isMobile, done, marking, onMarkCom
 
       {/* Discussion / Q&A */}
       <LessonDiscussion
-        programId={programId}
-        programTitle={programTitle}
+        courseId={courseId}
+        courseTitle={courseTitle}
         item={item}
         user={user}
         getAccessToken={getAccessToken}
@@ -629,7 +629,7 @@ function ContentView({ item, onNext, hasNext, isMobile, done, marking, onMarkCom
 
 // ── Lesson discussion / Q&A ────────────────────────────────────────────────────
 
-function LessonDiscussion({ programId, programTitle, item, user, getAccessToken, isMobile }) {
+function LessonDiscussion({ courseId, courseTitle, item, user, getAccessToken, isMobile }) {
   const [comments, setComments] = useState([])
   const [loading,  setLoading]  = useState(true)
   const [body,     setBody]     = useState('')
@@ -644,13 +644,13 @@ function LessonDiscussion({ programId, programTitle, item, user, getAccessToken,
     ;(async () => {
       try {
         const token = await getAccessToken()
-        const list  = await getLessonComments(programId, item.id, token)
+        const list  = await getLessonComments(courseId, item.id, token)
         if (!cancelled) setComments(list || [])
       } catch { if (!cancelled) setComments([]) }
       finally { if (!cancelled) setLoading(false) }
     })()
     return () => { cancelled = true }
-  }, [programId, item.id]) // eslint-disable-line
+  }, [courseId, item.id]) // eslint-disable-line
 
   async function post(text, parentId) {
     const trimmed = (text || '').trim()
@@ -659,10 +659,10 @@ function LessonDiscussion({ programId, programTitle, item, user, getAccessToken,
     try {
       const token = await getAccessToken()
       const created = await addLessonComment({
-        programId, itemId: item.id,
+        courseId, itemId: item.id,
         body: trimmed, parentId: parentId || null,
         authorName: user?.email ? user.email.split('@')[0] : 'Learner',
-        programTitle, lessonTitle: item.title,
+        courseTitle, lessonTitle: item.title,
         asAdmin: false,
       }, token)
       setComments(c => [...c, created])

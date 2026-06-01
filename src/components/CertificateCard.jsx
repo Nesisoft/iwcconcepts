@@ -23,10 +23,10 @@ export const DEFAULT_CERT_TEMPLATE = {
   brand:          '#6c3fc5', // course-name colour
 }
 
-export function certIdFor(email, programId, completedAt, prefix = 'IWC') {
+export function certIdFor(email, courseId, completedAt, prefix = 'IWC') {
   const year = completedAt ? new Date(completedAt).getFullYear() : new Date().getFullYear()
   let h = 5381
-  const s = (email || '') + (programId || '')
+  const s = (email || '') + (courseId || '')
   for (let i = 0; i < s.length; i++) h = ((h << 5) + h) ^ s.charCodeAt(i)
   return `${prefix}-${year}-${Math.abs(h).toString(36).slice(0, 6).toUpperCase()}`
 }

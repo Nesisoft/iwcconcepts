@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getAllPrograms } from '../utils/formStorage'
+import { getAllCourses } from '../utils/formStorage'
 import SiteNav from '../components/SiteNav'
 import SiteFooter from '../components/SiteFooter'
 import { Calendar, MapPin, Star, BookOpen, ArrowRight, Search, Clock } from 'lucide-react'
@@ -27,21 +27,21 @@ const FILTERS = [
 
 export default function Courses() {
   const navigate = useNavigate()
-  const [programs, setPrograms] = useState([])
+  const [courses, setCourses] = useState([])
   const [loading,  setLoading]  = useState(true)
   const [filter,   setFilter]   = useState('all')
   const [query,    setQuery]    = useState('')
 
   useEffect(() => {
-    getAllPrograms()
-      .then(ps => setPrograms(ps || []))
-      .catch(() => setPrograms([]))
+    getAllCourses()
+      .then(ps => setCourses(ps || []))
+      .catch(() => setCourses([]))
       .finally(() => setLoading(false))
   }, [])
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return programs
+    return courses
       .filter(p => p.status !== 'draft')
       .filter(p => filter === 'all' ? true : p.type === filter)
       .filter(p => {
@@ -50,16 +50,16 @@ export default function Courses() {
           .filter(Boolean).join(' ').toLowerCase().includes(q)
       })
       .sort((a, b) => (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99))
-  }, [programs, filter, query])
+  }, [courses, filter, query])
 
   const counts = useMemo(() => {
-    const live = programs.filter(p => p.status !== 'draft')
+    const live = courses.filter(p => p.status !== 'draft')
     return {
       all:  live.length,
       free: live.filter(p => p.type === 'free').length,
       paid: live.filter(p => p.type === 'paid').length,
     }
-  }, [programs])
+  }, [courses])
 
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', minHeight: '100vh', background: '#fff', display: 'flex', flexDirection: 'column' }}>
@@ -128,7 +128,7 @@ export default function Courses() {
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 24 }}>
-            {visible.map(p => <CourseCard key={p.id} program={p} navigate={navigate} />)}
+            {visible.map(p => <CourseCard key={p.id} course={p} navigate={navigate} />)}
           </div>
         )}
       </section>
@@ -138,12 +138,12 @@ export default function Courses() {
   )
 }
 
-function CourseCard({ program, navigate }) {
-  const isPaid = program.type === 'paid'
-  const canRegister = program.status === 'open'
+function CourseCard({ course, navigate }) {
+  const isPaid = course.type === 'paid'
+  const canRegister = course.status === 'open'
 
   function handleCTA() {
-    if (canRegister && program.registrationFormId) navigate(`/onboard?programId=${program.id}`)
+    if (canRegister && course.registrationFormId) navigate(`/onboard?courseId=${course.id}`)
   }
 
   return (
@@ -156,11 +156,11 @@ function CourseCard({ program, navigate }) {
       onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.08)' }}
     >
       <div style={{ height: 170, background: '#f3f4f6', position: 'relative', overflow: 'hidden' }}>
-        {program.image
-          ? <img src={program.image} alt={program.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        {course.image
+          ? <img src={course.image} alt={course.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #6c3fc520, #6c3fc540)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BookOpen size={40} color={BRAND} /></div>
         }
-        <span style={{ position: 'absolute', top: 12, left: 12, background: statusColor(program.status), color: '#fff', fontSize: 11, fontWeight: 700, borderRadius: 20, padding: '3px 10px', textTransform: 'capitalize' }}>{program.status}</span>
+        <span style={{ position: 'absolute', top: 12, left: 12, background: statusColor(course.status), color: '#fff', fontSize: 11, fontWeight: 700, borderRadius: 20, padding: '3px 10px', textTransform: 'capitalize' }}>{course.status}</span>
         {isPaid && (
           <span style={{ position: 'absolute', top: 12, right: 12, background: `linear-gradient(135deg, ${GOLD}, #e8c060)`, borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }} title="Premium course">
             <Star size={15} color="#1A1A2E" fill="#1A1A2E" />
@@ -169,16 +169,16 @@ function CourseCard({ program, navigate }) {
       </div>
 
       <div style={{ padding: '18px 20px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#111827', lineHeight: 1.3 }}>{program.title}</h3>
-        {program.tagline && <p style={{ margin: 0, fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>{program.tagline}</p>}
+        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#111827', lineHeight: 1.3 }}>{course.title}</h3>
+        {course.tagline && <p style={{ margin: 0, fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>{course.tagline}</p>}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
-          {program.startDate && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Calendar size={13} /> {formatDate(program.startDate)}</span>}
-          {program.duration && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Clock size={13} /> {program.duration}</span>}
-          {program.venue && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><MapPin size={13} /> {program.venue}</span>}
+          {course.startDate && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Calendar size={13} /> {formatDate(course.startDate)}</span>}
+          {course.duration && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Clock size={13} /> {course.duration}</span>}
+          {course.venue && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><MapPin size={13} /> {course.venue}</span>}
         </div>
-        {program.tags?.length > 0 && (
+        {course.tags?.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-            {program.tags.slice(0, 3).map(t => (
+            {course.tags.slice(0, 3).map(t => (
               <span key={t} style={{ background: '#f3f4f6', color: '#6b7280', fontSize: 11, borderRadius: 20, padding: '2px 8px' }}>{t}</span>
             ))}
           </div>
@@ -197,7 +197,7 @@ function CourseCard({ program, navigate }) {
         >
           {canRegister
             ? <>{isPaid ? 'Register' : 'Join Free'} <ArrowRight size={15} /></>
-            : (program.status === 'upcoming' ? 'Coming Soon' : program.status === 'closed' ? 'Registration Closed' : 'Completed')
+            : (course.status === 'upcoming' ? 'Coming Soon' : course.status === 'closed' ? 'Registration Closed' : 'Completed')
           }
         </button>
       </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useCustomerAuth } from '../contexts/CustomerAuthContext'
-import { getProgramById, getMyEnrollments, getMyProgress, getPortalContent, getSetting } from '../utils/formStorage'
+import { getCourseById, getMyEnrollments, getMyProgress, getPortalContent, getSetting } from '../utils/formStorage'
 import CertificateCard, { certIdFor, DEFAULT_CERT_TEMPLATE } from '../components/CertificateCard'
 import { ArrowLeft, Printer, Award } from 'lucide-react'
 
@@ -11,7 +11,7 @@ const GOLD   = '#C9A84C'
 
 export default function PortalCertificate() {
   const navigate   = useNavigate()
-  const { programId } = useParams()
+  const { courseId } = useParams()
   const { user, getAccessToken } = useCustomerAuth()
 
   const [certData, setCertData] = useState(null) // { name, courseName, completedAt, certId }
@@ -20,28 +20,28 @@ export default function PortalCertificate() {
   const [error,    setError]    = useState('')
 
   useEffect(() => {
-    if (!user || !programId) return
+    if (!user || !courseId) return
     load()
-  }, [user, programId])
+  }, [user, courseId])
 
   async function load() {
     setLoading(true)
     setError('')
     try {
       const token = await getAccessToken()
-      const [program, enrollments, progress, content, storedTpl] = await Promise.all([
-        getProgramById(programId),
+      const [course, enrollments, progress, content, storedTpl] = await Promise.all([
+        getCourseById(courseId),
         getMyEnrollments(token),
-        getMyProgress(programId, token),
-        getPortalContent(programId, token).catch(() => ({ items: [] })),
+        getMyProgress(courseId, token),
+        getPortalContent(courseId, token).catch(() => ({ items: [] })),
         getSetting('certificateTemplate').catch(() => null),
       ])
 
       const tpl = storedTpl ? { ...DEFAULT_CERT_TEMPLATE, ...storedTpl } : DEFAULT_CERT_TEMPLATE
       setTemplate(tpl)
 
-      if (!program) { setError('Course not found.'); return }
-      if (!program.awardsCertificate) { setError('This course does not award a certificate.'); return }
+      if (!course) { setError('Course not found.'); return }
+      if (!course.awardsCertificate) { setError('This course does not award a certificate.'); return }
 
       // Verify every published lesson is complete
       const totalItems     = (content?.items || []).length
@@ -51,8 +51,8 @@ export default function PortalCertificate() {
         return
       }
 
-      // Find this program's enrollment for the user's name
-      const enrollment = enrollments?.find(e => e.programId === programId)
+      // Find this course's enrollment for the user's name
+      const enrollment = enrollments?.find(e => e.courseId === courseId)
 
       // Completion date = latest completedAt across all progress items
       const completedAt = (progress || [])
@@ -62,9 +62,9 @@ export default function PortalCertificate() {
         .at(-1) ?? new Date().toISOString()
 
       const name   = enrollment?.participantName || user.email.split('@')[0]
-      const certId = certIdFor(user.email, programId, completedAt, tpl.idPrefix)
+      const certId = certIdFor(user.email, courseId, completedAt, tpl.idPrefix)
 
-      setCertData({ name, courseName: program.title, completedAt, certId })
+      setCertData({ name, courseName: course.title, completedAt, certId })
     } catch (e) {
       setError(e.message)
     } finally {
@@ -96,7 +96,7 @@ export default function PortalCertificate() {
         padding: '0 20px', height: 56, display: 'flex', alignItems: 'center', gap: 12,
         position: 'sticky', top: 0, zIndex: 50,
       }}>
-        <button onClick={() => navigate(`/portal/program/${programId}`)} style={{
+        <button onClick={() => navigate(`/portal/course/${courseId}`)} style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
           background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)',
           borderRadius: 7, color: 'rgba(255,255,255,0.8)', padding: '6px 12px',
@@ -131,7 +131,7 @@ export default function PortalCertificate() {
             <Award size={52} color="#d1d5db" style={{ marginBottom: 16 }} />
             <h2 style={{ fontSize: 20, fontWeight: 800, color: '#374151', margin: '0 0 10px' }}>Certificate Not Available</h2>
             <p style={{ color: '#6b7280', fontSize: 15, lineHeight: 1.7, margin: '0 0 28px' }}>{error}</p>
-            <button onClick={() => navigate(`/portal/program/${programId}`)} style={{
+            <button onClick={() => navigate(`/portal/course/${courseId}`)} style={{
               display: 'inline-flex', alignItems: 'center', gap: 8,
               background: `linear-gradient(135deg, ${BRAND}, ${BRAND2})`,
               color: '#fff', border: 'none', borderRadius: 10,

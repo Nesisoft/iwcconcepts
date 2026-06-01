@@ -54,8 +54,8 @@ const ADMIN_ACTIONS = new Set([
   'getFormSubmissions', 'deleteSubmission',
   'getAllSpeakers', 'getSpeakerById', 'saveSpeaker', 'deleteSpeaker',
   'getEventTasks', 'saveEventTasks',
-  'saveProgram', 'deleteProgram',
-  'getEnrollmentsByProgram',
+  'saveCourse', 'deleteCourse',
+  'getEnrollmentsByCourse',
   'saveTestimonial', 'deleteTestimonial',
   'getContentSections', 'saveContentSection', 'deleteContentSection',
   'getContentItems',    'saveContentItem',    'deleteContentItem',
@@ -257,26 +257,26 @@ async function handleAction(db, action, p, user = null) {
       return p.tasks
     }
 
-    // ── Programs ──────────────────────────────────────────────────────────────
-    case 'getAllPrograms': {
+    // ── Courses ──────────────────────────────────────────────────────────────
+    case 'getAllCourses': {
       const { rows } = await db.query(
-        'SELECT data FROM programs ORDER BY created_at DESC'
+        'SELECT data FROM courses ORDER BY created_at DESC'
       )
       return rows.map(r => r.data)
     }
 
-    case 'getProgramById': {
+    case 'getCourseById': {
       const { rows } = await db.query(
-        'SELECT data FROM programs WHERE id = $1',
+        'SELECT data FROM courses WHERE id = $1',
         [p.id]
       )
       return rows[0]?.data ?? null
     }
 
-    case 'saveProgram': {
-      const prog = p.program
+    case 'saveCourse': {
+      const prog = p.course
       await db.query(
-        `INSERT INTO programs (id, data, created_at)
+        `INSERT INTO courses (id, data, created_at)
          VALUES ($1, $2, $3)
          ON CONFLICT (id) DO UPDATE SET data = $2`,
         [prog.id, prog, prog.createdAt || new Date().toISOString()]
@@ -284,8 +284,8 @@ async function handleAction(db, action, p, user = null) {
       return prog
     }
 
-    case 'deleteProgram': {
-      await db.query('DELETE FROM programs WHERE id = $1', [p.id])
+    case 'deleteCourse': {
+      await db.query('DELETE FROM courses WHERE id = $1', [p.id])
       return { ok: true }
     }
 
@@ -293,16 +293,16 @@ async function handleAction(db, action, p, user = null) {
     case 'addEnrollment': {
       const e = p.enrollment
       const result = await db.query(
-        `INSERT INTO enrollments (id, program_id, data, created_at)
+        `INSERT INTO enrollments (id, course_id, data, created_at)
          VALUES ($1, $2, $3, $4)
          ON CONFLICT (id) DO NOTHING`,
-        [e.id, e.programId, e, e.enrolledAt || new Date().toISOString()]
+        [e.id, e.courseId, e, e.enrolledAt || new Date().toISOString()]
       )
       // Welcome email — only on a genuinely new enrollment row.
       if (result.rowCount > 0 && e.participantEmail) {
         const settings = await loadEmailSettings(db)
         if (settings.welcomeEnabled) {
-          const vars = emailVars({ name: e.participantName, course: e.programTitle, baseUrl: p.baseUrl })
+          const vars = emailVars({ name: e.participantName, course: e.courseTitle, baseUrl: p.baseUrl })
           await trySend(db, {
             to: e.participantEmail,
             subject: renderTemplate(settings.welcomeSubject, vars),
@@ -314,10 +314,10 @@ async function handleAction(db, action, p, user = null) {
       return e
     }
 
-    case 'getEnrollmentsByProgram': {
+    case 'getEnrollmentsByCourse': {
       const { rows } = await db.query(
-        'SELECT data FROM enrollments WHERE program_id = $1 ORDER BY created_at DESC',
-        [p.programId]
+        'SELECT data FROM enrollments WHERE course_id = $1 ORDER BY created_at DESC',
+        [p.courseId]
       )
       return rows.map(r => r.data)
     }
@@ -349,9 +349,9 @@ async function handleAction(db, action, p, user = null) {
     // ── Content Sections (admin) ──────────────────────────────────────────────
     case 'getContentSections': {
       const { rows } = await db.query(
-        `SELECT data FROM content_sections WHERE program_id = $1
+        `SELECT data FROM content_sections WHERE course_id = $1
          ORDER BY (data->>'order')::int NULLS LAST, created_at ASC`,
-        [p.programId]
+        [p.courseId]
       )
       return rows.map(r => r.data)
     }
@@ -359,10 +359,10 @@ async function handleAction(db, action, p, user = null) {
     case 'saveContentSection': {
       const s = p.section
       await db.query(
-        `INSERT INTO content_sections (id, program_id, data, created_at)
+        `INSERT INTO content_sections (id, course_id, data, created_at)
          VALUES ($1, $2, $3, $4)
          ON CONFLICT (id) DO UPDATE SET data = $3`,
-        [s.id, s.programId, s, s.createdAt || new Date().toISOString()]
+        [s.id, s.courseId, s, s.createdAt || new Date().toISOString()]
       )
       return s
     }
@@ -370,8 +370,8 @@ async function handleAction(db, action, p, user = null) {
     case 'deleteContentSection': {
       // Delete items in this section first
       await db.query(
-        `DELETE FROM content_items WHERE program_id = $1 AND data->>'sectionId' = $2`,
-        [p.programId, p.id]
+        `DELETE FROM content_items WHERE course_id = $1 AND data->>'sectionId' = $2`,
+        [p.courseId, p.id]
       )
       await db.query('DELETE FROM content_sections WHERE id = $1', [p.id])
       return { ok: true }
@@ -380,9 +380,9 @@ async function handleAction(db, action, p, user = null) {
     // ── Content Items (admin) ─────────────────────────────────────────────────
     case 'getContentItems': {
       const { rows } = await db.query(
-        `SELECT data FROM content_items WHERE program_id = $1
+        `SELECT data FROM content_items WHERE course_id = $1
          ORDER BY (data->>'order')::int NULLS LAST, created_at ASC`,
-        [p.programId]
+        [p.courseId]
       )
       return rows.map(r => r.data)
     }
@@ -390,10 +390,10 @@ async function handleAction(db, action, p, user = null) {
     case 'saveContentItem': {
       const item = p.item
       await db.query(
-        `INSERT INTO content_items (id, program_id, data, created_at)
+        `INSERT INTO content_items (id, course_id, data, created_at)
          VALUES ($1, $2, $3, $4)
          ON CONFLICT (id) DO UPDATE SET data = $3`,
-        [item.id, item.programId, item, item.createdAt || new Date().toISOString()]
+        [item.id, item.courseId, item, item.createdAt || new Date().toISOString()]
       )
       return item
     }
@@ -405,24 +405,24 @@ async function handleAction(db, action, p, user = null) {
 
     // ── Customer portal actions ───────────────────────────────────────────────
     case 'getMyEnrollments': {
-      // DISTINCT ON deduplicates by program — keeps only the most recent
-      // enrollment per program so repeated signups don't appear twice.
+      // DISTINCT ON deduplicates by course — keeps only the most recent
+      // enrollment per course so repeated signups don't appear twice.
       const { rows } = await db.query(
-        `SELECT DISTINCT ON (program_id) data
+        `SELECT DISTINCT ON (course_id) data
          FROM enrollments
          WHERE data->>'participantEmail' = $1
-         ORDER BY program_id, created_at DESC`,
+         ORDER BY course_id, created_at DESC`,
         [user.email]
       )
       return rows.map(r => r.data)
     }
 
     case 'getPortalContent': {
-      // Free programs with portal access are open to all portal users —
+      // Free courses with portal access are open to all portal users —
       // no enrollment record required.
       const { rows: pr } = await db.query(
-        'SELECT data FROM programs WHERE id = $1',
-        [p.programId]
+        'SELECT data FROM courses WHERE id = $1',
+        [p.courseId]
       )
       const prog = pr[0]?.data
       // hasPortalAccess can be boolean true or string "true" depending on how old
@@ -434,23 +434,23 @@ async function handleAction(db, action, p, user = null) {
       if (!isFreePortal) {
         const { rows: er } = await db.query(
           `SELECT id FROM enrollments
-           WHERE program_id = $1 AND data->>'participantEmail' = $2`,
-          [p.programId, user.email]
+           WHERE course_id = $1 AND data->>'participantEmail' = $2`,
+          [p.courseId, user.email]
         )
-        if (er.length === 0) throw new Error('Not enrolled in this program')
+        if (er.length === 0) throw new Error('Not enrolled in this course')
       }
 
       const [sr, ir] = await Promise.all([
         db.query(
-          `SELECT data FROM content_sections WHERE program_id = $1
+          `SELECT data FROM content_sections WHERE course_id = $1
            ORDER BY (data->>'order')::int NULLS LAST, created_at ASC`,
-          [p.programId]
+          [p.courseId]
         ),
         db.query(
-          `SELECT data FROM content_items WHERE program_id = $1
+          `SELECT data FROM content_items WHERE course_id = $1
            AND (data->>'isPublished')::boolean = true
            ORDER BY (data->>'order')::int NULLS LAST, created_at ASC`,
-          [p.programId]
+          [p.courseId]
         ),
       ])
       return {
@@ -463,18 +463,18 @@ async function handleAction(db, action, p, user = null) {
     case 'getMyProgress': {
       const { rows } = await db.query(
         `SELECT item_id, completed_at FROM course_progress
-         WHERE program_id = $1 AND user_email = $2`,
-        [p.programId, user.email]
+         WHERE course_id = $1 AND user_email = $2`,
+        [p.courseId, user.email]
       )
       return rows.map(r => ({ itemId: r.item_id, completedAt: r.completed_at }))
     }
 
     case 'markItemComplete': {
       const ins = await db.query(
-        `INSERT INTO course_progress (user_email, item_id, program_id, completed_at)
+        `INSERT INTO course_progress (user_email, item_id, course_id, completed_at)
          VALUES ($1, $2, $3, NOW())
          ON CONFLICT (user_email, item_id) DO NOTHING`,
-        [user.email, p.itemId, p.programId]
+        [user.email, p.itemId, p.courseId]
       )
 
       // If this insert just completed the course, send a completion email once.
@@ -482,13 +482,13 @@ async function handleAction(db, action, p, user = null) {
         const [{ rows: totalR }, { rows: doneR }] = await Promise.all([
           db.query(
             `SELECT COUNT(*)::int AS n FROM content_items
-             WHERE program_id = $1 AND (data->>'isPublished')::boolean = true`,
-            [p.programId]
+             WHERE course_id = $1 AND (data->>'isPublished')::boolean = true`,
+            [p.courseId]
           ),
           db.query(
             `SELECT COUNT(*)::int AS n FROM course_progress
-             WHERE program_id = $1 AND user_email = $2`,
-            [p.programId, user.email]
+             WHERE course_id = $1 AND user_email = $2`,
+            [p.courseId, user.email]
           ),
         ])
         const total = totalR[0]?.n || 0
@@ -496,17 +496,17 @@ async function handleAction(db, action, p, user = null) {
         if (total > 0 && done >= total) {
           const settings = await loadEmailSettings(db)
           if (settings.completionEnabled) {
-            const { rows: pr } = await db.query('SELECT data FROM programs WHERE id = $1', [p.programId])
+            const { rows: pr } = await db.query('SELECT data FROM courses WHERE id = $1', [p.courseId])
             const prog = pr[0]?.data
             const { rows: er } = await db.query(
               `SELECT data FROM enrollments
-               WHERE program_id = $1 AND data->>'participantEmail' = $2
+               WHERE course_id = $1 AND data->>'participantEmail' = $2
                ORDER BY created_at DESC LIMIT 1`,
-              [p.programId, user.email]
+              [p.courseId, user.email]
             )
             const name = er[0]?.data?.participantName || user.email.split('@')[0]
             const certificateUrl = (prog?.awardsCertificate && p.baseUrl)
-              ? `${p.baseUrl}/#/portal/certificate/${p.programId}`
+              ? `${p.baseUrl}/#/portal/certificate/${p.courseId}`
               : ''
             const vars = emailVars({ name, course: prog?.title, baseUrl: p.baseUrl, certificateUrl })
             await trySend(db, {
@@ -525,25 +525,25 @@ async function handleAction(db, action, p, user = null) {
     case 'getEnrolledUsersProgress': {
       const [er, pr, progR, ciR] = await Promise.all([
         db.query(
-          `SELECT DISTINCT ON (program_id, data->>'participantEmail') program_id, data
+          `SELECT DISTINCT ON (course_id, data->>'participantEmail') course_id, data
            FROM enrollments
-           ORDER BY program_id, data->>'participantEmail', created_at DESC`
+           ORDER BY course_id, data->>'participantEmail', created_at DESC`
         ),
         db.query(
-          `SELECT program_id, user_email, item_id, completed_at
+          `SELECT course_id, user_email, item_id, completed_at
            FROM course_progress ORDER BY completed_at ASC`
         ),
-        db.query('SELECT id, data FROM programs'),
+        db.query('SELECT id, data FROM courses'),
         db.query(
-          `SELECT program_id, COUNT(*) AS total FROM content_items
-           WHERE (data->>'isPublished')::boolean = true GROUP BY program_id`
+          `SELECT course_id, COUNT(*) AS total FROM content_items
+           WHERE (data->>'isPublished')::boolean = true GROUP BY course_id`
         ),
       ])
       return {
-        enrollments:  er.rows.map(r => ({ programId: r.program_id, ...r.data })),
+        enrollments:  er.rows.map(r => ({ courseId: r.course_id, ...r.data })),
         progress:     pr.rows,
-        programs:     progR.rows.map(r => ({ id: r.id, ...r.data })),
-        lessonCounts: Object.fromEntries(ciR.rows.map(r => [r.program_id, Number(r.total)])),
+        courses:     progR.rows.map(r => ({ id: r.id, ...r.data })),
+        lessonCounts: Object.fromEntries(ciR.rows.map(r => [r.course_id, Number(r.total)])),
       }
     }
 
@@ -551,9 +551,9 @@ async function handleAction(db, action, p, user = null) {
     case 'getLessonComments': {
       const { rows } = await db.query(
         `SELECT id, data, created_at FROM lesson_comments
-         WHERE program_id = $1 AND item_id = $2
+         WHERE course_id = $1 AND item_id = $2
          ORDER BY created_at ASC`,
-        [p.programId, p.itemId]
+        [p.courseId, p.itemId]
       )
       return rows.map(r => ({ id: r.id, createdAt: r.created_at, ...r.data }))
     }
@@ -567,16 +567,16 @@ async function handleAction(db, action, p, user = null) {
         body:         String(p.body || '').slice(0, 4000),
         isAdmin,
         parentId:     p.parentId || null,
-        programTitle: p.programTitle || null,
+        courseTitle: p.courseTitle || null,
         lessonTitle:  p.lessonTitle || null,
       }
       if (!comment.body.trim()) throw new Error('Comment cannot be empty')
       const id  = Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
       const now = new Date().toISOString()
       await db.query(
-        `INSERT INTO lesson_comments (id, program_id, item_id, data, created_at)
+        `INSERT INTO lesson_comments (id, course_id, item_id, data, created_at)
          VALUES ($1, $2, $3, $4, $5)`,
-        [id, p.programId, p.itemId, comment, now]
+        [id, p.courseId, p.itemId, comment, now]
       )
       return { id, createdAt: now, ...comment }
     }
@@ -600,10 +600,10 @@ async function handleAction(db, action, p, user = null) {
 
     case 'getAllLessonComments': {
       const { rows } = await db.query(
-        `SELECT id, program_id, item_id, data, created_at FROM lesson_comments
+        `SELECT id, course_id, item_id, data, created_at FROM lesson_comments
          ORDER BY created_at DESC`
       )
-      return rows.map(r => ({ id: r.id, programId: r.program_id, itemId: r.item_id, createdAt: r.created_at, ...r.data }))
+      return rows.map(r => ({ id: r.id, courseId: r.course_id, itemId: r.item_id, createdAt: r.created_at, ...r.data }))
     }
 
     // ── Settings (public read, admin write) ──────────────────────────────────

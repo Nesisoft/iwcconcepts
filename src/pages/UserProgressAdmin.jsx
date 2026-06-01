@@ -18,7 +18,7 @@ export default function UserProgressAdmin() {
   const [template,  setTemplate]  = useState(DEFAULT_CERT_TEMPLATE)
   const [loading,   setLoading]   = useState(true)
   const [error,     setError]     = useState('')
-  const [expanded,  setExpanded]  = useState({}) // programId → bool
+  const [expanded,  setExpanded]  = useState({}) // courseId → bool
   const [certModal, setCertModal] = useState(null) // { name, courseName, completedAt, certId }
 
   useEffect(() => { load() }, [])
@@ -217,38 +217,38 @@ export default function UserProgressAdmin() {
 
 function buildGrouped(data) {
   if (!data) return []
-  const { enrollments = [], progress = [], programs = [], lessonCounts = {} } = data
+  const { enrollments = [], progress = [], courses = [], lessonCounts = {} } = data
 
-  // Map programs by id
-  const progMap = Object.fromEntries(programs.map(p => [p.id, p]))
+  // Map courses by id
+  const progMap = Object.fromEntries(courses.map(p => [p.id, p]))
 
-  // Build progress lookup: programId → email → { itemIds: Set, lastCompletedAt }
+  // Build progress lookup: courseId → email → { itemIds: Set, lastCompletedAt }
   const progLookup = {}
   for (const row of progress) {
-    const { program_id, user_email, item_id, completed_at } = row
-    if (!progLookup[program_id]) progLookup[program_id] = {}
-    if (!progLookup[program_id][user_email]) progLookup[program_id][user_email] = { itemIds: new Set(), lastCompletedAt: null }
-    progLookup[program_id][user_email].itemIds.add(item_id)
-    if (!progLookup[program_id][user_email].lastCompletedAt || (completed_at && completed_at > progLookup[program_id][user_email].lastCompletedAt)) {
-      progLookup[program_id][user_email].lastCompletedAt = completed_at
+    const { course_id, user_email, item_id, completed_at } = row
+    if (!progLookup[course_id]) progLookup[course_id] = {}
+    if (!progLookup[course_id][user_email]) progLookup[course_id][user_email] = { itemIds: new Set(), lastCompletedAt: null }
+    progLookup[course_id][user_email].itemIds.add(item_id)
+    if (!progLookup[course_id][user_email].lastCompletedAt || (completed_at && completed_at > progLookup[course_id][user_email].lastCompletedAt)) {
+      progLookup[course_id][user_email].lastCompletedAt = completed_at
     }
   }
 
-  // Group enrollments by program
+  // Group enrollments by course
   const byCourse = {}
   for (const enr of enrollments) {
-    const { programId, participantEmail, participantName, enrolledAt } = enr
-    if (!byCourse[programId]) byCourse[programId] = []
-    byCourse[programId].push({ email: participantEmail, name: participantName, enrolledAt })
+    const { courseId, participantEmail, participantName, enrolledAt } = enr
+    if (!byCourse[courseId]) byCourse[courseId] = []
+    byCourse[courseId].push({ email: participantEmail, name: participantName, enrolledAt })
   }
 
-  return Object.entries(byCourse).map(([programId, users]) => {
-    const prog        = progMap[programId]
-    const totalLessons = lessonCounts[programId] || 0
+  return Object.entries(byCourse).map(([courseId, users]) => {
+    const prog        = progMap[courseId]
+    const totalLessons = lessonCounts[courseId] || 0
     const certEnabled  = prog?.awardsCertificate || false
 
     const enriched = users.map(u => {
-      const userProg  = progLookup[programId]?.[u.email]
+      const userProg  = progLookup[courseId]?.[u.email]
       const completed = userProg?.itemIds?.size || 0
       const pct       = totalLessons > 0 ? Math.round(completed / totalLessons * 100) : 0
       const complete  = totalLessons > 0 && completed >= totalLessons
@@ -264,8 +264,8 @@ function buildGrouped(data) {
     enriched.sort((a, b) => b.completed - a.completed)
 
     return {
-      id:           programId,
-      title:        prog?.title || programId,
+      id:           courseId,
+      title:        prog?.title || courseId,
       totalLessons,
       awardsCertificate: certEnabled,
       users: enriched,

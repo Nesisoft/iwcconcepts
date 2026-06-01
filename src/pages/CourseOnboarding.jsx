@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { getProgramById, getFormById, addSubmission, addEnrollment, uid } from '../utils/formStorage'
+import { getCourseById, getFormById, addSubmission, addEnrollment, uid } from '../utils/formStorage'
 import { useCustomerAuth } from '../contexts/CustomerAuthContext'
 
 const BRAND  = '#6c3fc5'
@@ -124,7 +124,7 @@ function SpinWheel({ onDone, discountPct = 50 }) {
 
 // ── Steps builder ──────────────────────────────────────────────────────────────
 
-function buildSteps(form, program) {
+function buildSteps(form, course) {
   const steps = []
   let hasEmail = false
   let hasName  = false
@@ -142,9 +142,9 @@ function buildSteps(form, program) {
 
   if (!hasEmail) steps.push({ type: 'email' })
   if (!hasName)  steps.push({ type: 'name' })
-  if (program?.type === 'paid') {
+  if (course?.type === 'paid') {
     // Only show the spin wheel when the course has a discount configured.
-    if (Number(program.discount) > 0) steps.push({ type: 'wheel' })
+    if (Number(course.discount) > 0) steps.push({ type: 'wheel' })
     steps.push({ type: 'payment' })
   }
   return steps
@@ -385,7 +385,7 @@ function EmailScreen({ value, onChange, onNext, onBack }) {
           What's your email address?
         </h2>
         <p style={{ color: '#6b7280', fontSize: 14, margin: 0 }}>
-          We'll send your confirmation and program access here.
+          We'll send your confirmation and course access here.
         </p>
       </div>
       <input
@@ -424,10 +424,10 @@ function NameScreen({ value, onChange, onNext, onBack }) {
   )
 }
 
-function PaymentScreen({ program, discountedPrice, discountPct, email, name, form, formData }) {
+function PaymentScreen({ course, discountedPrice, discountPct, email, name, form, formData }) {
   const [paying, setPaying]  = useState(null)
   const [error,  setError]   = useState('')
-  const originalPrice = Number(program.price || 0)
+  const originalPrice = Number(course.price || 0)
 
   async function pay(channel) {
     setPaying(channel)
@@ -436,13 +436,13 @@ function PaymentScreen({ program, discountedPrice, discountPct, email, name, for
     // Stash enrollment context so the return handler can complete the enrollment
     // after Paystack redirects back.
     localStorage.setItem('iwc_pending_payment', JSON.stringify({
-      email, name, programId: program.id,
+      email, name, courseId: course.id,
       formId:   form?.id   || null,
       formData: formData   || {},
       channel,
     }))
 
-    const callbackUrl = `${window.location.origin}/?paystack_return=1&programId=${encodeURIComponent(program.id)}`
+    const callbackUrl = `${window.location.origin}/?paystack_return=1&courseId=${encodeURIComponent(course.id)}`
 
     try {
       const res = await fetch('/api/paystack-init', {
@@ -454,7 +454,7 @@ function PaymentScreen({ program, discountedPrice, discountPct, email, name, for
           currency: 'GHS',
           channels: [channel],
           callback_url: callbackUrl,
-          metadata: { programId: program.id, programTitle: program.title },
+          metadata: { courseId: course.id, courseTitle: course.title, participantName: name },
         }),
       })
       const data = await res.json()
@@ -505,7 +505,7 @@ function PaymentScreen({ program, discountedPrice, discountPct, email, name, for
         <div style={{ fontSize: 38, fontWeight: 900, color: BRAND, lineHeight: 1 }}>
           GHS {discountedPrice.toLocaleString()}
         </div>
-        <div style={{ fontSize: 13, color: '#6b7280', marginTop: 6 }}>{program.title}</div>
+        <div style={{ fontSize: 13, color: '#6b7280', marginTop: 6 }}>{course.title}</div>
       </div>
 
       {/* Payment option buttons */}
@@ -554,7 +554,7 @@ function PaymentScreen({ program, discountedPrice, discountPct, email, name, for
 
 // ── Confirmation ───────────────────────────────────────────────────────────────
 
-function Confirmation({ program, paymentRef, name, email, accountSetup }) {
+function Confirmation({ course, paymentRef, name, email, accountSetup }) {
   const navigate = useNavigate()
   return (
     <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 24px', textAlign: 'center' }}>
@@ -563,7 +563,7 @@ function Confirmation({ program, paymentRef, name, email, accountSetup }) {
         You're In{name ? `, ${name.split(' ')[0]}` : ''}!
       </h2>
       <p style={{ color: '#6b7280', fontSize: 16, margin: '0 0 8px' }}>
-        You've successfully enrolled in <strong>{program.title}</strong>.
+        You've successfully enrolled in <strong>{course.title}</strong>.
       </p>
       {paymentRef && (
         <p style={{ fontSize: 13, color: '#9ca3af', margin: '0 0 24px' }}>
@@ -604,7 +604,7 @@ function Confirmation({ program, paymentRef, name, email, accountSetup }) {
 
       {!accountSetup && (
         <p style={{ color: '#6b7280', fontSize: 14, maxWidth: 380, margin: '0 auto 36px', lineHeight: 1.75 }}>
-          Check your email for confirmation and program access details. We look forward to seeing you!
+          Check your email for confirmation and course access details. We look forward to seeing you!
         </p>
       )}
 
@@ -615,7 +615,7 @@ function Confirmation({ program, paymentRef, name, email, accountSetup }) {
 
 // ── Header ─────────────────────────────────────────────────────────────────────
 
-function Header({ program, navigate }) {
+function Header({ course, navigate }) {
   return (
     <div style={{
       background: 'linear-gradient(135deg, #0f0a1a 0%, #1e0f3a 100%)',
@@ -628,7 +628,7 @@ function Header({ program, navigate }) {
         fontSize: 13, fontWeight: 600, cursor: 'pointer',
       }}>← Courses</button>
       <div style={{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: 0.4 }}>
-        {program?.title || ''}
+        {course?.title || ''}
       </div>
       <div style={{ color: GOLD, fontWeight: 800, fontSize: 13, letterSpacing: 0.5 }}>IWC CONCEPTS</div>
     </div>
@@ -637,13 +637,13 @@ function Header({ program, navigate }) {
 
 // ── Main page ──────────────────────────────────────────────────────────────────
 
-export default function ProgramOnboarding() {
+export default function CourseOnboarding() {
   const [params]    = useSearchParams()
-  const programId   = params.get('programId')
+  const courseId   = params.get('courseId')
   const navigate    = useNavigate()
   const { sendAccountSetup } = useCustomerAuth()
 
-  const [program,   setProgram]   = useState(null)
+  const [course,   setCourse]   = useState(null)
   const [form,      setForm]      = useState(null)
   const [loading,   setLoading]   = useState(true)
   const [notFound,  setNotFound]  = useState(false)
@@ -658,10 +658,10 @@ export default function ProgramOnboarding() {
   const [accountSetup, setAccountSetup] = useState(null) // null | 'pending' | 'sent' | 'failed'
 
   useEffect(() => {
-    if (!programId) { setNotFound(true); setLoading(false); return }
-    getProgramById(programId).then(async p => {
+    if (!courseId) { setNotFound(true); setLoading(false); return }
+    getCourseById(courseId).then(async p => {
       if (!p) { setNotFound(true); setLoading(false); return }
-      setProgram(p)
+      setCourse(p)
       let loadedForm = null
       if (p.registrationFormId) {
         loadedForm = await getFormById(p.registrationFormId)
@@ -675,7 +675,7 @@ export default function ProgramOnboarding() {
       if (stashed) {
         let ret
         try { ret = JSON.parse(stashed) } catch {}
-        if (ret?.programId === p.id && ret?.reference) {
+        if (ret?.courseId === p.id && ret?.reference) {
           sessionStorage.removeItem('iwc_paystack_return')
           let ctx
           try { ctx = JSON.parse(localStorage.getItem('iwc_pending_payment') || 'null') } catch {}
@@ -695,7 +695,7 @@ export default function ProgramOnboarding() {
               await addSubmission(payFormId, { ...payFormData, email: payEmail, name: payName, id: submissionId })
             }
             await addEnrollment({
-              id: uid(), programId: p.id, programTitle: p.title,
+              id: `ref_${ret.reference}`, courseId: p.id, courseTitle: p.title,
               participantName: payName, participantEmail: payEmail,
               paymentRef: ret.reference,
               amountPaid: Math.round(Number(p.price || 0) * (1 - (Number(p.discount) || 0) / 100)),
@@ -725,7 +725,7 @@ export default function ProgramOnboarding() {
       // ── Normal load ───────────────────────────────────────────────────────
       setLoading(false)
     })
-  }, [programId])
+  }, [courseId])
 
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff' }}>
@@ -736,12 +736,12 @@ export default function ProgramOnboarding() {
   if (notFound) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb', flexDirection: 'column', gap: 16 }}>
       <div style={{ fontSize: 48 }}>🔍</div>
-      <div style={{ fontSize: 18, fontWeight: 700, color: '#374151' }}>Program not found</div>
+      <div style={{ fontSize: 18, fontWeight: 700, color: '#374151' }}>Course not found</div>
       <button onClick={() => navigate('/')} style={{ background: BRAND, color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 600, cursor: 'pointer' }}>← Back</button>
     </div>
   )
 
-  const steps        = buildSteps(form, program)
+  const steps        = buildSteps(form, course)
   const currentStep  = steps[step]
   const progress     = Math.round(((step + 1) / steps.length) * 100)
   const questionSteps = steps.filter(s => s.type === 'question')
@@ -753,8 +753,8 @@ export default function ProgramOnboarding() {
   const resolvedEmail = email || (emailFieldId ? formData[emailFieldId] : '') || ''
   const resolvedName  = name  || (nameFieldId  ? formData[nameFieldId]  : '') || ''
 
-  const originalPrice    = Number(program?.price || 0)
-  const discountPct      = Number(program?.discount) || 0
+  const originalPrice    = Number(course?.price || 0)
+  const discountPct      = Number(course?.discount) || 0
   const discountedPrice  = Math.round(originalPrice * (1 - discountPct / 100))
 
   function goNext() {
@@ -770,13 +770,13 @@ export default function ProgramOnboarding() {
     }
   }
 
-  // After a successful paid enrollment, show confirmation and — if the program
+  // After a successful paid enrollment, show confirmation and — if the course
   // grants portal access — send the account-setup / email-verification link.
   async function completePaidEnrollment(ref) {
     setPayRef(ref)
     setConfirmed(true)
     window.scrollTo({ top: 0 })
-    if (program.hasPortalAccess && resolvedEmail) {
+    if (course.hasPortalAccess && resolvedEmail) {
       setAccountSetup('pending')
       try {
         await sendAccountSetup(resolvedEmail)
@@ -795,7 +795,7 @@ export default function ProgramOnboarding() {
         await addSubmission(form.id, { ...formData, email: resolvedEmail, name: resolvedName, id: submissionId })
       }
       await addEnrollment({
-        id: uid(), programId: program.id, programTitle: program.title,
+        id: uid(), courseId: course.id, courseTitle: course.title,
         participantName: resolvedName,
         participantEmail: resolvedEmail,
         paymentRef: null, amountPaid: 0, currency: 'GHS',
@@ -812,9 +812,9 @@ export default function ProgramOnboarding() {
 
   if (confirmed) return (
     <div style={{ minHeight: '100vh', background: '#fff', fontFamily: 'Inter, -apple-system, sans-serif' }}>
-      <Header program={program} navigate={navigate} />
+      <Header course={course} navigate={navigate} />
       <div style={{ padding: '56px 0 80px' }}>
-        <Confirmation program={program} paymentRef={payRef} name={resolvedName} email={resolvedEmail} accountSetup={accountSetup} />
+        <Confirmation course={course} paymentRef={payRef} name={resolvedName} email={resolvedEmail} accountSetup={accountSetup} />
       </div>
     </div>
   )
@@ -872,7 +872,7 @@ export default function ProgramOnboarding() {
               {resolvedName ? `Great news, ${resolvedName.split(' ')[0]}!` : 'Great news!'}
             </h2>
             <p style={{ color: '#6b7280', fontSize: 15, margin: '0 0 36px' }}>
-              Spin the wheel for an exclusive discount on <strong>{program.title}</strong>.
+              Spin the wheel for an exclusive discount on <strong>{course.title}</strong>.
             </p>
             <SpinWheel onDone={goNext} discountPct={discountPct} />
           </div>
@@ -881,7 +881,7 @@ export default function ProgramOnboarding() {
       case 'payment':
         return (
           <PaymentScreen
-            program={program}
+            course={course}
             discountedPrice={discountedPrice}
             discountPct={discountPct}
             email={resolvedEmail}
@@ -898,7 +898,7 @@ export default function ProgramOnboarding() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#fff', fontFamily: 'Inter, -apple-system, sans-serif' }}>
-      <Header program={program} navigate={navigate} />
+      <Header course={course} navigate={navigate} />
 
       {/* Progress bar */}
       <div style={{ height: 4, background: '#f3f4f6' }}>

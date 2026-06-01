@@ -222,16 +222,16 @@ const td = { padding: '11px 10px', color: 'rgba(255,255,255,0.7)' }
 
 function computeStats(data) {
   if (!data) return null
-  const { enrollments = [], progress = [], programs = [], lessonCounts = {} } = data
+  const { enrollments = [], progress = [], courses = [], lessonCounts = {} } = data
 
-  const progMap = Object.fromEntries(programs.map(p => [p.id, p]))
+  const progMap = Object.fromEntries(courses.map(p => [p.id, p]))
 
-  // progress: programId → email → Set(itemId)
+  // progress: courseId → email → Set(itemId)
   const progLookup = {}
   for (const r of progress) {
-    progLookup[r.program_id] ??= {}
-    progLookup[r.program_id][r.user_email] ??= new Set()
-    progLookup[r.program_id][r.user_email].add(r.item_id)
+    progLookup[r.course_id] ??= {}
+    progLookup[r.course_id][r.user_email] ??= new Set()
+    progLookup[r.course_id][r.user_email].add(r.item_id)
   }
 
   let revenue = 0
@@ -241,15 +241,15 @@ function computeStats(data) {
   const recentRaw   = []
 
   for (const e of enrollments) {
-    const prog = progMap[e.programId]
+    const prog = progMap[e.courseId]
     const amount = Number(e.amountPaid) || 0
     revenue += amount
     if (e.participantEmail) learnerSet.add(e.participantEmail.toLowerCase())
 
     // by course
-    const c = byCourseMap[e.programId] ??= {
-      id: e.programId,
-      title: prog?.title || e.programTitle || 'Unknown course',
+    const c = byCourseMap[e.courseId] ??= {
+      id: e.courseId,
+      title: prog?.title || e.courseTitle || 'Unknown course',
       type: prog?.type || 'free',
       awardsCertificate: prog?.awardsCertificate || false,
       enrollments: 0, revenue: 0, completed: 0,
@@ -258,8 +258,8 @@ function computeStats(data) {
     c.revenue += amount
 
     // completion for this learner in this course
-    const total = lessonCounts[e.programId] || 0
-    const done  = progLookup[e.programId]?.[e.participantEmail]?.size || 0
+    const total = lessonCounts[e.courseId] || 0
+    const done  = progLookup[e.courseId]?.[e.participantEmail]?.size || 0
     if (total > 0 && done >= total) c.completed += 1
 
     // by month
@@ -274,7 +274,7 @@ function computeStats(data) {
     recentRaw.push({
       name: e.participantName,
       email: e.participantEmail,
-      courseTitle: prog?.title || e.programTitle || 'Course',
+      courseTitle: prog?.title || e.courseTitle || 'Course',
       amount,
       iso,
     })

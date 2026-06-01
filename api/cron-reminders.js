@@ -67,36 +67,36 @@ async function run(db) {
 
   // 2. Reference data
   const [progR, itemR, progLessons, enrollR, remindR] = await Promise.all([
-    db.query(`SELECT id, data FROM programs`),
+    db.query(`SELECT id, data FROM courses`),
     db.query(
-      `SELECT program_id, COUNT(*)::int AS total FROM content_items
-       WHERE (data->>'isPublished')::boolean = true GROUP BY program_id`
+      `SELECT course_id, COUNT(*)::int AS total FROM content_items
+       WHERE (data->>'isPublished')::boolean = true GROUP BY course_id`
     ),
-    // latest activity per (program, user)
+    // latest activity per (course, user)
     db.query(
-      `SELECT program_id, user_email,
+      `SELECT course_id, user_email,
               COUNT(*)::int AS done, MAX(completed_at) AS last_activity
-       FROM course_progress GROUP BY program_id, user_email`
+       FROM course_progress GROUP BY course_id, user_email`
     ),
     // enrollments for the learner's name
     db.query(
-      `SELECT DISTINCT ON (program_id, data->>'participantEmail')
-              program_id, data
+      `SELECT DISTINCT ON (course_id, data->>'participantEmail')
+              course_id, data
        FROM enrollments
-       ORDER BY program_id, data->>'participantEmail', created_at DESC`
+       ORDER BY course_id, data->>'participantEmail', created_at DESC`
     ),
-    db.query(`SELECT user_email, program_id, last_sent FROM email_reminders`),
+    db.query(`SELECT user_email, course_id, last_sent FROM email_reminders`),
   ])
 
   const progMap   = Object.fromEntries(progR.rows.map(r => [r.id, r.data]))
-  const totals    = Object.fromEntries(itemR.rows.map(r => [r.program_id, r.total]))
+  const totals    = Object.fromEntries(itemR.rows.map(r => [r.course_id, r.total]))
   const lastRemind = {}
-  for (const r of remindR.rows) lastRemind[`${r.program_id}::${r.user_email}`] = new Date(r.last_sent)
+  for (const r of remindR.rows) lastRemind[`${r.course_id}::${r.user_email}`] = new Date(r.last_sent)
 
   // name lookup
   const nameOf = {}
   for (const r of enrollR.rows) {
-    nameOf[`${r.program_id}::${(r.data.participantEmail || '').toLowerCase()}`] = r.data.participantName
+    nameOf[`${r.course_id}::${(r.data.participantEmail || '').toLowerCase()}`] = r.data.participantName
   }
 
   const baseUrl = process.env.PUBLIC_BASE_URL || ''
@@ -104,9 +104,9 @@ async function run(db) {
 
   for (const row of progLessons.rows) {
     if (sent >= MAX_SENDS_PER_RUN) break
-    const { program_id, user_email, done, last_activity } = row
-    const prog = progMap[program_id]
-    const total = totals[program_id] || 0
+    const { course_id, user_email, done, last_activity } = row
+    const prog = progMap[course_id]
+    const total = totals[course_id] || 0
 
     if (!prog || !prog.hasPortalAccess) continue
     if (total === 0 || done === 0) continue        // not published / not started
@@ -118,14 +118,14 @@ async function run(db) {
 
     // Avoid repeat reminders: only re-send if they were active AFTER the last
     // reminder, and at least `days` since the last reminder.
-    const key = `${program_id}::${user_email}`
+    const key = `${course_id}::${user_email}`
     const prev = lastRemind[key]
     if (prev) {
       if (prev >= lastActivity) continue           // already reminded since last activity
       if (Date.now() - prev.getTime() < days * 86400000) continue
     }
 
-    const name = nameOf[`${program_id}::${user_email.toLowerCase()}`] || user_email.split('@')[0]
+    const name = nameOf[`${course_id}::${user_email.toLowerCase()}`] || user_email.split('@')[0]
     const vars = emailVars({ name, course: prog.title, baseUrl })
 
     const result = await sendMail({
@@ -140,10 +140,10 @@ async function run(db) {
     }
 
     await db.query(
-      `INSERT INTO email_reminders (user_email, program_id, last_sent)
+      `INSERT INTO email_reminders (user_email, course_id, last_sent)
        VALUES ($1, $2, NOW())
-       ON CONFLICT (user_email, program_id) DO UPDATE SET last_sent = NOW()`,
-      [user_email, program_id]
+       ON CONFLICT (user_email, course_id) DO UPDATE SET last_sent = NOW()`,
+      [user_email, course_id]
     )
     sent++
   }

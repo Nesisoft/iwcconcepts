@@ -3,7 +3,7 @@
  *
  * A server-side safety net for enrollment. The normal flow enrolls the learner
  * client-side after Paystack redirects back to the browser
- * (see src/pages/ProgramOnboarding.jsx). If the user closes the tab or loses
+ * (see src/pages/CourseOnboarding.jsx). If the user closes the tab or loses
  * connection before that redirect lands, they'd be charged but never enrolled.
  * This webhook fires server-to-server and completes the enrollment regardless.
  *
@@ -91,17 +91,17 @@ export default async function handler(req, res) {
 
 async function enrollFromCharge(db, data) {
   const { reference, amount, currency = 'GHS', customer = {}, metadata = {} } = data
-  const { programId, programTitle = '', participantName = '' } = metadata || {}
+  const { courseId, courseTitle = '', participantName = '' } = metadata || {}
   const participantEmail = customer?.email
 
-  if (!reference || !programId || !participantEmail) return
+  if (!reference || !courseId || !participantEmail) return
 
   // Same id the client uses → ON CONFLICT dedupes the two paths.
   const id = `ref_${reference}`
   const enrollment = {
     id,
-    programId,
-    programTitle,
+    courseId,
+    courseTitle,
     participantName,
     participantEmail,
     paymentRef: reference,
@@ -112,10 +112,10 @@ async function enrollFromCharge(db, data) {
   }
 
   const result = await db.query(
-    `INSERT INTO enrollments (id, program_id, data, created_at)
+    `INSERT INTO enrollments (id, course_id, data, created_at)
      VALUES ($1, $2, $3, $4)
      ON CONFLICT (id) DO NOTHING`,
-    [id, programId, enrollment, enrollment.enrolledAt]
+    [id, courseId, enrollment, enrollment.enrolledAt]
   )
 
   // Welcome email only when this row is genuinely new (client hasn't already enrolled).
@@ -124,7 +124,7 @@ async function enrollFromCharge(db, data) {
     const settings = { ...DEFAULT_EMAIL_SETTINGS, ...(rows[0]?.data || {}) }
     if (settings.welcomeEnabled) {
       const vars = emailVars({
-        name: participantName, course: programTitle,
+        name: participantName, course: courseTitle,
         baseUrl: process.env.PUBLIC_BASE_URL,
       })
       try {

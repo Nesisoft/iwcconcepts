@@ -39,7 +39,7 @@ export default function DiscussionsAdmin() {
     }
   }
 
-  // Group into threads keyed by programId+itemId
+  // Group into threads keyed by courseId+itemId
   const threads = useMemo(() => buildThreads(comments), [comments])
 
   const visibleThreads = useMemo(() => {
@@ -53,15 +53,15 @@ export default function DiscussionsAdmin() {
     setBusy(true)
     try {
       const created = await addAdminLessonComment({
-        programId: question.programId,
+        courseId: question.courseId,
         itemId: question.itemId,
         body: text,
         parentId: question.id,
         authorName: 'Instructor',
-        programTitle: question.programTitle,
+        courseTitle: question.courseTitle,
         lessonTitle: question.lessonTitle,
       })
-      setComments(c => [...c, { ...created, programId: question.programId, itemId: question.itemId }])
+      setComments(c => [...c, { ...created, courseId: question.courseId, itemId: question.itemId }])
       setReplyTo(null); setReplyBody('')
     } catch (e) {
       alert('Could not reply: ' + e.message)
@@ -141,7 +141,7 @@ export default function DiscussionsAdmin() {
               {/* Thread header */}
               <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
                 <div style={{ fontSize: 13, fontWeight: 800 }}>{thread.lessonTitle || 'Lesson'}</div>
-                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{thread.programTitle || 'Course'}</div>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{thread.courseTitle || 'Course'}</div>
               </div>
 
               {/* Questions */}
@@ -235,14 +235,14 @@ function buildThreads(comments) {
   const byId = {}
   for (const c of comments) byId[c.id] = c
 
-  // Group top-level questions by program+item
+  // Group top-level questions by course+item
   const map = {}
   for (const c of comments) {
     if (c.parentId) continue
-    const key = `${c.programId}::${c.itemId}`
+    const key = `${c.courseId}::${c.itemId}`
     map[key] ??= {
-      key, programId: c.programId, itemId: c.itemId,
-      programTitle: c.programTitle, lessonTitle: c.lessonTitle,
+      key, courseId: c.courseId, itemId: c.itemId,
+      courseTitle: c.courseTitle, lessonTitle: c.lessonTitle,
       questions: [],
     }
     const replies = comments
