@@ -45,7 +45,7 @@ create table if not exists tasks (
   data    jsonb not null
 );
 
-create table if not exists programs (
+create table if not exists courses (
   id         text        primary key,
   data       jsonb       not null,
   created_at timestamptz not null default now()
@@ -53,11 +53,11 @@ create table if not exists programs (
 
 create table if not exists enrollments (
   id         text        primary key,
-  program_id text        not null,
+  course_id text        not null,
   data       jsonb       not null,
   created_at timestamptz not null default now()
 );
-create index if not exists enrollments_program_id_idx on enrollments(program_id);
+create index if not exists enrollments_course_id_idx on enrollments(course_id);
 
 create table if not exists testimonials (
   id         text        primary key,
@@ -67,28 +67,50 @@ create table if not exists testimonials (
 
 create table if not exists content_sections (
   id         text        primary key,
-  program_id text        not null,
+  course_id text        not null,
   data       jsonb       not null,
   created_at timestamptz not null default now()
 );
-create index if not exists content_sections_program_id_idx on content_sections(program_id);
+create index if not exists content_sections_course_id_idx on content_sections(course_id);
 
 create table if not exists content_items (
   id         text        primary key,
-  program_id text        not null,
+  course_id text        not null,
   data       jsonb       not null,
   created_at timestamptz not null default now()
 );
-create index if not exists content_items_program_id_idx on content_items(program_id);
+create index if not exists content_items_course_id_idx on content_items(course_id);
 
 create table if not exists course_progress (
   user_email   text        not null,
   item_id      text        not null,
-  program_id   text        not null,
+  course_id   text        not null,
   completed_at timestamptz not null default now(),
   primary key (user_email, item_id)
 );
-create index if not exists course_progress_program_user_idx on course_progress(program_id, user_email);`
+create index if not exists course_progress_course_user_idx on course_progress(course_id, user_email);
+
+create table if not exists settings (
+  key        text        primary key,
+  data       jsonb       not null,
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists lesson_comments (
+  id         text        primary key,
+  course_id text        not null,
+  item_id    text        not null,
+  data       jsonb       not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists lesson_comments_item_idx on lesson_comments(course_id, item_id);
+
+create table if not exists email_reminders (
+  user_email text        not null,
+  course_id text        not null,
+  last_sent  timestamptz not null default now(),
+  primary key (user_email, course_id)
+);`
 
 // ── Vercel env vars ────────────────────────────────────────────────────────────
 const SERVER_ENV = `# ── Vercel Dashboard → Project → Settings → Environment Variables ──────────
@@ -200,7 +222,7 @@ export default function DatabaseSetup() {
         {/* Architecture note */}
         <div style={{ background: 'rgba(52,152,219,0.08)', border: '1px solid rgba(52,152,219,0.25)', borderRadius: 12, padding: 18, marginBottom: 24, fontSize: 12, lineHeight: 1.8, color: 'rgba(255,255,255,0.6)' }}>
           <strong style={{ color: '#3498DB' }}>How the backend works</strong><br />
-          All data (programs, forms, speakers, enrollments…) goes through Vercel serverless functions at <code style={{ color: '#93c5fd', fontSize: 11 }}>/api/db</code>.
+          All data (courses, forms, speakers, enrollments…) goes through Vercel serverless functions at <code style={{ color: '#93c5fd', fontSize: 11 }}>/api/db</code>.
           The function connects to PostgreSQL using <code style={{ color: '#93c5fd', fontSize: 11 }}>DATABASE_URL</code> — change that one env var to point at any database: Supabase, Neon, Railway, local, or your own VPS.<br /><br />
           Login and session management still use <strong style={{ color: 'white' }}>Supabase Auth</strong> (configured below), which is a separate service from the database.
         </div>

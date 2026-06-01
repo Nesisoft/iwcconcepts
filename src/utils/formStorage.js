@@ -240,22 +240,22 @@ export async function saveEventTasks(formId, tasks) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Programs CRUD  (public reads, admin writes)
+// Courses CRUD  (public reads, admin writes)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export const getAllPrograms  = ()   => api('getAllPrograms')
-export const getProgramById  = (id) => api('getProgramById', { id })
+export const getAllCourses  = ()   => api('getAllCourses')
+export const getCourseById  = (id) => api('getCourseById', { id })
 
-export async function saveProgram(program) {
+export async function saveCourse(course) {
   const now    = new Date().toISOString()
-  const record = { ...program, updatedAt: now }
+  const record = { ...course, updatedAt: now }
   if (!record.id)        record.id        = uid()
   if (!record.createdAt) record.createdAt = now
-  return api('saveProgram', { program: record }, await adminToken())
+  return api('saveCourse', { course: record }, await adminToken())
 }
 
-export async function deleteProgram(id) {
-  return api('deleteProgram', { id }, await adminToken())
+export async function deleteCourse(id) {
+  return api('deleteCourse', { id }, await adminToken())
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -268,11 +268,12 @@ export async function addEnrollment(enrollment) {
     id:         enrollment.id         || uid(),
     enrolledAt: enrollment.enrolledAt || new Date().toISOString(),
   }
-  return api('addEnrollment', { enrollment: record })
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+  return api('addEnrollment', { enrollment: record, baseUrl })
 }
 
-export async function getEnrollmentsByProgram(programId) {
-  return api('getEnrollmentsByProgram', { programId }, await adminToken())
+export async function getEnrollmentsByCourse(courseId) {
+  return api('getEnrollmentsByCourse', { courseId }, await adminToken())
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -297,8 +298,8 @@ export async function deleteTestimonial(id) {
 // Content Sections CRUD  (admin-only)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export const getContentSections = (programId) =>
-  adminToken().then(t => api('getContentSections', { programId }, t))
+export const getContentSections = (courseId) =>
+  adminToken().then(t => api('getContentSections', { courseId }, t))
 
 export async function saveContentSection(section) {
   const now    = new Date().toISOString()
@@ -308,16 +309,16 @@ export async function saveContentSection(section) {
   return api('saveContentSection', { section: record }, await adminToken())
 }
 
-export async function deleteContentSection(programId, id) {
-  return api('deleteContentSection', { programId, id }, await adminToken())
+export async function deleteContentSection(courseId, id) {
+  return api('deleteContentSection', { courseId, id }, await adminToken())
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Content Items CRUD  (admin-only)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export const getContentItems = (programId) =>
-  adminToken().then(t => api('getContentItems', { programId }, t))
+export const getContentItems = (courseId) =>
+  adminToken().then(t => api('getContentItems', { courseId }, t))
 
 export async function saveContentItem(item) {
   const now    = new Date().toISOString()
@@ -338,17 +339,53 @@ export async function deleteContentItem(id) {
 export const getMyEnrollments = (token) =>
   api('getMyEnrollments', {}, token)
 
-export const getPortalContent = (programId, token) =>
-  api('getPortalContent', { programId }, token)
+export const getPortalContent = (courseId, token) =>
+  api('getPortalContent', { courseId }, token)
 
-export const getMyProgress = (programId, token) =>
-  api('getMyProgress', { programId }, token)
+export const getMyProgress = (courseId, token) =>
+  api('getMyProgress', { courseId }, token)
 
-export const markItemComplete = (programId, itemId, token) =>
-  api('markItemComplete', { programId, itemId }, token)
+export const markItemComplete = (courseId, itemId, token) =>
+  api('markItemComplete', { courseId, itemId, baseUrl: typeof window !== 'undefined' ? window.location.origin : '' }, token)
 
 export const getEnrolledUsersProgress = () =>
   adminToken().then(t => api('getEnrolledUsersProgress', {}, t))
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Settings  (public reads, admin writes)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const getSetting = (key) => api('getSetting', { key })
+
+export const saveSetting = (key, value) =>
+  adminToken().then(t => api('saveSetting', { key, value }, t))
+
+// Email — admin send-test (server holds the provider key; never exposed here)
+export const sendTestEmail = (to, baseUrl) =>
+  adminToken().then(t => api('sendTestEmail', { to, baseUrl }, t))
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Lesson discussion / Q&A
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const getLessonComments = (courseId, itemId, token) =>
+  api('getLessonComments', { courseId, itemId }, token)
+
+export const addLessonComment = (payload, token) =>
+  api('addLessonComment', payload, token)
+
+export const deleteLessonComment = (id, token, asAdmin = false) =>
+  api('deleteLessonComment', { id, asAdmin }, token)
+
+// Admin Q&A console
+export const getAllLessonComments = () =>
+  adminToken().then(t => api('getAllLessonComments', {}, t))
+
+export const addAdminLessonComment = (payload) =>
+  adminToken().then(t => api('addLessonComment', { ...payload, asAdmin: true }, t))
+
+export const deleteLessonCommentAdmin = (id) =>
+  adminToken().then(t => api('deleteLessonComment', { id, asAdmin: true }, t))
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Utility helpers (unchanged — no DB calls)

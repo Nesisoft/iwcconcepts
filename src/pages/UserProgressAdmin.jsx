@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getEnrolledUsersProgress } from '../utils/formStorage'
+import { getEnrolledUsersProgress, getSetting } from '../utils/formStorage'
 import { Users, Award, Zap, BookOpen, ChevronDown, ChevronRight, X, Printer } from 'lucide-react'
-import CertificateCard, { certIdFor } from '../components/CertificateCard'
+import CertificateCard, { certIdFor, DEFAULT_CERT_TEMPLATE } from '../components/CertificateCard'
 
 const ACC  = '#0891b2'
 const DARK = '#0e0a1e'
@@ -15,9 +15,10 @@ function formatDate(iso) {
 export default function UserProgressAdmin() {
   const navigate = useNavigate()
   const [data,      setData]      = useState(null)
+  const [template,  setTemplate]  = useState(DEFAULT_CERT_TEMPLATE)
   const [loading,   setLoading]   = useState(true)
   const [error,     setError]     = useState('')
-  const [expanded,  setExpanded]  = useState({}) // programId → bool
+  const [expanded,  setExpanded]  = useState({}) // courseId → bool
   const [certModal, setCertModal] = useState(null) // { name, courseName, completedAt, certId }
 
   useEffect(() => { load() }, [])
@@ -26,8 +27,12 @@ export default function UserProgressAdmin() {
     setLoading(true)
     setError('')
     try {
-      const result = await getEnrolledUsersProgress()
+      const [result, storedTpl] = await Promise.all([
+        getEnrolledUsersProgress(),
+        getSetting('certificateTemplate').catch(() => null),
+      ])
       setData(result)
+      if (storedTpl) setTemplate({ ...DEFAULT_CERT_TEMPLATE, ...storedTpl })
     } catch (e) {
       setError(e.message)
     } finally {
@@ -144,7 +149,7 @@ export default function UserProgressAdmin() {
                               name: u.name || u.email.split('@')[0],
                               courseName: course.title,
                               completedAt: u.lastCompletedAt,
-                              certId: certIdFor(u.email, course.id, u.lastCompletedAt),
+                              certId: certIdFor(u.email, course.id, u.lastCompletedAt, template.idPrefix),
                             })}
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#fbbf24', fontWeight: 700, fontSize: 11, background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}
                           >
@@ -172,6 +177,7 @@ export default function UserProgressAdmin() {
       {certModal && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
           onClick={e => { if (e.target === e.currentTarget) setCertModal(null) }}>
+          <style>{`@media print { @page { size: landscape; margin: 0.5in; } body * { visibility: hidden; } #certificate-card, #certificate-card * { visibility: visible; } #certificate-card { position: absolute; left: 0; top: 0; } }`}</style>
           <div style={{ background: '#fff', borderRadius: 16, maxWidth: 860, width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
             {/* Modal header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: '1px solid #f3f4f6' }}>
@@ -197,6 +203,7 @@ export default function UserProgressAdmin() {
                 courseName={certModal.courseName}
                 completedAt={certModal.completedAt}
                 certId={certModal.certId}
+                template={template}
               />
             </div>
           </div>
@@ -210,38 +217,38 @@ export default function UserProgressAdmin() {
 
 function buildGrouped(data) {
   if (!data) return []
-  const { enrollments = [], progress = [], programs = [], lessonCounts = {} } = data
+  const { enrollments = [], progress = [], courses = [], lessonCounts = {} } = data
 
-  // Map programs by id
-  const progMap = Object.fromEntries(programs.map(p => [p.id, p]))
+  // Map courses by id
+  const progMap = Object.fromEntries(courses.map(p => [p.id, p]))
 
-  // Build progress lookup: programId → email → { itemIds: Set, lastCompletedAt }
+  // Build progress lookup: courseId → email → { itemIds: Set, lastCompletedAt }
   const progLookup = {}
   for (const row of progress) {
-    const { program_id, user_email, item_id, completed_at } = row
-    if (!progLookup[program_id]) progLookup[program_id] = {}
-    if (!progLookup[program_id][user_email]) progLookup[program_id][user_email] = { itemIds: new Set(), lastCompletedAt: null }
-    progLookup[program_id][user_email].itemIds.add(item_id)
-    if (!progLookup[program_id][user_email].lastCompletedAt || (completed_at && completed_at > progLookup[program_id][user_email].lastCompletedAt)) {
-      progLookup[program_id][user_email].lastCompletedAt = completed_at
+    const { course_id, user_email, item_id, completed_at } = row
+    if (!progLookup[course_id]) progLookup[course_id] = {}
+    if (!progLookup[course_id][user_email]) progLookup[course_id][user_email] = { itemIds: new Set(), lastCompletedAt: null }
+    progLookup[course_id][user_email].itemIds.add(item_id)
+    if (!progLookup[course_id][user_email].lastCompletedAt || (completed_at && completed_at > progLookup[course_id][user_email].lastCompletedAt)) {
+      progLookup[course_id][user_email].lastCompletedAt = completed_at
     }
   }
 
-  // Group enrollments by program
+  // Group enrollments by course
   const byCourse = {}
   for (const enr of enrollments) {
-    const { programId, participantEmail, participantName, enrolledAt } = enr
-    if (!byCourse[programId]) byCourse[programId] = []
-    byCourse[programId].push({ email: participantEmail, name: participantName, enrolledAt })
+    const { courseId, participantEmail, participantName, enrolledAt } = enr
+    if (!byCourse[courseId]) byCourse[courseId] = []
+    byCourse[courseId].push({ email: participantEmail, name: participantName, enrolledAt })
   }
 
-  return Object.entries(byCourse).map(([programId, users]) => {
-    const prog        = progMap[programId]
-    const totalLessons = lessonCounts[programId] || 0
+  return Object.entries(byCourse).map(([courseId, users]) => {
+    const prog        = progMap[courseId]
+    const totalLessons = lessonCounts[courseId] || 0
     const certEnabled  = prog?.awardsCertificate || false
 
     const enriched = users.map(u => {
-      const userProg  = progLookup[programId]?.[u.email]
+      const userProg  = progLookup[courseId]?.[u.email]
       const completed = userProg?.itemIds?.size || 0
       const pct       = totalLessons > 0 ? Math.round(completed / totalLessons * 100) : 0
       const complete  = totalLessons > 0 && completed >= totalLessons
@@ -257,8 +264,8 @@ function buildGrouped(data) {
     enriched.sort((a, b) => b.completed - a.completed)
 
     return {
-      id:           programId,
-      title:        prog?.title || programId,
+      id:           courseId,
+      title:        prog?.title || courseId,
       totalLessons,
       awardsCertificate: certEnabled,
       users: enriched,

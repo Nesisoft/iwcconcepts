@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getAllPrograms, getAllTestimonials } from '../utils/formStorage'
+import { getAllCourses, getAllTestimonials } from '../utils/formStorage'
 import SiteNav from '../components/SiteNav'
 import SiteFooter from '../components/SiteFooter'
 import { Calendar, MapPin, Star, BookOpen, CircleDot, Clock, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -22,12 +22,12 @@ function formatDate(iso) {
 
 // ── Hero Carousel ─────────────────────────────────────────────────────────────
 
-function HeroCarousel({ programs }) {
+function HeroCarousel({ courses }) {
   const [idx, setIdx] = useState(0)
   const timerRef = useRef(null)
   const navigate = useNavigate()
 
-  const featured = programs
+  const featured = courses
     .filter(p => p.featured && p.image)
     .sort((a, b) => (a.featuredOrder || 0) - (b.featuredOrder || 0))
 
@@ -59,7 +59,7 @@ function HeroCarousel({ programs }) {
             Empowering entrepreneurs and leaders to grow with purpose.
           </p>
           <button
-            onClick={() => document.getElementById('programs')?.scrollIntoView({ behavior: 'smooth' })}
+            onClick={() => document.getElementById('courses')?.scrollIntoView({ behavior: 'smooth' })}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: GOLD, color: '#1A1A2E', border: 'none', borderRadius: 10, padding: '14px 32px', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}
           >View Courses <BookOpen size={17} /></button>
         </div>
@@ -120,7 +120,7 @@ function HeroCarousel({ programs }) {
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <button
               onClick={() => {
-                if (slide.registrationFormId) navigate(`/onboard?programId=${slide.id}`)
+                if (slide.registrationFormId) navigate(`/onboard?courseId=${slide.id}`)
               }}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: GOLD, color: '#1A1A2E', border: 'none', borderRadius: 10, padding: '14px 32px', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}
             >{slide.type === 'paid' ? 'Register' : 'Join Free'} <ArrowRight size={17} /></button>
@@ -173,16 +173,16 @@ function arrowBtn(side) {
   }
 }
 
-// ── Program Card ──────────────────────────────────────────────────────────────
+// ── Course Card ──────────────────────────────────────────────────────────────
 
-function ProgramCard({ program }) {
+function CourseCard({ course }) {
   const navigate = useNavigate()
-  const isPaid = program.type === 'paid'
-  const canRegister = ['open'].includes(program.status)
+  const isPaid = course.type === 'paid'
+  const canRegister = ['open'].includes(course.status)
 
   function handleCTA() {
     if (!canRegister) return
-    if (program.registrationFormId) navigate(`/onboard?programId=${program.id}`)
+    if (course.registrationFormId) navigate(`/onboard?courseId=${course.id}`)
   }
 
   return (
@@ -198,16 +198,16 @@ function ProgramCard({ program }) {
     >
       {/* Image */}
       <div style={{ height: 180, background: '#f3f4f6', position: 'relative', overflow: 'hidden' }}>
-        {program.image
-          ? <img src={program.image} alt={program.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        {course.image
+          ? <img src={course.image} alt={course.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #6c3fc520, #6c3fc540)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BookOpen size={40} color={BRAND} /></div>
         }
         <span style={{
           position: 'absolute', top: 12, left: 12,
-          background: statusColor(program.status), color: '#fff',
+          background: statusColor(course.status), color: '#fff',
           fontSize: 11, fontWeight: 700, borderRadius: 20, padding: '3px 10px',
           textTransform: 'capitalize',
-        }}>{program.status}</span>
+        }}>{course.status}</span>
         {isPaid && (
           <span style={{
             position: 'absolute', top: 12, right: 12,
@@ -223,17 +223,17 @@ function ProgramCard({ program }) {
 
       {/* Body */}
       <div style={{ padding: '18px 20px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#111827', lineHeight: 1.3 }}>{program.title}</h3>
-        {program.tagline && (
-          <p style={{ margin: 0, fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>{program.tagline}</p>
+        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#111827', lineHeight: 1.3 }}>{course.title}</h3>
+        {course.tagline && (
+          <p style={{ margin: 0, fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>{course.tagline}</p>
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
-          {program.startDate && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Calendar size={13} /> {formatDate(program.startDate)}</span>}
-          {program.venue && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><MapPin size={13} /> {program.venue}</span>}
+          {course.startDate && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Calendar size={13} /> {formatDate(course.startDate)}</span>}
+          {course.venue && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><MapPin size={13} /> {course.venue}</span>}
         </div>
-        {program.tags?.length > 0 && (
+        {course.tags?.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-            {program.tags.slice(0, 3).map(t => (
+            {course.tags.slice(0, 3).map(t => (
               <span key={t} style={{ background: '#f3f4f6', color: '#6b7280', fontSize: 11, borderRadius: 20, padding: '2px 8px' }}>{t}</span>
             ))}
           </div>
@@ -252,7 +252,7 @@ function ProgramCard({ program }) {
         >
           {canRegister
             ? <>{isPaid ? 'Register' : 'Join Free'} <ArrowRight size={15} /></>
-            : (program.status === 'upcoming' ? 'Coming Soon' : program.status === 'closed' ? 'Registration Closed' : 'Completed')
+            : (course.status === 'upcoming' ? 'Coming Soon' : course.status === 'closed' ? 'Registration Closed' : 'Completed')
           }
         </button>
       </div>
@@ -260,16 +260,16 @@ function ProgramCard({ program }) {
   )
 }
 
-// ── Programs Grid ─────────────────────────────────────────────────────────────
+// ── Courses Grid ─────────────────────────────────────────────────────────────
 
-function ProgramsSection({ programs }) {
+function CoursesSection({ courses }) {
   const STATUS_ORDER = { open: 0, upcoming: 1, closed: 2, completed: 3 }
-  const visible = programs
+  const visible = courses
     .filter(p => p.status !== 'draft')
     .sort((a, b) => (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99))
 
   return (
-    <section id="programs" style={{ background: '#f9fafb', padding: '80px 24px' }}>
+    <section id="courses" style={{ background: '#f9fafb', padding: '80px 24px' }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: 48 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: BRAND, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 10 }}>Our Courses</div>
@@ -291,7 +291,7 @@ function ProgramsSection({ programs }) {
             gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
             gap: 24,
           }}>
-            {visible.map(p => <ProgramCard key={p.id} program={p} />)}
+            {visible.map(p => <CourseCard key={p.id} course={p} />)}
           </div>
         )}
       </div>
@@ -395,13 +395,13 @@ function TestimonialsSection({ testimonials }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function LandingPage() {
-  const [programs, setPrograms] = useState([])
+  const [courses, setCourses] = useState([])
   const [testimonials, setTestimonials] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([getAllPrograms(), getAllTestimonials()])
-      .then(([ps, ts]) => { setPrograms(ps); setTestimonials(ts) })
+    Promise.all([getAllCourses(), getAllTestimonials()])
+      .then(([ps, ts]) => { setCourses(ps); setTestimonials(ts) })
       .finally(() => setLoading(false))
   }, [])
 
@@ -415,8 +415,8 @@ export default function LandingPage() {
         </div>
       ) : (
         <>
-          <HeroCarousel programs={programs} />
-          <ProgramsSection programs={programs} />
+          <HeroCarousel courses={courses} />
+          <CoursesSection courses={courses} />
           <TestimonialsSection testimonials={testimonials} />
           <SiteFooter />
         </>

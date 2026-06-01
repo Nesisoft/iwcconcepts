@@ -4,7 +4,7 @@ import { isConfigured } from '../utils/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import {
   MessageSquare, Megaphone, ClipboardList, BarChart3, Database,
-  GraduationCap, Star, Globe, Users,
+  GraduationCap, Star, Globe, Users, Award, LineChart, MessagesSquare, Mail,
 } from 'lucide-react'
 
 const tools = [
@@ -23,7 +23,7 @@ const tools = [
     path: '/flyer-studio',
     Icon: Megaphone,
     title: 'Event Flyer Studio',
-    desc: 'Generate professional event flyers for day-by-day programs, speaker grids, and announcement graphics.',
+    desc: 'Generate professional event flyers for day-by-day courses, speaker grids, and announcement graphics.',
     tags: ['Events', 'Speakers', 'Day Cards', 'Export'],
     accent: '#E4600A',
     available: true,
@@ -59,8 +59,8 @@ const tools = [
     available: true,
   },
   {
-    id: 'programs-admin',
-    path: '/programs-admin',
+    id: 'courses-admin',
+    path: '/courses-admin',
     Icon: GraduationCap,
     title: 'Courses Manager',
     desc: 'Create and manage courses. Control the hero carousel, set pricing, link registration forms, and publish to the public landing page.',
@@ -86,6 +86,46 @@ const tools = [
     desc: 'See every enrolled learner, their lesson completion, XP earned, and certificates awarded across all courses.',
     tags: ['Learners', 'Progress', 'XP', 'Certificates'],
     accent: '#0891b2',
+    available: true,
+  },
+  {
+    id: 'certificate-admin',
+    path: '/certificate-admin',
+    Icon: Award,
+    title: 'Certificate Designer',
+    desc: 'Customize the completion certificate — wording, signature, colours, and ID prefix — with a live preview and test print.',
+    tags: ['Certificate', 'Branding', 'Preview', 'Print'],
+    accent: '#d97706',
+    available: true,
+  },
+  {
+    id: 'analytics',
+    path: '/analytics',
+    Icon: LineChart,
+    title: 'Analytics',
+    desc: 'Track revenue, enrollments over time, completion rates, certificates, and per-course performance at a glance.',
+    tags: ['Revenue', 'Enrollments', 'Completion', 'Trends'],
+    accent: '#9B59B6',
+    available: true,
+  },
+  {
+    id: 'discussions',
+    path: '/discussions',
+    Icon: MessagesSquare,
+    title: 'Discussions & Q&A',
+    desc: 'Read and answer learner questions from every lesson. Replies post as Instructor; moderate or delete any comment.',
+    tags: ['Q&A', 'Replies', 'Moderation', 'Community'],
+    accent: '#9333ea',
+    available: true,
+  },
+  {
+    id: 'email-admin',
+    path: '/email-admin',
+    Icon: Mail,
+    title: 'Email Center',
+    desc: 'Configure the sender, edit welcome / completion / reminder email templates, toggle each on or off, and send a test.',
+    tags: ['Welcome', 'Completion', 'Reminders', 'Templates'],
+    accent: '#2ECC71',
     available: true,
   },
   {

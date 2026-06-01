@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import AdminSelect from '../components/AdminSelect'
 import {
-  getProgramById,
+  getCourseById,
   getContentSections, saveContentSection, deleteContentSection,
   getContentItems,    saveContentItem,    deleteContentItem,
   uid,
@@ -21,16 +21,16 @@ function parseVideo(url) {
   return null
 }
 
-const BLANK_ITEM = (programId, sectionId = null) => ({
-  id: uid(), programId, sectionId,
+const BLANK_ITEM = (courseId, sectionId = null) => ({
+  id: uid(), courseId, sectionId,
   title: '', type: 'video',
   videoUrl: '', body: '', fileUrl: '', fileName: '',
   description: '', duration: '', order: 0,
   isPublished: false,
 })
 
-const BLANK_SECTION = (programId) => ({
-  id: uid(), programId,
+const BLANK_SECTION = (courseId) => ({
+  id: uid(), courseId,
   title: '', description: '', order: 0,
 })
 
@@ -59,9 +59,9 @@ function Fld({ label: l, children }) {
 export default function ContentManager() {
   const navigate     = useNavigate()
   const [params]     = useSearchParams()
-  const programId    = params.get('programId')
+  const courseId    = params.get('courseId')
 
-  const [program,  setProgram]  = useState(null)
+  const [course,  setCourse]  = useState(null)
   const [sections, setSections] = useState([])
   const [items,    setItems]    = useState([])
   const [loading,  setLoading]  = useState(true)
@@ -72,18 +72,18 @@ export default function ContentManager() {
   const [deleting,    setDeleting]    = useState(null)
 
   useEffect(() => {
-    if (!programId) { setLoading(false); return }
+    if (!courseId) { setLoading(false); return }
     Promise.all([
-      getProgramById(programId),
-      getContentSections(programId),
-      getContentItems(programId),
+      getCourseById(courseId),
+      getContentSections(courseId),
+      getContentItems(courseId),
     ]).then(([p, s, it]) => {
-      setProgram(p)
+      setCourse(p)
       setSections(s || [])
       setItems(it || [])
       setLoading(false)
     }).catch(() => setLoading(false))
-  }, [programId])
+  }, [courseId])
 
   async function handleSaveItem(item) {
     setSaving(true)
@@ -125,7 +125,7 @@ export default function ContentManager() {
     if (!confirm('Delete this module and ALL its content items?')) return
     setDeleting(id)
     try {
-      await deleteContentSection(programId, id)
+      await deleteContentSection(courseId, id)
       setSections(prev => prev.filter(s => s.id !== id))
       setItems(prev => prev.filter(i => i.sectionId !== id))
     } catch (e) { alert('Delete failed: ' + e.message) }
@@ -138,10 +138,10 @@ export default function ContentManager() {
     </div>
   )
 
-  if (!programId || !program) return (
+  if (!courseId || !course) return (
     <div style={{ minHeight: '100vh', background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
       <div style={{ color: 'white', fontSize: 18 }}>Course not found</div>
-      <button onClick={() => navigate('/programs-admin')} style={{ background: ACC, border: 'none', borderRadius: 8, color: '#1A1A2E', padding: '10px 24px', fontWeight: 700, cursor: 'pointer' }}>← Back</button>
+      <button onClick={() => navigate('/courses-admin')} style={{ background: ACC, border: 'none', borderRadius: 8, color: '#1A1A2E', padding: '10px 24px', fontWeight: 700, cursor: 'pointer' }}>← Back</button>
     </div>
   )
 
@@ -149,16 +149,16 @@ export default function ContentManager() {
     <div style={{ minHeight: '100vh', background: DARK, fontFamily: 'Inter, sans-serif', color: 'white', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
       <header style={{ background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={() => navigate('/programs-admin')} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 8, color: 'rgba(255,255,255,0.7)', padding: '6px 14px', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>← Programs</button>
+        <button onClick={() => navigate('/courses-admin')} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 8, color: 'rgba(255,255,255,0.7)', padding: '6px 14px', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>← Courses</button>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 14, fontWeight: 800 }}>Content Manager</div>
-          <div style={{ fontSize: 11, color: ACC, marginTop: 1 }}>{program.title}</div>
+          <div style={{ fontSize: 11, color: ACC, marginTop: 1 }}>{course.title}</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => setEditSection(BLANK_SECTION(programId))} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: 'white', padding: '7px 14px', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+          <button onClick={() => setEditSection(BLANK_SECTION(courseId))} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: 'white', padding: '7px 14px', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
             + Module
           </button>
-          <button onClick={() => setEditItem(BLANK_ITEM(programId, sections[0]?.id || null))} style={{ background: ACC, border: 'none', borderRadius: 8, color: '#1A1A2E', padding: '7px 14px', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+          <button onClick={() => setEditItem(BLANK_ITEM(courseId, sections[0]?.id || null))} style={{ background: ACC, border: 'none', borderRadius: 8, color: '#1A1A2E', padding: '7px 14px', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
             + Lesson
           </button>
         </div>
@@ -194,7 +194,7 @@ export default function ContentManager() {
               {items.filter(i => i.sectionId === sec.id).map(item => (
                 <ItemRow key={item.id} item={item} onEdit={setEditItem} onDelete={handleDeleteItem} deleting={deleting} indent />
               ))}
-              <button onClick={() => setEditItem(BLANK_ITEM(programId, sec.id))} style={{ width: '100%', background: 'none', border: '1px dashed rgba(255,255,255,0.12)', borderRadius: 8, color: 'rgba(255,255,255,0.35)', fontSize: 11, padding: '6px', cursor: 'pointer', marginTop: 4 }}>
+              <button onClick={() => setEditItem(BLANK_ITEM(courseId, sec.id))} style={{ width: '100%', background: 'none', border: '1px dashed rgba(255,255,255,0.12)', borderRadius: 8, color: 'rgba(255,255,255,0.35)', fontSize: 11, padding: '6px', cursor: 'pointer', marginTop: 4 }}>
                 + Add lesson to this module
               </button>
             </div>

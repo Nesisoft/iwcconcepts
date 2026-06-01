@@ -45,7 +45,7 @@ export function CustomerAuthProvider({ children }) {
   }
 
   // Sends the account-setup / email-verification link. Used after a successful
-  // paid enrollment when the program grants portal access. shouldCreateUser
+  // paid enrollment when the course grants portal access. shouldCreateUser
   // creates the account if it doesn't exist; existing accounts simply receive a
   // sign-in link. The link returns to ?pwsetup=1 where the user sets a password.
   async function sendAccountSetup(email) {

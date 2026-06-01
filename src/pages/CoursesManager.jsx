@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { uid, getAllForms, getAllPrograms, saveProgram, deleteProgram } from '../utils/formStorage'
+import { uid, getAllForms, getAllCourses, saveCourse, deleteCourse } from '../utils/formStorage'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import AdminSelect from '../components/AdminSelect'
 
@@ -67,9 +67,9 @@ function makeDefault() {
   }
 }
 
-export default function ProgramsManager() {
+export default function CoursesManager() {
   const navigate = useNavigate()
-  const [programs, setPrograms] = useState([])
+  const [courses, setCourses] = useState([])
   const [forms, setForms] = useState([])
   const [selected, setSelected] = useState(null)
   const [prog, setProg] = useState(null)
@@ -78,8 +78,8 @@ export default function ProgramsManager() {
   const [uploading, setUploading] = useState(false)
 
   const refresh = useCallback(async () => {
-    const [ps, fs] = await Promise.all([getAllPrograms(), getAllForms()])
-    setPrograms(ps)
+    const [ps, fs] = await Promise.all([getAllCourses(), getAllForms()])
+    setCourses(ps)
     setForms(fs)
   }, [])
 
@@ -87,7 +87,7 @@ export default function ProgramsManager() {
 
   const debounced = useCallback((p) => {
     if (!p) return
-    const t = setTimeout(() => saveProgram(p), 600)
+    const t = setTimeout(() => saveCourse(p), 600)
     return () => clearTimeout(t)
   }, [])
 
@@ -101,30 +101,30 @@ export default function ProgramsManager() {
 
   async function create() {
     const p = makeDefault()
-    await saveProgram(p)
+    await saveCourse(p)
     await refresh()
     setProg(p); setSelected(p.id); setTab('details')
   }
 
   async function handleDelete(id) {
     if (!confirm('Delete this course?')) return
-    await deleteProgram(id)
+    await deleteCourse(id)
     await refresh()
     if (selected === id) { setSelected(null); setProg(null) }
   }
 
   async function toggleFeatured(id, e) {
     e.stopPropagation()
-    const p = programs.find(x => x.id === id)
+    const p = courses.find(x => x.id === id)
     if (!p) return
-    await saveProgram({ ...p, featured: !p.featured })
+    await saveCourse({ ...p, featured: !p.featured })
     await refresh()
     if (selected === id) setProg(prev => ({ ...prev, featured: !prev.featured }))
   }
 
   function openOnboarding(id) {
     const base = window.location.href.split('#')[0]
-    window.open(`${base}#/onboard?programId=${id}`, '_blank')
+    window.open(`${base}#/onboard?courseId=${id}`, '_blank')
   }
 
   async function handleImageUpload(e) {
@@ -176,7 +176,7 @@ export default function ProgramsManager() {
             </div>
           </div>
         </div>
-        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{programs.length} course{programs.length !== 1 ? 's' : ''} · Auto-saved</div>
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{courses.length} course{courses.length !== 1 ? 's' : ''} · Auto-saved</div>
       </header>
 
       <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', flex: 1, overflow: 'hidden' }}>
@@ -184,12 +184,12 @@ export default function ProgramsManager() {
         <div style={{ ...panelStyle, borderRight: '1px solid rgba(255,255,255,0.07)' }}>
           <button onClick={create} style={{ width: '100%', background: `linear-gradient(135deg,${ACC},#c04800)`, border: 'none', borderRadius: 8, color: 'white', padding: '10px', fontSize: 11, fontWeight: 700, cursor: 'pointer', marginBottom: 12 }}>+ New Course</button>
           <div style={divider} />
-          {programs.length === 0 && (
+          {courses.length === 0 && (
             <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>
               <div style={{ fontSize: 32, marginBottom: 8 }}>🎓</div>No courses yet
             </div>
           )}
-          {programs.map(p => {
+          {courses.map(p => {
             const active = p.id === selected
             return (
               <div key={p.id} onClick={() => { setSelected(p.id); setProg({ ...p }); setTab('details') }} style={{ background: active ? 'rgba(228,96,10,0.12)' : 'rgba(255,255,255,0.03)', border: `1px solid ${active ? ACC : 'rgba(255,255,255,0.07)'}`, borderRadius: 10, padding: '10px 12px', marginBottom: 8, cursor: 'pointer' }}>
@@ -242,7 +242,7 @@ export default function ProgramsManager() {
                     <Fld label="Course Title"><input style={inp()} value={prog.title} onChange={e => set('title', e.target.value)} /></Fld>
                     <Fld label="Tagline (short subtitle shown on card)"><input style={inp()} value={prog.tagline} onChange={e => set('tagline', e.target.value)} placeholder="e.g. Build a business that works for you" /></Fld>
                     <Fld label="Description">
-                      <textarea style={inp({ resize: 'vertical', lineHeight: 1.6 })} rows={5} value={prog.description} onChange={e => set('description', e.target.value)} placeholder="Full program description…" />
+                      <textarea style={inp({ resize: 'vertical', lineHeight: 1.6 })} rows={5} value={prog.description} onChange={e => set('description', e.target.value)} placeholder="Full course description…" />
                     </Fld>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       <Fld label="Start Date"><input type="datetime-local" style={inp()} value={prog.startDate} onChange={e => set('startDate', e.target.value)} /></Fld>
@@ -280,7 +280,7 @@ export default function ProgramsManager() {
                       <label style={{ display: 'block', border: `2px dashed rgba(228,96,10,0.4)`, borderRadius: 10, padding: '20px', textAlign: 'center', cursor: uploading ? 'not-allowed' : 'pointer', background: 'rgba(228,96,10,0.05)', marginBottom: 12, opacity: uploading ? 0.6 : 1 }}>
                         <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} disabled={uploading} />
                         <div style={{ fontSize: 28, marginBottom: 6 }}>{uploading ? '⏳' : '🖼️'}</div>
-                        <div style={{ fontSize: 11, color: ACC2, fontWeight: 700 }}>{uploading ? 'Uploading to Cloudinary…' : 'Click to upload program image'}</div>
+                        <div style={{ fontSize: 11, color: ACC2, fontWeight: 700 }}>{uploading ? 'Uploading to Cloudinary…' : 'Click to upload course image'}</div>
                         <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 3 }}>JPG, PNG, WebP</div>
                       </label>
                     )}
@@ -296,7 +296,7 @@ export default function ProgramsManager() {
                         {['simple', 'steps'].map(m => (
                           <div key={m} onClick={() => set('onboardingMode', m)} style={{ flex: 1, border: `2px solid ${prog.onboardingMode === m ? ACC : 'rgba(255,255,255,0.12)'}`, borderRadius: 10, padding: '12px 14px', cursor: 'pointer', background: prog.onboardingMode === m ? `${ACC}15` : 'transparent' }}>
                             <div style={{ fontWeight: 800, fontSize: 12, color: prog.onboardingMode === m ? ACC2 : 'white', marginBottom: 4 }}>{m === 'simple' ? '📝 Simple Form' : '🧭 Multi-Step Wizard'}</div>
-                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>{m === 'simple' ? 'One page, all fields at once. Best for free programs with short forms.' : 'Form sections become wizard steps. Best for paid programs with deep intake forms.'}</div>
+                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>{m === 'simple' ? 'One page, all fields at once. Best for free courses with short forms.' : 'Form sections become wizard steps. Best for paid courses with deep intake forms.'}</div>
                           </div>
                         ))}
                       </div>
@@ -377,7 +377,7 @@ export default function ProgramsManager() {
                     {prog.type === 'free' && (
                       <div style={{ textAlign: 'center', padding: '30px', color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>
                         <div style={{ fontSize: 36, marginBottom: 8 }}>🎁</div>
-                        This program is free — no payment configuration needed.
+                        This course is free — no payment configuration needed.
                       </div>
                     )}
                   </>
@@ -398,7 +398,7 @@ export default function ProgramsManager() {
                     </div>
                     {!prog.image && (
                       <div style={{ marginTop: 12, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '10px 14px', fontSize: 10, color: '#fbbf24' }}>
-                        ⚠ This program has no image. Upload one in the Details tab for the best carousel appearance.
+                        ⚠ This course has no image. Upload one in the Details tab for the best carousel appearance.
                       </div>
                     )}
                   </>
@@ -420,7 +420,7 @@ export default function ProgramsManager() {
                       <strong style={{ color: '#8B5CF6' }}>Upcoming</strong> — visible, registration not yet open<br />
                       <strong style={{ color: '#10B981' }}>Open</strong> — visible, registration link active<br />
                       <strong style={{ color: ACC }}>Closed</strong> — visible, registration link disabled<br />
-                      <strong style={{ color: '#3498DB' }}>Completed</strong> — visible as past program
+                      <strong style={{ color: '#3498DB' }}>Completed</strong> — visible as past course
                     </div>
                     <Toggle label="Allow portal access (learning portal)" checked={prog.hasPortalAccess} onChange={e => set('hasPortalAccess', e.target.checked)} />
                     <Toggle label="Award a certificate on course completion" checked={prog.awardsCertificate} onChange={e => set('awardsCertificate', e.target.checked)} />
@@ -429,7 +429,7 @@ export default function ProgramsManager() {
                       <button onClick={() => openOnboarding(prog.id)} style={{ width: '100%', background: 'rgba(52,152,219,0.2)', border: '1px solid rgba(52,152,219,0.4)', borderRadius: 8, color: '#74b9e8', fontSize: 11, fontWeight: 700, padding: '10px', cursor: 'pointer' }}>
                         🔗 Preview Onboarding Page
                       </button>
-                      <button onClick={() => navigate(`/content-admin?programId=${prog.id}`)} style={{ width: '100%', background: `rgba(201,168,76,0.15)`, border: `1px solid rgba(201,168,76,0.3)`, borderRadius: 8, color: ACC2, fontSize: 11, fontWeight: 700, padding: '10px', cursor: 'pointer' }}>
+                      <button onClick={() => navigate(`/content-admin?courseId=${prog.id}`)} style={{ width: '100%', background: `rgba(201,168,76,0.15)`, border: `1px solid rgba(201,168,76,0.3)`, borderRadius: 8, color: ACC2, fontSize: 11, fontWeight: 700, padding: '10px', cursor: 'pointer' }}>
                         📚 Manage Course Content
                       </button>
                     </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getAllTestimonials, saveTestimonial, deleteTestimonial, getAllPrograms } from '../utils/formStorage'
+import { getAllTestimonials, saveTestimonial, deleteTestimonial, getAllCourses } from '../utils/formStorage'
 import { uid } from '../utils/formStorage'
 import { uploadToCloudinary } from '../utils/cloudinary'
 
@@ -31,7 +31,7 @@ function StarRating({ value, onChange, readonly = false }) {
 function makeDefault() {
   return {
     id: uid(),
-    programId: '',
+    courseId: '',
     authorName: '',
     authorTitle: '',
     authorPhoto: '',
@@ -45,7 +45,7 @@ function makeDefault() {
 export default function TestimonialsManager() {
   const navigate = useNavigate()
   const [testimonials, setTestimonials] = useState([])
-  const [programs, setPrograms] = useState([])
+  const [courses, setCourses] = useState([])
   const [selected, setSelected] = useState(null)
   const [draft, setDraft] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -61,9 +61,9 @@ export default function TestimonialsManager() {
   }, [])
 
   async function loadAll() {
-    const [ts, ps] = await Promise.all([getAllTestimonials(), getAllPrograms()])
+    const [ts, ps] = await Promise.all([getAllTestimonials(), getAllCourses()])
     setTestimonials(ts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)))
-    setPrograms(ps)
+    setCourses(ps)
   }
 
   function selectTestimonial(t) {
@@ -134,7 +134,7 @@ export default function TestimonialsManager() {
     return !q || t.authorName?.toLowerCase().includes(q) || t.quote?.toLowerCase().includes(q)
   })
 
-  const programName = id => programs.find(p => p.id === id)?.title || ''
+  const courseName = id => courses.find(p => p.id === id)?.title || ''
 
   return (
     <div style={{ minHeight: '100vh', background: '#f9fafb', fontFamily: 'Inter, sans-serif' }}>
@@ -215,9 +215,9 @@ export default function TestimonialsManager() {
                 <div style={{ fontSize: 12, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {t.quote || 'No quote yet'}
                 </div>
-                {t.programId && (
+                {t.courseId && (
                   <div style={{ fontSize: 11, color: ACCENT, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    📌 {programName(t.programId)}
+                    📌 {courseName(t.courseId)}
                   </div>
                 )}
               </div>
@@ -315,16 +315,16 @@ export default function TestimonialsManager() {
                     <StarRating value={draft.rating} onChange={v => patch({ rating: v })} />
                   </div>
 
-                  {/* Program link */}
+                  {/* Course link */}
                   <div>
                     <label style={labelStyle}>Linked Course <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span></label>
                     <select
-                      value={draft.programId}
-                      onChange={e => patch({ programId: e.target.value })}
+                      value={draft.courseId}
+                      onChange={e => patch({ courseId: e.target.value })}
                       style={inputStyle}
                     >
                       <option value="">— Global testimonial —</option>
-                      {programs.map(p => (
+                      {courses.map(p => (
                         <option key={p.id} value={p.id}>{p.title}</option>
                       ))}
                     </select>

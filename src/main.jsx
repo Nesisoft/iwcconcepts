@@ -10,17 +10,17 @@ import './styles/global.css'
   const search = new URLSearchParams(window.location.search)
   const hash   = window.location.hash || ''
 
-  // 1. Paystack payment return  (?paystack_return=1&programId=…&reference=…)
-  //    Stash reference + programId in sessionStorage, then redirect into the
-  //    hash router so ProgramOnboarding can complete the enrollment.
+  // 1. Paystack payment return  (?paystack_return=1&courseId=…&reference=…)
+  //    Stash reference + courseId in sessionStorage, then redirect into the
+  //    hash router so CourseOnboarding can complete the enrollment.
   if (search.get('paystack_return') === '1') {
-    const programId = search.get('programId')
+    const courseId = search.get('courseId')
     const reference = search.get('reference') || search.get('trxref')
-    if (programId && reference) {
-      sessionStorage.setItem('iwc_paystack_return', JSON.stringify({ programId, reference }))
+    if (courseId && reference) {
+      sessionStorage.setItem('iwc_paystack_return', JSON.stringify({ courseId, reference }))
     }
-    // Route into HashRouter → ProgramOnboarding will pick up the stashed ref
-    const target = programId ? `/#/onboard?programId=${programId}` : '/'
+    // Route into HashRouter → CourseOnboarding will pick up the stashed ref
+    const target = courseId ? `/#/onboard?courseId=${courseId}` : '/'
     window.location.replace(window.location.origin + target)
     return // stop — page is reloading
   }

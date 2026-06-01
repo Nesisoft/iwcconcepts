@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useCustomerAuth } from '../contexts/CustomerAuthContext'
 import {
-  getPortalContent, getProgramById, getMyProgress, markItemComplete,
+  getPortalContent, getCourseById, getMyProgress, markItemComplete,
+  getLessonComments, addLessonComment, deleteLessonComment,
 } from '../utils/formStorage'
 import {
   Play, FileText, Paperclip, BookOpen, Lock, AlertTriangle,
   ArrowLeft, ArrowRight, Menu, X, CheckCircle, Clock, Award, Zap, Printer,
+  MessageCircle, Send, Trash2, CornerDownRight,
 } from 'lucide-react'
 
 const BRAND  = '#6c3fc5'
@@ -38,14 +40,14 @@ function useWindowWidth() {
   return width
 }
 
-export default function ProgramPortal() {
+export default function CoursePortal() {
   const navigate    = useNavigate()
-  const { programId } = useParams()
+  const { courseId } = useParams()
   const { user, getAccessToken } = useCustomerAuth()
   const windowWidth = useWindowWidth()
   const isMobile    = windowWidth < 768
 
-  const [program,      setProgram]      = useState(null)
+  const [course,      setCourse]      = useState(null)
   const [sections,     setSections]     = useState([])
   const [items,        setItems]        = useState([])
   const [loading,      setLoading]      = useState(true)
@@ -58,9 +60,9 @@ export default function ProgramPortal() {
   const [xpToast,      setXpToast]      = useState(false)
 
   useEffect(() => {
-    if (!user || !programId) return
+    if (!user || !courseId) return
     load()
-  }, [user, programId])
+  }, [user, courseId])
 
   useEffect(() => {
     if (!isMobile) setSideOpen(true)
@@ -68,20 +70,20 @@ export default function ProgramPortal() {
 
   async function load() {
     setError('')
-    const CACHE_KEY  = `iwc_content_${programId}`
+    const CACHE_KEY  = `iwc_content_${courseId}`
     const CACHE_TTL  = 10 * 60 * 1000
 
     // Try cached content first (avoids blank screen on revisit)
     try {
       const cached = sessionStorage.getItem(CACHE_KEY)
       if (cached) {
-        const { program: cp, sections: cs, items: ci, exp } = JSON.parse(cached)
+        const { course: cp, sections: cs, items: ci, exp } = JSON.parse(cached)
         if (Date.now() < exp) {
-          setProgram(cp); setSections(cs); setItems(ci)
+          setCourse(cp); setSections(cs); setItems(ci)
           setLoading(false)
           // Still refresh progress live
           const token = await getAccessToken()
-          const prog = await getMyProgress(programId, token).catch(() => [])
+          const prog = await getMyProgress(courseId, token).catch(() => [])
           setCompletedIds(new Set(prog.map(p => p.itemId)))
           return
         }
@@ -90,11 +92,11 @@ export default function ProgramPortal() {
 
     setLoading(true)
     try {
-      const [prog, token] = await Promise.all([getProgramById(programId), getAccessToken()])
-      setProgram(prog)
+      const [prog, token] = await Promise.all([getCourseById(courseId), getAccessToken()])
+      setCourse(prog)
       const [content, progressList] = await Promise.all([
-        getPortalContent(programId, token),
-        getMyProgress(programId, token).catch(() => []),
+        getPortalContent(courseId, token),
+        getMyProgress(courseId, token).catch(() => []),
       ])
       const { sections: s, items: it } = content
       setSections(s || [])
@@ -102,7 +104,7 @@ export default function ProgramPortal() {
       setCompletedIds(new Set(progressList.map(p => p.itemId)))
       try {
         sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-          program: prog, sections: s || [], items: it || [],
+          course: prog, sections: s || [], items: it || [],
           exp: Date.now() + CACHE_TTL,
         }))
       } catch {}
@@ -130,7 +132,7 @@ export default function ProgramPortal() {
     setMarking(true)
     try {
       const token = await getAccessToken()
-      await markItemComplete(programId, item.id, token)
+      await markItemComplete(courseId, item.id, token)
       setCompletedIds(prev => new Set([...prev, item.id]))
       setXpToast(true)
       setTimeout(() => setXpToast(false), 2500)
@@ -144,7 +146,7 @@ export default function ProgramPortal() {
   // ── Derived ────────────────────────────────────────────────────────────────
   const totalItems       = items.length
   const isComplete       = totalItems > 0 && completedIds.size >= totalItems
-  const earnedCert       = program?.awardsCertificate && isComplete
+  const earnedCert       = course?.awardsCertificate && isComplete
   const firstIncomplete  = items.find(i => !completedIds.has(i.id))
   const sectionedItems   = sections.map(s => ({ ...s, items: items.filter(i => i.sectionId === s.id) }))
   const unsectionedItems = items.filter(i => !i.sectionId)
@@ -240,7 +242,7 @@ export default function ProgramPortal() {
         )}
 
         <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.7)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {program?.title || 'Course'}
+          {course?.title || 'Course'}
         </div>
 
         {/* XP badge */}
@@ -277,14 +279,14 @@ export default function ProgramPortal() {
         /* ── Overview screen ─────────────────────────────────────────────── */
         <div style={{ flex: 1, overflowY: 'auto', background: '#fff' }}>
           <CourseOverview
-            program={program}
+            course={course}
             items={items}
             completedIds={completedIds}
             earnedCert={earnedCert}
             firstIncomplete={firstIncomplete}
             isMobile={isMobile}
             onStart={handleStart}
-            onViewCertificate={() => navigate(`/portal/certificate/${programId}`)}
+            onViewCertificate={() => navigate(`/portal/certificate/${courseId}`)}
           />
         </div>
 
@@ -329,7 +331,7 @@ export default function ProgramPortal() {
                 <Award size={20} color="#d97706" />
                 <span style={{ fontSize: 14, fontWeight: 800, color: '#92400e', flex: 1 }}>Certificate Earned — you've completed this course!</span>
                 <button
-                  onClick={() => navigate(`/portal/certificate/${programId}`)}
+                  onClick={() => navigate(`/portal/certificate/${courseId}`)}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#d97706', color: '#fff', border: 'none', borderRadius: 7, padding: '7px 14px', fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}
                 >
                   <Printer size={13} /> View Certificate
@@ -361,6 +363,10 @@ export default function ProgramPortal() {
                   if (idx < items.length - 1) setActive(items[idx + 1])
                 }}
                 hasNext={items.findIndex(i => i.id === active.id) < items.length - 1}
+                courseId={courseId}
+                courseTitle={course?.title}
+                user={user}
+                getAccessToken={getAccessToken}
               />
             )}
           </main>
@@ -372,7 +378,7 @@ export default function ProgramPortal() {
 
 // ── Course overview screen ─────────────────────────────────────────────────────
 
-function CourseOverview({ program, items, completedIds, earnedCert, firstIncomplete, isMobile, onStart, onViewCertificate }) {
+function CourseOverview({ course, items, completedIds, earnedCert, firstIncomplete, isMobile, onStart, onViewCertificate }) {
   const total    = items.length
   const done     = completedIds.size
   const pct      = total > 0 ? Math.round(done / total * 100) : 0
@@ -382,34 +388,34 @@ function CourseOverview({ program, items, completedIds, earnedCert, firstIncompl
     <div style={{ maxWidth: 720, margin: '0 auto', padding: isMobile ? '28px 20px 80px' : '40px 32px 80px' }}>
 
       {/* Course image */}
-      {program?.image && (
+      {course?.image && (
         <div style={{ borderRadius: 16, overflow: 'hidden', marginBottom: 28, height: isMobile ? 180 : 240 }}>
-          <img src={program.image} alt={program.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={course.image} alt={course.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
       )}
 
       {/* Tags */}
-      {program?.tags?.length > 0 && (
+      {course?.tags?.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-          {program.tags.map(tag => (
+          {course.tags.map(tag => (
             <span key={tag} style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 20, background: '#f5f0ff', color: BRAND }}>{tag}</span>
           ))}
         </div>
       )}
 
       <h1 style={{ fontSize: isMobile ? 26 : 'clamp(26px, 4vw, 38px)', fontWeight: 900, color: '#111827', margin: '0 0 10px', lineHeight: 1.2 }}>
-        {program?.title}
+        {course?.title}
       </h1>
 
-      {program?.tagline && (
-        <p style={{ fontSize: 17, color: BRAND, fontWeight: 600, margin: '0 0 16px', lineHeight: 1.5 }}>{program.tagline}</p>
+      {course?.tagline && (
+        <p style={{ fontSize: 17, color: BRAND, fontWeight: 600, margin: '0 0 16px', lineHeight: 1.5 }}>{course.tagline}</p>
       )}
 
       {/* Meta row */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18, marginBottom: 24, color: '#6b7280', fontSize: 14 }}>
-        {program?.duration && (
+        {course?.duration && (
           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Clock size={15} /> {program.duration}
+            <Clock size={15} /> {course.duration}
           </span>
         )}
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -420,16 +426,16 @@ function CourseOverview({ program, items, completedIds, earnedCert, firstIncompl
             <Zap size={15} /> {done} XP earned
           </span>
         )}
-        {program?.awardsCertificate && (
+        {course?.awardsCertificate && (
           <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: earnedCert ? '#d97706' : '#9ca3af' }}>
             <Award size={15} /> {earnedCert ? 'Certificate earned' : 'Certificate on completion'}
           </span>
         )}
       </div>
 
-      {program?.description && (
+      {course?.description && (
         <p style={{ fontSize: 15, color: '#374151', lineHeight: 1.8, marginBottom: 28, whiteSpace: 'pre-line' }}>
-          {program.description}
+          {course.description}
         </p>
       )}
 
@@ -527,7 +533,7 @@ function SidebarItem({ item, active, done, onClick }) {
 
 // ── Lesson content view ────────────────────────────────────────────────────────
 
-function ContentView({ item, onNext, hasNext, isMobile, done, marking, onMarkComplete }) {
+function ContentView({ item, onNext, hasNext, isMobile, done, marking, onMarkComplete, courseId, courseTitle, user, getAccessToken }) {
   const video = item.type === 'video' ? parseVideo(item.videoUrl) : null
 
   return (
@@ -607,6 +613,216 @@ function ContentView({ item, onNext, hasNext, isMobile, done, marking, onMarkCom
           </button>
         )}
       </div>
+
+      {/* Discussion / Q&A */}
+      <LessonDiscussion
+        courseId={courseId}
+        courseTitle={courseTitle}
+        item={item}
+        user={user}
+        getAccessToken={getAccessToken}
+        isMobile={isMobile}
+      />
     </div>
   )
+}
+
+// ── Lesson discussion / Q&A ────────────────────────────────────────────────────
+
+function LessonDiscussion({ courseId, courseTitle, item, user, getAccessToken, isMobile }) {
+  const [comments, setComments] = useState([])
+  const [loading,  setLoading]  = useState(true)
+  const [body,     setBody]     = useState('')
+  const [replyTo,  setReplyTo]  = useState(null)   // parent comment id
+  const [replyBody, setReplyBody] = useState('')
+  const [posting,  setPosting]  = useState(false)
+
+  // Reload comments whenever the lesson changes
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true); setComments([]); setReplyTo(null); setBody('')
+    ;(async () => {
+      try {
+        const token = await getAccessToken()
+        const list  = await getLessonComments(courseId, item.id, token)
+        if (!cancelled) setComments(list || [])
+      } catch { if (!cancelled) setComments([]) }
+      finally { if (!cancelled) setLoading(false) }
+    })()
+    return () => { cancelled = true }
+  }, [courseId, item.id]) // eslint-disable-line
+
+  async function post(text, parentId) {
+    const trimmed = (text || '').trim()
+    if (!trimmed || posting) return
+    setPosting(true)
+    try {
+      const token = await getAccessToken()
+      const created = await addLessonComment({
+        courseId, itemId: item.id,
+        body: trimmed, parentId: parentId || null,
+        authorName: user?.email ? user.email.split('@')[0] : 'Learner',
+        courseTitle, lessonTitle: item.title,
+        asAdmin: false,
+      }, token)
+      setComments(c => [...c, created])
+      if (parentId) { setReplyTo(null); setReplyBody('') } else setBody('')
+    } catch (e) {
+      alert('Could not post: ' + e.message)
+    } finally {
+      setPosting(false)
+    }
+  }
+
+  async function remove(id) {
+    if (!confirm('Delete this comment?')) return
+    try {
+      const token = await getAccessToken()
+      await deleteLessonComment(id, token)
+      setComments(c => c.filter(x => x.id !== id && x.parentId !== id))
+    } catch (e) {
+      alert('Could not delete: ' + e.message)
+    }
+  }
+
+  const topLevel = comments.filter(c => !c.parentId)
+  const repliesOf = (id) => comments.filter(c => c.parentId === id)
+  const myEmail = user?.email
+
+  return (
+    <div style={{ marginTop: 44, paddingTop: 28, borderTop: '1px solid #f3f4f6' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
+        <MessageCircle size={18} color={BRAND} />
+        <h2 style={{ fontSize: 17, fontWeight: 800, color: '#111827', margin: 0 }}>
+          Discussion {comments.length > 0 && <span style={{ color: '#9ca3af', fontWeight: 600 }}>({comments.length})</span>}
+        </h2>
+      </div>
+
+      {/* New comment box */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
+        <Avatar name={myEmail} />
+        <div style={{ flex: 1 }}>
+          <textarea
+            value={body}
+            onChange={e => setBody(e.target.value)}
+            placeholder="Ask a question or share a thought…"
+            rows={2}
+            style={{ width: '100%', boxSizing: 'border-box', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '10px 12px', fontSize: 14, fontFamily: 'inherit', resize: 'vertical', outline: 'none', lineHeight: 1.5, background: '#fff', color: '#111827' }}
+          />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+            <button
+              onClick={() => post(body)}
+              disabled={!body.trim() || posting}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 7,
+                background: body.trim() ? `linear-gradient(135deg, ${BRAND}, ${BRAND2})` : '#e5e7eb',
+                color: body.trim() ? '#fff' : '#9ca3af',
+                border: 'none', borderRadius: 9, padding: '9px 18px',
+                fontWeight: 700, fontSize: 13, cursor: body.trim() && !posting ? 'pointer' : 'not-allowed',
+              }}
+            >
+              <Send size={14} /> {posting ? 'Posting…' : 'Post'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ color: '#9ca3af', fontSize: 13, padding: '8px 0' }}>Loading discussion…</div>
+      ) : topLevel.length === 0 ? (
+        <div style={{ color: '#9ca3af', fontSize: 14, padding: '12px 0' }}>No comments yet — be the first to start the conversation.</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {topLevel.map(c => (
+            <div key={c.id}>
+              <CommentRow comment={c} myEmail={myEmail} onDelete={() => remove(c.id)} onReply={() => { setReplyTo(replyTo === c.id ? null : c.id); setReplyBody('') }} />
+
+              {/* Replies */}
+              {repliesOf(c.id).length > 0 && (
+                <div style={{ marginLeft: isMobile ? 20 : 46, marginTop: 12, display: 'flex', flexDirection: 'column', gap: 14, borderLeft: '2px solid #f3f4f6', paddingLeft: 14 }}>
+                  {repliesOf(c.id).map(r => (
+                    <CommentRow key={r.id} comment={r} myEmail={myEmail} onDelete={() => remove(r.id)} />
+                  ))}
+                </div>
+              )}
+
+              {/* Reply box */}
+              {replyTo === c.id && (
+                <div style={{ marginLeft: isMobile ? 20 : 46, marginTop: 12, display: 'flex', gap: 8 }}>
+                  <input
+                    value={replyBody}
+                    onChange={e => setReplyBody(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') post(replyBody, c.id) }}
+                    placeholder="Write a reply…"
+                    autoFocus
+                    style={{ flex: 1, border: '1.5px solid #e5e7eb', borderRadius: 9, padding: '9px 12px', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
+                  />
+                  <button onClick={() => post(replyBody, c.id)} disabled={!replyBody.trim() || posting} style={{ background: replyBody.trim() ? BRAND : '#e5e7eb', color: replyBody.trim() ? '#fff' : '#9ca3af', border: 'none', borderRadius: 9, padding: '0 14px', fontWeight: 700, fontSize: 13, cursor: replyBody.trim() ? 'pointer' : 'not-allowed' }}>
+                    <Send size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CommentRow({ comment, myEmail, onDelete, onReply }) {
+  const mine = comment.authorEmail === myEmail
+  const when = comment.createdAt ? timeAgo(comment.createdAt) : ''
+  return (
+    <div style={{ display: 'flex', gap: 10 }}>
+      <Avatar name={comment.authorName} admin={comment.isAdmin} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 3 }}>
+          <span style={{ fontSize: 13, fontWeight: 800, color: '#111827' }}>{comment.authorName}</span>
+          {comment.isAdmin && (
+            <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', background: '#f5f0ff', color: BRAND, borderRadius: 20, padding: '2px 8px' }}>Instructor</span>
+          )}
+          <span style={{ fontSize: 11, color: '#9ca3af' }}>{when}</span>
+        </div>
+        <div style={{ fontSize: 14, color: '#374151', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{comment.body}</div>
+        <div style={{ display: 'flex', gap: 14, marginTop: 5 }}>
+          {onReply && (
+            <button onClick={onReply} style={linkBtn}><CornerDownRight size={12} /> Reply</button>
+          )}
+          {mine && (
+            <button onClick={onDelete} style={{ ...linkBtn, color: '#ef4444' }}><Trash2 size={12} /> Delete</button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Avatar({ name, admin }) {
+  const ch = (name || '?')[0]?.toUpperCase() || '?'
+  return (
+    <div style={{
+      width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+      background: admin ? `linear-gradient(135deg, ${BRAND}, ${BRAND2})` : '#e5e7eb',
+      color: admin ? '#fff' : '#6b7280',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: 14, fontWeight: 800,
+    }}>{ch}</div>
+  )
+}
+
+const linkBtn = {
+  display: 'inline-flex', alignItems: 'center', gap: 4,
+  background: 'none', border: 'none', cursor: 'pointer',
+  color: '#6b7280', fontSize: 12, fontWeight: 700, padding: 0,
+}
+
+function timeAgo(iso) {
+  const d = new Date(iso)
+  const s = Math.floor((Date.now() - d.getTime()) / 1000)
+  if (s < 60) return 'just now'
+  const m = Math.floor(s / 60); if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60); if (h < 24) return `${h}h ago`
+  const days = Math.floor(h / 24); if (days < 7) return `${days}d ago`
+  return d.toLocaleDateString('en-GH', { day: 'numeric', month: 'short', year: 'numeric' })
 }

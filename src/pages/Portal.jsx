@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCustomerAuth } from '../contexts/CustomerAuthContext'
-import { getMyEnrollments, getAllPrograms } from '../utils/formStorage'
+import { getMyEnrollments, getAllCourses } from '../utils/formStorage'
 import { BookOpen, ArrowRight, ArrowLeft } from 'lucide-react'
 
 const BRAND  = '#6c3fc5'
@@ -18,9 +18,9 @@ export default function Portal() {
   const { user, signOut, getAccessToken } = useCustomerAuth()
 
   const [enrollments,        setEnrollments]        = useState([])
-  const [programs,           setPrograms]            = useState({})  // id → program
-  const [freePortalPrograms, setFreePortalPrograms]  = useState([])  // free + hasPortalAccess
-  const [morePrograms,       setMorePrograms]        = useState([])  // paid + hasPortalAccess, not enrolled
+  const [courses,           setCourses]            = useState({})  // id → course
+  const [freePortalCourses, setFreePortalCourses]  = useState([])  // free + hasPortalAccess
+  const [moreCourses,       setMoreCourses]        = useState([])  // paid + hasPortalAccess, not enrolled
   const [loading,            setLoading]             = useState(true)
   const [error,              setError]               = useState('')
 
@@ -38,9 +38,9 @@ export default function Portal() {
       try {
         const cached = sessionStorage.getItem(CACHE_KEY)
         if (cached) {
-          const { enrollments: ce, free: cf, more: cm, programs: cp, exp } = JSON.parse(cached)
+          const { enrollments: ce, free: cf, more: cm, courses: cp, exp } = JSON.parse(cached)
           if (Date.now() < exp) {
-            setEnrollments(ce); setFreePortalPrograms(cf); setMorePrograms(cm); setPrograms(cp)
+            setEnrollments(ce); setFreePortalCourses(cf); setMoreCourses(cm); setCourses(cp)
             setLoading(false)
             return
           }
@@ -53,36 +53,36 @@ export default function Portal() {
       const token = await getAccessToken()
       const [rawEnrollments, allProgs] = await Promise.all([
         getMyEnrollments(token),
-        getAllPrograms(),
+        getAllCourses(),
       ])
 
       // Server already deduplicates via DISTINCT ON; dedupe client-side as safety
       const seenIds = new Set()
       const dedupedEnrollments = []
       for (const enr of (rawEnrollments || [])) {
-        if (!seenIds.has(enr.programId)) {
-          seenIds.add(enr.programId)
+        if (!seenIds.has(enr.courseId)) {
+          seenIds.add(enr.courseId)
           dedupedEnrollments.push(enr)
         }
       }
       setEnrollments(dedupedEnrollments)
 
-      // Build program lookup map
+      // Build course lookup map
       const map = {}
       for (const p of (allProgs || [])) map[p.id] = p
-      setPrograms(map)
+      setCourses(map)
 
-      const enrolledIds = new Set(dedupedEnrollments.map(e => e.programId))
+      const enrolledIds = new Set(dedupedEnrollments.map(e => e.courseId))
 
       const freeProgs = (allProgs || []).filter(p => p.type === 'free' && p.hasPortalAccess && !enrolledIds.has(p.id))
       const moreProgs = (allProgs || []).filter(p => p.type === 'paid' && p.hasPortalAccess && !enrolledIds.has(p.id))
 
-      setMorePrograms(moreProgs)
-      setFreePortalPrograms(freeProgs)
+      setMoreCourses(moreProgs)
+      setFreePortalCourses(freeProgs)
 
       try {
         sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-          enrollments: dedupedEnrollments, free: freeProgs, more: moreProgs, programs: map,
+          enrollments: dedupedEnrollments, free: freeProgs, more: moreProgs, courses: map,
           exp: Date.now() + CACHE_TTL,
         }))
       } catch {}
@@ -98,7 +98,7 @@ export default function Portal() {
     navigate('/portal/login')
   }
 
-  const hasAnyContent = enrollments.length > 0 || freePortalPrograms.length > 0
+  const hasAnyContent = enrollments.length > 0 || freePortalCourses.length > 0
 
   return (
     <div style={{ minHeight: '100vh', background: '#f9fafb', fontFamily: 'Inter, -apple-system, sans-serif' }}>
@@ -147,7 +147,7 @@ export default function Portal() {
         )}
 
         {loading && (
-          <div style={{ textAlign: 'center', padding: '80px 0', color: '#9ca3af' }}>Loading your programs…</div>
+          <div style={{ textAlign: 'center', padding: '80px 0', color: '#9ca3af' }}>Loading your courses…</div>
         )}
 
         {!loading && !error && !hasAnyContent && (
@@ -157,7 +157,7 @@ export default function Portal() {
             <p style={{ color: '#9ca3af', fontSize: 15, maxWidth: 360, margin: '0 auto 28px' }}>
               Browse available courses and register to get started.
             </p>
-            <button onClick={() => navigate('/')} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: BRAND, color: '#fff', border: 'none', borderRadius: 10, padding: '12px 28px', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+            <button onClick={() => navigate('/courses')} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: BRAND, color: '#fff', border: 'none', borderRadius: 10, padding: '12px 28px', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
               Browse Courses <ArrowRight size={16} />
             </button>
           </div>
@@ -167,19 +167,19 @@ export default function Portal() {
         {!loading && enrollments.length > 0 && (
           <Section title="My Courses" subtitle="Courses you're enrolled in">
             {enrollments.map(enr => {
-              const prog = programs[enr.programId]
+              const prog = courses[enr.courseId]
               return (
-                <ProgramCard
+                <CourseCard
                   key={enr.id}
-                  program={prog}
-                  fallbackTitle={enr.programTitle}
+                  course={prog}
+                  fallbackTitle={enr.courseTitle}
                   badge={enr.paymentRef ? 'Enrolled' : 'Free'}
                   badgeColor={enr.paymentRef ? '#16a34a' : '#0369a1'}
                   badgeBg={enr.paymentRef ? '#dcfce7' : '#e0f2fe'}
                   sub={`Enrolled ${formatDate(enr.enrolledAt)}`}
                   action={prog?.hasPortalAccess ? {
                     label: 'View Content →',
-                    onClick: () => navigate(`/portal/program/${enr.programId}`),
+                    onClick: () => navigate(`/portal/course/${enr.courseId}`),
                     primary: true,
                   } : {
                     label: 'Content coming soon',
@@ -192,12 +192,12 @@ export default function Portal() {
         )}
 
         {/* ── Section 2: Free resources (all portal users) ─────────────────── */}
-        {!loading && freePortalPrograms.length > 0 && (
-          <Section title="Free Learning Resources" subtitle="Open to all members — dive in anytime" horizontal>
-            {freePortalPrograms.map(prog => (
-              <ProgramCard
+        {!loading && freePortalCourses.length > 0 && (
+          <Section title="Free Learning Resources" subtitle="Open to all members — dive in anytime" horizontal onViewAll={() => navigate('/courses')}>
+            {freePortalCourses.map(prog => (
+              <CourseCard
                 key={prog.id}
-                program={prog}
+                course={prog}
                 fallbackTitle={prog.title}
                 badge="Free"
                 badgeColor="#0369a1"
@@ -205,7 +205,7 @@ export default function Portal() {
                 sub="Available to all members"
                 action={{
                   label: 'Start Learning →',
-                  onClick: () => navigate(`/portal/program/${prog.id}`),
+                  onClick: () => navigate(`/portal/course/${prog.id}`),
                   primary: true,
                 }}
               />
@@ -213,13 +213,13 @@ export default function Portal() {
           </Section>
         )}
 
-        {/* ── Section 3: More paid programs with portal access ─────────────── */}
-        {!loading && morePrograms.length > 0 && (
-          <Section title="More Courses" subtitle="Enroll to unlock full access" horizontal>
-            {morePrograms.map(prog => (
-              <ProgramCard
+        {/* ── Section 3: More paid courses with portal access ─────────────── */}
+        {!loading && moreCourses.length > 0 && (
+          <Section title="More Courses" subtitle="Enroll to unlock full access" horizontal onViewAll={() => navigate('/courses')}>
+            {moreCourses.map(prog => (
+              <CourseCard
                 key={prog.id}
-                program={prog}
+                course={prog}
                 fallbackTitle={prog.title}
                 badge="★ Premium"
                 badgeColor="#92400e"
@@ -227,7 +227,7 @@ export default function Portal() {
                 sub="Enroll to unlock"
                 action={{
                   label: 'Enroll Now →',
-                  onClick: () => navigate(`/onboard?programId=${prog.id}`),
+                  onClick: () => navigate(`/onboard?courseId=${prog.id}`),
                   primary: false,
                 }}
               />
@@ -245,13 +245,20 @@ export default function Portal() {
 
 // ── Section wrapper ────────────────────────────────────────────────────────────
 
-function Section({ title, subtitle, children, horizontal }) {
+function Section({ title, subtitle, children, horizontal, onViewAll }) {
   const kids = [].concat(children).filter(Boolean)
   return (
     <div style={{ marginBottom: 52 }}>
-      <div style={{ marginBottom: 20 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 800, color: '#111827', margin: '0 0 4px' }}>{title}</h2>
-        {subtitle && <p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>{subtitle}</p>}
+      <div style={{ marginBottom: 20, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+        <div>
+          <h2 style={{ fontSize: 18, fontWeight: 800, color: '#111827', margin: '0 0 4px' }}>{title}</h2>
+          {subtitle && <p style={{ fontSize: 13, color: '#9ca3af', margin: 0 }}>{subtitle}</p>}
+        </div>
+        {onViewAll && (
+          <button onClick={onViewAll} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', color: BRAND, fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+            View all <ArrowRight size={14} />
+          </button>
+        )}
       </div>
       {horizontal ? (
         <div style={{
@@ -275,9 +282,9 @@ function Section({ title, subtitle, children, horizontal }) {
   )
 }
 
-// ── Program card ───────────────────────────────────────────────────────────────
+// ── Course card ───────────────────────────────────────────────────────────────
 
-function ProgramCard({ program, fallbackTitle, badge, badgeColor, badgeBg, sub, action }) {
+function CourseCard({ course, fallbackTitle, badge, badgeColor, badgeBg, sub, action }) {
   return (
     <div style={{
       background: '#fff', borderRadius: 16, overflow: 'hidden',
@@ -286,8 +293,8 @@ function ProgramCard({ program, fallbackTitle, badge, badgeColor, badgeBg, sub, 
     }}>
       {/* Thumbnail */}
       <div style={{ height: 140, background: '#f3f4f6', position: 'relative', overflow: 'hidden' }}>
-        {program?.image
-          ? <img src={program.image} alt={program?.title || fallbackTitle} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        {course?.image
+          ? <img src={course.image} alt={course?.title || fallbackTitle} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #6c3fc520, #6c3fc540)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BookOpen size={34} color={BRAND} /></div>
         }
         <span style={{
@@ -300,7 +307,7 @@ function ProgramCard({ program, fallbackTitle, badge, badgeColor, badgeBg, sub, 
       {/* Info */}
       <div style={{ padding: '16px 18px 18px', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
         <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#111827', lineHeight: 1.3 }}>
-          {program?.title || fallbackTitle}
+          {course?.title || fallbackTitle}
         </h3>
         {sub && <div style={{ fontSize: 12, color: '#9ca3af' }}>{sub}</div>}
         <div style={{ flex: 1 }} />
