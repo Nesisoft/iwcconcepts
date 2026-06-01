@@ -47,39 +47,49 @@ ALTER INDEX IF EXISTS content_items_program_id_idx    RENAME TO content_items_co
 ALTER INDEX IF EXISTS course_progress_program_user_idx RENAME TO course_progress_course_user_idx;
 
 -- ── JSONB key migration ───────────────────────────────────────────────────────
--- Each UPDATE is guarded by WHERE data ? 'programId' so it only touches rows
--- that still carry the old key — safe to run even after partial migration.
+-- Each block is wrapped in a DO $$ check so it silently skips any table that
+-- doesn't exist yet. Safe to re-run: the WHERE clause is a no-op once migrated.
 
--- enrollments: programId → courseId, programTitle → courseTitle
-UPDATE enrollments
-   SET data = jsonb_set(data - 'programId', '{courseId}', data->'programId')
- WHERE data ? 'programId';
+DO $$ BEGIN
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'enrollments') THEN
+    UPDATE enrollments
+       SET data = jsonb_set(data - 'programId', '{courseId}', data->'programId')
+     WHERE data ? 'programId';
+    UPDATE enrollments
+       SET data = jsonb_set(data - 'programTitle', '{courseTitle}', data->'programTitle')
+     WHERE data ? 'programTitle';
+  END IF;
+END $$;
 
-UPDATE enrollments
-   SET data = jsonb_set(data - 'programTitle', '{courseTitle}', data->'programTitle')
- WHERE data ? 'programTitle';
+DO $$ BEGIN
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'content_sections') THEN
+    UPDATE content_sections
+       SET data = jsonb_set(data - 'programId', '{courseId}', data->'programId')
+     WHERE data ? 'programId';
+  END IF;
+END $$;
 
--- content_sections: programId → courseId
-UPDATE content_sections
-   SET data = jsonb_set(data - 'programId', '{courseId}', data->'programId')
- WHERE data ? 'programId';
+DO $$ BEGIN
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'content_items') THEN
+    UPDATE content_items
+       SET data = jsonb_set(data - 'programId', '{courseId}', data->'programId')
+     WHERE data ? 'programId';
+  END IF;
+END $$;
 
--- content_items: programId → courseId
-UPDATE content_items
-   SET data = jsonb_set(data - 'programId', '{courseId}', data->'programId')
- WHERE data ? 'programId';
+-- course_progress: flat columns only (user_email, course_id, completed_at) — no JSONB to migrate.
 
--- course_progress: flat columns only (user_email, course_id, completed_at) — no data JSONB, nothing to rename here.
+DO $$ BEGIN
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'lesson_comments') THEN
+    UPDATE lesson_comments
+       SET data = jsonb_set(data - 'programId', '{courseId}', data->'programId')
+     WHERE data ? 'programId';
+    UPDATE lesson_comments
+       SET data = jsonb_set(data - 'programTitle', '{courseTitle}', data->'programTitle')
+     WHERE data ? 'programTitle';
+  END IF;
+END $$;
 
--- lesson_comments: programId → courseId, programTitle → courseTitle
-UPDATE lesson_comments
-   SET data = jsonb_set(data - 'programId', '{courseId}', data->'programId')
- WHERE data ? 'programId';
-
-UPDATE lesson_comments
-   SET data = jsonb_set(data - 'programTitle', '{courseTitle}', data->'programTitle')
- WHERE data ? 'programTitle';
-
--- email_reminders: flat columns only (user_email, course_id, last_sent) — no data JSONB, nothing to rename here.
+-- email_reminders: flat columns only (user_email, course_id, last_sent) — no JSONB to migrate.
 
 COMMIT;
