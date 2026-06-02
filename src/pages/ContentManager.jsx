@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import AdminSelect from '../components/AdminSelect'
+import RichTextEditor from '../components/RichTextEditor'
 import {
   getCourseById,
   getContentSections, saveContentSection, deleteContentSection,
@@ -258,7 +259,9 @@ function SectionEditor({ section, onChange, onSave, onCancel, saving }) {
         {section.createdAt ? 'Edit Module' : 'New Module'}
       </h3>
       <Fld label="Module Title"><input style={inp()} value={section.title} onChange={e => set('title', e.target.value)} placeholder="e.g. Week 1 — Introduction" autoFocus /></Fld>
-      <Fld label="Description (optional)"><textarea style={inp({ resize: 'vertical' })} rows={3} value={section.description || ''} onChange={e => set('description', e.target.value)} placeholder="Brief overview of what this module covers…" /></Fld>
+      <Fld label="Description (optional)">
+        <RichTextEditor dark value={section.description || ''} onChange={v => set('description', v)} placeholder="Brief overview of what this module covers…" minRows={3} />
+      </Fld>
       <Fld label="Order (lower = first)"><input type="number" style={inp()} value={section.order || 0} min={0} onChange={e => set('order', Number(e.target.value))} /></Fld>
       <EditorActions onSave={onSave} onCancel={onCancel} saving={saving} disabled={!section.title.trim()} />
     </div>
@@ -324,13 +327,8 @@ function ItemEditor({ item, sections, onChange, onSave, onCancel, saving }) {
 
       {/* Text */}
       {item.type === 'text' && (
-        <Fld label="Content (HTML supported)">
-          <textarea
-            style={inp({ resize: 'vertical', lineHeight: 1.6, fontFamily: 'monospace', fontSize: 12 })}
-            rows={12} value={item.body || ''}
-            onChange={e => set('body', e.target.value)}
-            placeholder="<p>Type your content here. You can use HTML tags like &lt;strong&gt;, &lt;ul&gt;, &lt;h3&gt;, etc.</p>"
-          />
+        <Fld label="Content">
+          <RichTextEditor dark value={item.body || ''} onChange={v => set('body', v)} placeholder="Write your lesson content here…" minRows={10} />
         </Fld>
       )}
 

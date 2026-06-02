@@ -208,6 +208,13 @@ function CourseCard({ course }) {
           fontSize: 11, fontWeight: 700, borderRadius: 20, padding: '3px 10px',
           textTransform: 'capitalize',
         }}>{course.status}</span>
+        <span style={{
+          position: 'absolute', bottom: 10, left: 12,
+          background: course.courseType === 'event' ? '#f59e0b' : '#6c3fc5',
+          color: '#fff', fontSize: 10, fontWeight: 700,
+          borderRadius: 20, padding: '3px 10px',
+          textTransform: 'uppercase', letterSpacing: '0.05em',
+        }}>{course.courseType === 'event' ? 'Event' : 'Course'}</span>
         {isPaid && (
           <span style={{
             position: 'absolute', top: 12, right: 12,
@@ -226,6 +233,11 @@ function CourseCard({ course }) {
         <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#111827', lineHeight: 1.3 }}>{course.title}</h3>
         {course.tagline && (
           <p style={{ margin: 0, fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>{course.tagline}</p>
+        )}
+        {course.description && (
+          <p style={{ margin: 0, fontSize: 12, color: '#9ca3af', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+            {course.description.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()}
+          </p>
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
           {course.startDate && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Calendar size={13} /> {formatDate(course.startDate)}</span>}
