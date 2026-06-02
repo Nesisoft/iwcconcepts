@@ -272,25 +272,134 @@ function CourseCard({ course }) {
   )
 }
 
-// ── Courses Grid ─────────────────────────────────────────────────────────────
+// ── Upcoming Events Section ───────────────────────────────────────────────────
+
+function EventCard({ course }) {
+  const navigate = useNavigate()
+  const canRegister = course.status === 'open' && course.registrationFormId
+
+  return (
+    <div style={{
+      flex: '0 0 300px',
+      background: 'linear-gradient(160deg, #1e1040 0%, #2a1558 100%)',
+      borderRadius: 16, overflow: 'hidden',
+      border: '1px solid rgba(255,255,255,0.09)',
+      boxShadow: '0 6px 28px rgba(0,0,0,0.35)',
+      display: 'flex', flexDirection: 'column',
+      transition: 'transform 0.2s, box-shadow 0.2s',
+    }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(0,0,0,0.5)' }}
+      onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 28px rgba(0,0,0,0.35)' }}
+    >
+      <div style={{ height: 150, background: 'rgba(255,255,255,0.04)', position: 'relative', overflow: 'hidden' }}>
+        {course.image
+          ? <img src={course.image} alt={course.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Calendar size={36} color="rgba(245,158,11,0.5)" />
+            </div>
+        }
+        <span style={{
+          position: 'absolute', top: 10, left: 12,
+          background: course.status === 'open' ? '#f59e0b' : 'rgba(255,255,255,0.15)',
+          color: course.status === 'open' ? '#111827' : 'rgba(255,255,255,0.6)',
+          fontSize: 10, fontWeight: 700, borderRadius: 20, padding: '3px 10px', textTransform: 'capitalize',
+        }}>{course.status}</span>
+      </div>
+      <div style={{ padding: '16px 18px 18px', flex: 1, display: 'flex', flexDirection: 'column', gap: 7 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Event</div>
+        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#fff', lineHeight: 1.3 }}>{course.title}</h3>
+        {course.tagline && <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.4 }}>{course.tagline}</p>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 4 }}>
+          {course.startDate && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgba(255,255,255,0.55)' }}>
+              <Calendar size={12} color="#f59e0b" /> {formatDate(course.startDate)}
+            </span>
+          )}
+          {course.venue && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgba(255,255,255,0.55)' }}>
+              <MapPin size={12} color="#f59e0b" /> {course.venue}
+            </span>
+          )}
+        </div>
+        <button
+          onClick={() => canRegister && navigate(`/onboard?courseId=${course.id}`)}
+          disabled={!canRegister}
+          style={{
+            marginTop: 'auto', paddingTop: 10,
+            padding: '9px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, border: 'none',
+            background: canRegister ? '#f59e0b' : 'rgba(255,255,255,0.08)',
+            color: canRegister ? '#111827' : 'rgba(255,255,255,0.35)',
+            cursor: canRegister ? 'pointer' : 'not-allowed',
+            transition: 'opacity 0.15s',
+          }}
+        >
+          {canRegister ? 'Register Now →' : course.status === 'upcoming' ? 'Coming Soon' : 'Registration Closed'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function UpcomingEventsSection({ events }) {
+  const visible = events
+    .filter(e => e.status !== 'draft')
+    .sort((a, b) => {
+      if (!a.startDate) return 1
+      if (!b.startDate) return -1
+      return new Date(a.startDate) - new Date(b.startDate)
+    })
+
+  if (visible.length === 0) return null
+
+  return (
+    <section style={{ background: '#0f0a1a', padding: '64px 0 72px' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px' }}>
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b', letterSpacing: 3, textTransform: 'uppercase', marginBottom: 10 }}>
+            What's On
+          </div>
+          <h2 style={{ fontSize: 'clamp(24px, 3.5vw, 38px)', fontWeight: 900, color: '#fff', margin: 0 }}>
+            Upcoming Events
+          </h2>
+        </div>
+        <div style={{
+          display: 'flex', gap: 20,
+          overflowX: 'auto', paddingBottom: 12,
+          scrollbarWidth: 'none', msOverflowStyle: 'none',
+          WebkitOverflowScrolling: 'touch',
+        }}>
+          {visible.map(e => <EventCard key={e.id} course={e} />)}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+
+
+const COURSES_LIMIT = 8
 
 function CoursesSection({ courses }) {
+  const navigate = useNavigate()
   const STATUS_ORDER = { open: 0, upcoming: 1, closed: 2, completed: 3 }
   const visible = courses
     .filter(p => p.status !== 'draft')
     .sort((a, b) => (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99))
 
+  const shown   = visible.slice(0, COURSES_LIMIT)
+  const hasMore = visible.length > COURSES_LIMIT
+
   return (
-    <section id="courses" style={{ background: '#f9fafb', padding: '80px 24px' }}>
-      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-        <div style={{ textAlign: 'center', marginBottom: 48 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: BRAND, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 10 }}>Our Courses</div>
-          <h2 style={{ fontSize: 'clamp(26px, 4vw, 42px)', fontWeight: 900, color: '#111827', margin: 0 }}>
-            Grow With Purpose
-          </h2>
-          <p style={{ color: '#6b7280', marginTop: 12, fontSize: 16, maxWidth: 480, margin: '12px auto 0' }}>
-            Faith-based entrepreneurship and leadership courses designed to transform your life and business.
-          </p>
+    <section id="courses" style={{ background: '#f9fafb', padding: '80px 0 80px' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 40, flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: BRAND, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 10 }}>Our Courses</div>
+            <h2 style={{ fontSize: 'clamp(26px, 4vw, 42px)', fontWeight: 900, color: '#111827', margin: 0 }}>Grow With Purpose</h2>
+          </div>
+          <button onClick={() => navigate('/courses')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: BRAND, color: '#fff', border: 'none', borderRadius: 10, padding: '10px 22px', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+            View All Courses <ArrowRight size={14} />
+          </button>
         </div>
 
         {visible.length === 0 ? (
@@ -298,12 +407,20 @@ function CoursesSection({ courses }) {
             Courses coming soon — check back shortly.
           </div>
         ) : (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-            gap: 24,
-          }}>
-            {visible.map(p => <CourseCard key={p.id} course={p} />)}
+          <div style={{ display: 'flex', gap: 24, overflowX: 'auto', paddingBottom: 16, scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}>
+            {shown.map(p => (
+              <div key={p.id} style={{ flex: '0 0 300px' }}>
+                <CourseCard course={p} />
+              </div>
+            ))}
+            {hasMore && (
+              <div style={{ flex: '0 0 150px', display: 'flex', alignItems: 'stretch' }}>
+                <button onClick={() => navigate('/courses')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, background: 'none', border: `2px dashed ${BRAND}50`, borderRadius: 16, padding: '24px 16px', cursor: 'pointer', color: BRAND, fontWeight: 700, fontSize: 13, width: '100%' }}>
+                  <ArrowRight size={22} />
+                  {visible.length - COURSES_LIMIT} more
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -428,7 +545,8 @@ export default function LandingPage() {
       ) : (
         <>
           <HeroCarousel courses={courses} />
-          <CoursesSection courses={courses} />
+          <UpcomingEventsSection events={courses.filter(c => c.courseType === 'event')} />
+          <CoursesSection courses={courses.filter(c => (c.courseType || 'course') !== 'event')} />
           <TestimonialsSection testimonials={testimonials} />
           <SiteFooter />
         </>

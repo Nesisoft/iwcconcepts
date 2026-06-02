@@ -56,26 +56,29 @@ export default function Portal() {
         getAllCourses(),
       ])
 
+      // Build course lookup map first so we can filter events during dedup
+      const map = {}
+      for (const p of (allProgs || [])) map[p.id] = p
+      setCourses(map)
+
+      // Events are not shown in the learning portal — only actual courses
+      const isCourse = p => !p || (p.courseType || 'course') !== 'event'
+
       // Server already deduplicates via DISTINCT ON; dedupe client-side as safety
       const seenIds = new Set()
       const dedupedEnrollments = []
       for (const enr of (rawEnrollments || [])) {
         if (!seenIds.has(enr.courseId)) {
           seenIds.add(enr.courseId)
-          dedupedEnrollments.push(enr)
+          if (isCourse(map[enr.courseId])) dedupedEnrollments.push(enr)
         }
       }
       setEnrollments(dedupedEnrollments)
 
-      // Build course lookup map
-      const map = {}
-      for (const p of (allProgs || [])) map[p.id] = p
-      setCourses(map)
-
       const enrolledIds = new Set(dedupedEnrollments.map(e => e.courseId))
 
-      const freeProgs = (allProgs || []).filter(p => p.type === 'free' && p.hasPortalAccess && !enrolledIds.has(p.id))
-      const moreProgs = (allProgs || []).filter(p => p.type === 'paid' && p.hasPortalAccess && !enrolledIds.has(p.id))
+      const freeProgs = (allProgs || []).filter(p => p.type === 'free' && p.hasPortalAccess && !enrolledIds.has(p.id) && isCourse(p))
+      const moreProgs = (allProgs || []).filter(p => p.type === 'paid' && p.hasPortalAccess && !enrolledIds.has(p.id) && isCourse(p))
 
       setMoreCourses(moreProgs)
       setFreePortalCourses(freeProgs)
