@@ -11,6 +11,10 @@ const TOOLBAR = [
   null,
   { cmd: 'insertUnorderedList', icon: '• —',  label: 'Bullet list' },
   { cmd: 'insertOrderedList',   icon: '1. —', label: 'Numbered list' },
+  { cmd: 'outdent',             icon: '⇤',    label: 'Decrease indent' },
+  { cmd: 'indent',              icon: '⇥',    label: 'Increase indent' },
+  null,
+  { cmd: 'formatBlock', arg: 'blockquote', icon: '❝', label: 'Quote', btnStyle: { fontWeight: 800 } },
   null,
   { cmd: 'createLink',          icon: '⇗',    label: 'Insert link',  needsUrl: true },
   { cmd: 'unlink',              icon: '✕⇗',  label: 'Remove link' },
@@ -117,6 +121,7 @@ export default function RichTextEditor({
         )}
         <div
           ref={ref}
+          className="rte-content"
           contentEditable
           suppressContentEditableWarning
           onInput={emitChange}

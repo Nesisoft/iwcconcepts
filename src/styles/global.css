@@ -60,3 +60,28 @@ textarea:focus, input[type=text]:focus {
 }
 
 button { font-family: 'Montserrat', sans-serif; cursor: pointer; }
+
+/* ── Rich-text content ──────────────────────────────────────────────────────
+   The global `* { margin:0; padding:0 }` reset above strips the default
+   indentation from lists and the spacing from quotes/headings. These rules
+   restore sensible formatting for any HTML produced by RichTextEditor, both
+   inside the editor and wherever the saved HTML is rendered for display. */
+.rte-content ul,
+.rte-content ol { padding-left: 1.6em; margin: 0.5em 0; }
+.rte-content ul { list-style: disc; }
+.rte-content ol { list-style: decimal; }
+.rte-content li { margin: 0.25em 0; }
+.rte-content li > ul,
+.rte-content li > ol { margin: 0.25em 0; }
+.rte-content blockquote {
+  border-left: 4px solid #6c3fc5;
+  background: rgba(108, 63, 197, 0.08);
+  margin: 0.75em 0;
+  padding: 0.6em 1em;
+  font-style: italic;
+  border-radius: 0 6px 6px 0;
+}
+.rte-content h2 { font-size: 1.4em; font-weight: 800; margin: 0.6em 0 0.3em; line-height: 1.3; }
+.rte-content h3 { font-size: 1.18em; font-weight: 700; margin: 0.5em 0 0.3em; line-height: 1.3; }
+.rte-content p { margin: 0.4em 0; }
+.rte-content a { color: #6c3fc5; text-decoration: underline; }

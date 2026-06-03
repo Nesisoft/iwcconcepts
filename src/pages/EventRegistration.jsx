@@ -565,6 +565,7 @@ export default function EventRegistration() {
         {/* Event description */}
         {description && (
           <div
+            className="rte-content"
             style={{ background: `${acc}12`, border: `1px solid ${acc}30`, borderRadius: 12, padding: '14px 18px', marginBottom: 24, fontSize: 13, lineHeight: 1.7, color: 'rgba(255,255,255,0.8)' }}
             dangerouslySetInnerHTML={{ __html: description }}
           />

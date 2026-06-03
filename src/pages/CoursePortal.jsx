@@ -434,9 +434,11 @@ function CourseOverview({ course, items, completedIds, earnedCert, firstIncomple
       </div>
 
       {course?.description && (
-        <p style={{ fontSize: 15, color: '#374151', lineHeight: 1.8, marginBottom: 28, whiteSpace: 'pre-line' }}>
-          {course.description}
-        </p>
+        <div
+          className="rte-content"
+          style={{ fontSize: 15, color: '#374151', lineHeight: 1.8, marginBottom: 28 }}
+          dangerouslySetInnerHTML={{ __html: course.description }}
+        />
       )}
 
       {/* Progress bar */}
@@ -567,7 +569,7 @@ function ContentView({ item, onNext, hasNext, isMobile, done, marking, onMarkCom
 
       {/* Text */}
       {item.type === 'text' && item.body && (
-        <div style={{ fontSize: isMobile ? 15 : 16, lineHeight: 1.8, color: '#374151', marginBottom: 28 }} dangerouslySetInnerHTML={{ __html: item.body }} />
+        <div className="rte-content" style={{ fontSize: isMobile ? 15 : 16, lineHeight: 1.8, color: '#374151', marginBottom: 28 }} dangerouslySetInnerHTML={{ __html: item.body }} />
       )}
 
       {/* File */}
