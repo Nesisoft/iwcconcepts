@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getCourseById, getFormById, addSubmission, addEnrollment, uid } from '../utils/formStorage'
 import { useCustomerAuth } from '../contexts/CustomerAuthContext'
+import { POLICY_SECTIONS } from '../components/PolicyTerms'
 
 const BRAND  = '#6c3fc5'
 const BRAND2 = '#9333ea'
@@ -145,7 +146,11 @@ function buildSteps(form, course) {
   if (course?.type === 'paid') {
     // Only show the spin wheel when the course has a discount configured.
     if (Number(course.discount) > 0) steps.push({ type: 'wheel' })
+    steps.push({ type: 'terms' })
     steps.push({ type: 'payment' })
+  } else {
+    // Free courses end on the terms screen — agreeing completes registration.
+    steps.push({ type: 'terms' })
   }
   return steps
 }
@@ -424,6 +429,64 @@ function NameScreen({ value, onChange, onNext, onBack }) {
   )
 }
 
+function TermsScreen({ onAccept, onBack, acceptLabel, submitting }) {
+  const [agreed, setAgreed] = useState(false)
+  return (
+    <div style={{ maxWidth: 600, margin: '0 auto', padding: '0 24px' }}>
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 900, color: '#111827', margin: '0 0 8px' }}>
+          Terms &amp; Privacy Policy
+        </h2>
+        <p style={{ color: '#6b7280', fontSize: 14, margin: 0 }}>
+          Please review and accept the following before you continue.
+        </p>
+      </div>
+
+      <div style={{
+        maxHeight: 320, overflowY: 'auto',
+        border: '1px solid #e5e7eb', borderRadius: 12,
+        padding: '18px 20px', marginBottom: 22, background: '#fafafa',
+      }}>
+        {POLICY_SECTIONS.map((s, i) => (
+          <div key={i} style={{ marginBottom: i === POLICY_SECTIONS.length - 1 ? 0 : 18 }}>
+            <h3 style={{ fontSize: 14, fontWeight: 800, color: '#111827', margin: '0 0 5px' }}>{s.title}</h3>
+            <p style={{ fontSize: 13, color: '#4b5563', lineHeight: 1.7, margin: 0 }}>{s.body}</p>
+          </div>
+        ))}
+      </div>
+
+      <label style={{
+        display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer',
+        marginBottom: 24, userSelect: 'none',
+      }}>
+        <span
+          onClick={() => setAgreed(a => !a)}
+          style={{
+            flexShrink: 0, width: 24, height: 24, borderRadius: 6, marginTop: 1,
+            border: `2px solid ${agreed ? BRAND : '#d1d5db'}`,
+            background: agreed ? BRAND : '#fff',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'all 0.15s',
+          }}
+        >
+          {agreed && <span style={{ color: '#fff', fontSize: 14, fontWeight: 900, lineHeight: 1 }}>✓</span>}
+        </span>
+        <span onClick={() => setAgreed(a => !a)} style={{ fontSize: 14, color: '#374151', lineHeight: 1.6 }}>
+          I have read and agree to the <strong>Terms &amp; Conditions</strong> and{' '}
+          <strong>Privacy Policy</strong>.
+        </span>
+      </label>
+
+      <NavButtons
+        onBack={onBack}
+        onNext={onAccept}
+        canProceed={agreed && !submitting}
+        nextLabel={submitting ? 'Submitting…' : acceptLabel}
+      />
+    </div>
+  )
+}
+
 function PaymentScreen({ course, discountedPrice, discountPct, email, name, form, formData }) {
   const [paying, setPaying]  = useState(null)
   const [error,  setError]   = useState('')
@@ -656,6 +719,7 @@ export default function CourseOnboarding() {
   const [confirmed,    setConfirmed]    = useState(false)
   const [payRef,       setPayRef]       = useState(null)
   const [accountSetup, setAccountSetup] = useState(null) // null | 'pending' | 'sent' | 'failed'
+  const [submitting,   setSubmitting]   = useState(false)
 
   useEffect(() => {
     if (!courseId) { setNotFound(true); setLoading(false); return }
@@ -789,6 +853,8 @@ export default function CourseOnboarding() {
   }
 
   async function submitFree() {
+    if (submitting) return
+    setSubmitting(true)
     try {
       const submissionId = uid()
       if (form) {
@@ -804,9 +870,22 @@ export default function CourseOnboarding() {
       })
       setConfirmed(true)
       window.scrollTo({ top: 0 })
+      // Free courses that grant portal access still need an account: send the
+      // same email-verification / password-setup link as the paid flow.
+      if (course.hasPortalAccess && resolvedEmail) {
+        setAccountSetup('pending')
+        try {
+          await sendAccountSetup(resolvedEmail)
+          setAccountSetup('sent')
+        } catch (err) {
+          console.error('[portal] account setup email failed:', err)
+          setAccountSetup('failed')
+        }
+      }
     } catch (err) {
       console.error(err)
       alert('Enrollment failed. Please try again.')
+      setSubmitting(false)
     }
   }
 
@@ -876,6 +955,16 @@ export default function CourseOnboarding() {
             </p>
             <SpinWheel onDone={goNext} discountPct={discountPct} />
           </div>
+        )
+
+      case 'terms':
+        return (
+          <TermsScreen
+            onBack={step > 0 ? goBack : null}
+            onAccept={course.type === 'paid' ? goNext : submitFree}
+            acceptLabel={course.type === 'paid' ? 'Agree & Continue to Payment →' : 'Agree & Complete Registration →'}
+            submitting={submitting}
+          />
         )
 
       case 'payment':
