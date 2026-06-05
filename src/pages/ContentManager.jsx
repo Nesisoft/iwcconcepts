@@ -6,6 +6,7 @@ import {
   getCourseById,
   getContentSections, saveContentSection, deleteContentSection,
   getContentItems,    saveContentItem,    deleteContentItem,
+  lessonBlocks,
   uid,
 } from '../utils/formStorage'
 
@@ -22,13 +23,33 @@ function parseVideo(url) {
   return null
 }
 
+const BLANK_BLOCK = (type = 'text') => ({
+  id: uid(), type,
+  videoUrl: '', body: '', fileUrl: '', fileName: '',
+})
+
 const BLANK_ITEM = (courseId, sectionId = null) => ({
   id: uid(), courseId, sectionId,
-  title: '', type: 'video',
-  videoUrl: '', body: '', fileUrl: '', fileName: '',
+  title: '',
+  blocks: [],
   description: '', duration: '', order: 0,
   isPublished: false,
 })
+
+const BLOCK_META = {
+  video: { icon: '▶',  label: 'Video' },
+  text:  { icon: '📄', label: 'Text / Rich Text' },
+  file:  { icon: '📎', label: 'File / Document' },
+}
+
+// Icon for a lesson row — a single dominant type, or a stack when it mixes types.
+function lessonIcon(item) {
+  const blocks = lessonBlocks(item)
+  const types  = [...new Set(blocks.map(b => b.type))]
+  if (types.length === 0) return '📄'
+  if (types.length > 1)   return '🧩'
+  return BLOCK_META[types[0]]?.icon || '📄'
+}
 
 const BLANK_SECTION = (courseId) => ({
   id: uid(), courseId,
@@ -85,6 +106,12 @@ export default function ContentManager() {
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [courseId])
+
+  // Open a lesson in the editor, normalizing legacy single-type lessons into the
+  // multi-block shape so the editor always works with `blocks`.
+  function openLesson(item) {
+    setEditItem({ ...item, blocks: lessonBlocks(item) })
+  }
 
   async function handleSaveItem(item) {
     setSaving(true)
@@ -177,7 +204,7 @@ export default function ContentManager() {
 
           {/* Items not in any section */}
           {items.filter(i => !i.sectionId).map(item => (
-            <ItemRow key={item.id} item={item} onEdit={setEditItem} onDelete={handleDeleteItem} deleting={deleting} />
+            <ItemRow key={item.id} item={item} onEdit={openLesson} onDelete={handleDeleteItem} deleting={deleting} />
           ))}
 
           {/* Sections with their items */}
@@ -193,7 +220,7 @@ export default function ContentManager() {
                 {sec.description && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>{sec.description}</div>}
               </div>
               {items.filter(i => i.sectionId === sec.id).map(item => (
-                <ItemRow key={item.id} item={item} onEdit={setEditItem} onDelete={handleDeleteItem} deleting={deleting} indent />
+                <ItemRow key={item.id} item={item} onEdit={openLesson} onDelete={handleDeleteItem} deleting={deleting} indent />
               ))}
               <button onClick={() => setEditItem(BLANK_ITEM(courseId, sec.id))} style={{ width: '100%', background: 'none', border: '1px dashed rgba(255,255,255,0.12)', borderRadius: 8, color: 'rgba(255,255,255,0.35)', fontSize: 11, padding: '6px', cursor: 'pointer', marginTop: 4 }}>
                 + Add lesson to this module
@@ -234,10 +261,9 @@ export default function ContentManager() {
 }
 
 function ItemRow({ item, onEdit, onDelete, deleting, indent = false }) {
-  const icons = { video: '▶', text: '📄', file: '📎' }
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', marginBottom: 4, marginLeft: indent ? 12 : 0, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-      <span style={{ fontSize: 12, opacity: 0.6 }}>{icons[item.type] || '📄'}</span>
+      <span style={{ fontSize: 12, opacity: 0.6 }}>{lessonIcon(item)}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 12, fontWeight: 600, color: item.isPublished ? 'white' : 'rgba(255,255,255,0.45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {item.title || 'Untitled'}
@@ -270,29 +296,37 @@ function SectionEditor({ section, onChange, onSave, onCancel, saving }) {
 
 function ItemEditor({ item, sections, onChange, onSave, onCancel, saving }) {
   function set(k, v) { onChange(i => ({ ...i, [k]: v })) }
-  const video = item.type === 'video' ? parseVideo(item.videoUrl) : null
+
+  const blocks = Array.isArray(item.blocks) ? item.blocks : []
+
+  function addBlock(type) {
+    onChange(i => ({ ...i, blocks: [...(i.blocks || []), BLANK_BLOCK(type)] }))
+  }
+  function updateBlock(id, k, v) {
+    onChange(i => ({ ...i, blocks: (i.blocks || []).map(b => b.id === id ? { ...b, [k]: v } : b) }))
+  }
+  function removeBlock(id) {
+    onChange(i => ({ ...i, blocks: (i.blocks || []).filter(b => b.id !== id) }))
+  }
+  function moveBlock(id, dir) {
+    onChange(i => {
+      const arr = [...(i.blocks || [])]
+      const idx = arr.findIndex(b => b.id === id)
+      const swap = idx + dir
+      if (idx < 0 || swap < 0 || swap >= arr.length) return i
+      ;[arr[idx], arr[swap]] = [arr[swap], arr[idx]]
+      return { ...i, blocks: arr }
+    })
+  }
 
   return (
-    <div style={{ maxWidth: 640 }}>
+    <div style={{ maxWidth: 660 }}>
       <h3 style={{ margin: '0 0 24px', fontSize: 16, fontWeight: 800 }}>
         {item.createdAt ? 'Edit Lesson' : 'New Lesson'}
       </h3>
 
-      <Fld label="Title"><input style={inp()} value={item.title} onChange={e => set('title', e.target.value)} placeholder="e.g. Introduction to the course" autoFocus /></Fld>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <Fld label="Content Type">
-          <AdminSelect
-            value={item.type}
-            onChange={e => set('type', e.target.value)}
-            options={[
-              { value: 'video', label: '▶ Video' },
-              { value: 'text',  label: '📄 Text / Rich Text' },
-              { value: 'file',  label: '📎 File / Document' },
-            ]}
-            style={{ width: '100%' }}
-          />
-        </Fld>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 12 }}>
+        <Fld label="Title"><input style={inp()} value={item.title} onChange={e => set('title', e.target.value)} placeholder="e.g. Introduction to the course" autoFocus /></Fld>
         <Fld label="Module">
           <AdminSelect
             value={item.sectionId || ''}
@@ -306,43 +340,40 @@ function ItemEditor({ item, sections, onChange, onSave, onCancel, saving }) {
         </Fld>
       </div>
 
-      {/* Video */}
-      {item.type === 'video' && (
-        <>
-          <Fld label="YouTube or Vimeo URL">
-            <input style={inp()} value={item.videoUrl || ''} onChange={e => set('videoUrl', e.target.value)} placeholder="https://www.youtube.com/watch?v=… or https://vimeo.com/…" />
-          </Fld>
-          {video && (
-            <div style={{ marginBottom: 14, borderRadius: 10, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', aspectRatio: '16/9', background: '#000' }}>
-              <iframe src={video.embed} style={{ width: '100%', height: '100%', border: 'none' }} allowFullScreen title="preview" />
-            </div>
-          )}
-          {item.videoUrl && !video && (
-            <div style={{ marginBottom: 14, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#fca5a5' }}>
-              Unrecognized URL. Paste a YouTube (youtube.com/watch?v= or youtu.be/) or Vimeo (vimeo.com/) link.
-            </div>
-          )}
-        </>
+      <div style={divider} />
+
+      {/* Content blocks — a lesson can mix any number of video / text / file blocks */}
+      <div style={{ ...label, marginBottom: 10 }}>CONTENT BLOCKS</div>
+
+      {blocks.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '24px 16px', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: 10, color: 'rgba(255,255,255,0.4)', fontSize: 12, marginBottom: 14 }}>
+          No content yet. Add a block below — combine a video, rich text, and downloadable files in one lesson.
+        </div>
       )}
 
-      {/* Text */}
-      {item.type === 'text' && (
-        <Fld label="Content">
-          <RichTextEditor dark value={item.body || ''} onChange={v => set('body', v)} placeholder="Write your lesson content here…" minRows={10} />
-        </Fld>
-      )}
+      {blocks.map((block, idx) => (
+        <BlockEditor
+          key={block.id}
+          block={block}
+          index={idx}
+          total={blocks.length}
+          onUpdate={(k, v) => updateBlock(block.id, k, v)}
+          onRemove={() => removeBlock(block.id)}
+          onMove={dir => moveBlock(block.id, dir)}
+        />
+      ))}
 
-      {/* File */}
-      {item.type === 'file' && (
-        <>
-          <Fld label="File URL (Google Drive, Dropbox, Cloudinary, etc.)">
-            <input style={inp()} value={item.fileUrl || ''} onChange={e => set('fileUrl', e.target.value)} placeholder="https://drive.google.com/… or direct download link" />
-          </Fld>
-          <Fld label="File Name (shown to learners)">
-            <input style={inp()} value={item.fileName || ''} onChange={e => set('fileName', e.target.value)} placeholder="e.g. Week 1 Worksheet.pdf" />
-          </Fld>
-        </>
-      )}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4, marginBottom: 6 }}>
+        {Object.entries(BLOCK_META).map(([type, meta]) => (
+          <button key={type} onClick={() => addBlock(type)} style={{
+            background: 'rgba(255,255,255,0.06)', border: '1px dashed rgba(255,255,255,0.2)',
+            borderRadius: 8, color: 'rgba(255,255,255,0.75)', padding: '8px 14px',
+            fontSize: 12, fontWeight: 700, cursor: 'pointer',
+          }}>
+            + {meta.icon} {meta.label}
+          </button>
+        ))}
+      </div>
 
       <div style={divider} />
 
@@ -363,6 +394,62 @@ function ItemEditor({ item, sections, onChange, onSave, onCancel, saving }) {
     </div>
   )
 }
+
+function BlockEditor({ block, index, total, onUpdate, onRemove, onMove }) {
+  const meta  = BLOCK_META[block.type] || BLOCK_META.text
+  const video = block.type === 'video' ? parseVideo(block.videoUrl) : null
+
+  return (
+    <div style={{ border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, marginBottom: 12, overflow: 'hidden', background: 'rgba(255,255,255,0.02)' }}>
+      {/* Block header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        <span style={{ fontSize: 13 }}>{meta.icon}</span>
+        <span style={{ flex: 1, fontSize: 11, fontWeight: 800, letterSpacing: 0.5, color: 'rgba(255,255,255,0.6)' }}>
+          {meta.label.toUpperCase()} · BLOCK {index + 1}
+        </span>
+        <button onClick={() => onMove(-1)} disabled={index === 0} title="Move up" style={blockIconBtn(index === 0)}>↑</button>
+        <button onClick={() => onMove(1)} disabled={index === total - 1} title="Move down" style={blockIconBtn(index === total - 1)}>↓</button>
+        <button onClick={onRemove} title="Remove block" style={{ ...blockIconBtn(false), color: '#f87171' }}>✕</button>
+      </div>
+
+      {/* Block body */}
+      <div style={{ padding: '12px 14px' }}>
+        {block.type === 'video' && (
+          <>
+            <input style={inp({ marginBottom: 10 })} value={block.videoUrl || ''} onChange={e => onUpdate('videoUrl', e.target.value)} placeholder="https://www.youtube.com/watch?v=… or https://vimeo.com/…" />
+            {video && (
+              <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', aspectRatio: '16/9', background: '#000' }}>
+                <iframe src={video.embed} style={{ width: '100%', height: '100%', border: 'none' }} allowFullScreen title="preview" />
+              </div>
+            )}
+            {block.videoUrl && !video && (
+              <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#fca5a5' }}>
+                Unrecognized URL. Paste a YouTube (youtube.com/watch?v= or youtu.be/) or Vimeo (vimeo.com/) link.
+              </div>
+            )}
+          </>
+        )}
+
+        {block.type === 'text' && (
+          <RichTextEditor dark value={block.body || ''} onChange={v => onUpdate('body', v)} placeholder="Write your lesson content here…" minRows={8} />
+        )}
+
+        {block.type === 'file' && (
+          <>
+            <input style={inp({ marginBottom: 10 })} value={block.fileUrl || ''} onChange={e => onUpdate('fileUrl', e.target.value)} placeholder="File URL — Google Drive, Dropbox, Cloudinary, or a direct download link" />
+            <input style={inp()} value={block.fileName || ''} onChange={e => onUpdate('fileName', e.target.value)} placeholder="File name shown to learners, e.g. Week 1 Worksheet.pdf" />
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const blockIconBtn = (disabled) => ({
+  background: 'none', border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
+  color: disabled ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.55)',
+  fontSize: 13, padding: '2px 6px', lineHeight: 1,
+})
 
 function EditorActions({ onSave, onCancel, saving, disabled }) {
   return (

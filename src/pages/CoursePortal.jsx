@@ -4,6 +4,7 @@ import { useCustomerAuth } from '../contexts/CustomerAuthContext'
 import {
   getPortalContent, getCourseById, getMyProgress, markItemComplete,
   getLessonComments, addLessonComment, deleteLessonComment,
+  lessonBlocks,
 } from '../utils/formStorage'
 import {
   Play, FileText, Paperclip, BookOpen, Lock, AlertTriangle,
@@ -28,6 +29,14 @@ const TYPE_ICON = { video: Play, text: FileText, file: Paperclip }
 function TypeIcon({ type, size = 14, color }) {
   const Icon = TYPE_ICON[type] || FileText
   return <Icon size={size} color={color} />
+}
+
+// A lesson can hold several block types; pick a single icon for the sidebar —
+// the block type when uniform, or a generic "lesson" icon when it mixes types.
+function LessonIcon({ item, size = 14, color }) {
+  const types = [...new Set(lessonBlocks(item).map(b => b.type))]
+  if (types.length === 1) return <TypeIcon type={types[0]} size={size} color={color} />
+  return <BookOpen size={size} color={color} />
 }
 
 function useWindowWidth() {
@@ -519,7 +528,7 @@ function SidebarItem({ item, active, done, onClick }) {
       <span style={{ marginTop: 2, flexShrink: 0, display: 'inline-flex' }}>
         {done
           ? <CheckCircle size={14} color="#16a34a" />
-          : <TypeIcon type={item.type} size={14} color={active ? BRAND : '#9ca3af'} />
+          : <LessonIcon item={item} size={14} color={active ? BRAND : '#9ca3af'} />
         }
       </span>
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -535,14 +544,49 @@ function SidebarItem({ item, active, done, onClick }) {
 
 // ── Lesson content view ────────────────────────────────────────────────────────
 
+// Renders a single content block (video / rich text / file) within a lesson.
+function LessonBlock({ block, isMobile }) {
+  if (block.type === 'video') {
+    const video = parseVideo(block.videoUrl)
+    if (!block.videoUrl) return null
+    return video ? (
+      <div style={{ borderRadius: 12, overflow: 'hidden', aspectRatio: '16/9', background: '#000', marginBottom: 28 }}>
+        <iframe src={video.embed} style={{ width: '100%', height: '100%', border: 'none' }} allowFullScreen title="lesson video" />
+      </div>
+    ) : (
+      <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 10, padding: '16px 20px', color: '#dc2626', fontSize: 14, marginBottom: 28 }}>
+        Video URL is invalid or not supported.
+      </div>
+    )
+  }
+
+  if (block.type === 'text') {
+    if (!block.body) return null
+    return (
+      <div className="rte-content" style={{ fontSize: isMobile ? 15 : 16, lineHeight: 1.8, color: '#374151', marginBottom: 28 }} dangerouslySetInnerHTML={{ __html: block.body }} />
+    )
+  }
+
+  if (block.type === 'file') {
+    if (!block.fileUrl) return null
+    return (
+      <a href={block.fileUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: '#f5f0ff', border: `1px solid ${BRAND}30`, borderRadius: 12, padding: '16px 24px', textDecoration: 'none', color: BRAND, fontWeight: 700, fontSize: 15, marginBottom: 16, marginRight: 12 }}>
+        <Paperclip size={20} /> {block.fileName || 'Download File'}
+      </a>
+    )
+  }
+
+  return null
+}
+
 function ContentView({ item, onNext, hasNext, isMobile, done, marking, onMarkComplete, courseId, courseTitle, user, getAccessToken }) {
-  const video = item.type === 'video' ? parseVideo(item.videoUrl) : null
+  const blocks = lessonBlocks(item)
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: isMobile ? '24px 16px 80px' : '32px 24px 64px' }}>
       <div style={{ fontSize: 12, color: '#9ca3af', fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-        <TypeIcon type={item.type} size={13} color="#9ca3af" />
-        <span style={{ textTransform: 'capitalize' }}>{item.type}</span>
+        <LessonIcon item={item} size={13} color="#9ca3af" />
+        <span>Lesson</span>
         {item.duration && <><span>·</span><span>{item.duration}</span></>}
       </div>
 
@@ -554,30 +598,10 @@ function ContentView({ item, onNext, hasNext, isMobile, done, marking, onMarkCom
         <p style={{ fontSize: 15, color: '#6b7280', margin: '0 0 24px', lineHeight: 1.7 }}>{item.description}</p>
       )}
 
-      {/* Video */}
-      {item.type === 'video' && (
-        video ? (
-          <div style={{ borderRadius: 12, overflow: 'hidden', aspectRatio: '16/9', background: '#000', marginBottom: 28 }}>
-            <iframe src={video.embed} style={{ width: '100%', height: '100%', border: 'none' }} allowFullScreen title={item.title} />
-          </div>
-        ) : (
-          <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 10, padding: '16px 20px', color: '#dc2626', fontSize: 14, marginBottom: 28 }}>
-            Video URL is invalid or not supported.
-          </div>
-        )
-      )}
-
-      {/* Text */}
-      {item.type === 'text' && item.body && (
-        <div className="rte-content" style={{ fontSize: isMobile ? 15 : 16, lineHeight: 1.8, color: '#374151', marginBottom: 28 }} dangerouslySetInnerHTML={{ __html: item.body }} />
-      )}
-
-      {/* File */}
-      {item.type === 'file' && item.fileUrl && (
-        <a href={item.fileUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: '#f5f0ff', border: `1px solid ${BRAND}30`, borderRadius: 12, padding: '16px 24px', textDecoration: 'none', color: BRAND, fontWeight: 700, fontSize: 15, marginBottom: 28 }}>
-          <Paperclip size={20} /> {item.fileName || 'Download File'}
-        </a>
-      )}
+      {/* Content blocks — render each in order */}
+      {blocks.map(block => (
+        <LessonBlock key={block.id} block={block} isMobile={isMobile} />
+      ))}
 
       {/* Mark as done */}
       <div style={{ marginTop: 32, paddingTop: 24, borderTop: '1px solid #f3f4f6', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>

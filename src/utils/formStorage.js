@@ -320,11 +320,39 @@ export async function deleteContentSection(courseId, id) {
 export const getContentItems = (courseId) =>
   adminToken().then(t => api('getContentItems', { courseId }, t))
 
+// A lesson can hold several ordered content blocks (video / text / file) so a
+// single lesson can mix, e.g. a video, some rich text, and a downloadable file.
+// Older lessons were stored as one `type` plus flat fields; normalize those to a
+// one-block array so the admin editor and learner portal can treat every lesson
+// uniformly — no database migration required.
+export function lessonBlocks(item) {
+  if (!item) return []
+  if (Array.isArray(item.blocks) && item.blocks.length) return item.blocks
+  const type = item.type || (item.videoUrl ? 'video' : item.fileUrl ? 'file' : 'text')
+  return [{
+    id:       `${item.id || 'b'}_legacy`,
+    type,
+    videoUrl: item.videoUrl || '',
+    body:     item.body     || '',
+    fileUrl:  item.fileUrl  || '',
+    fileName: item.fileName || '',
+  }]
+}
+
 export async function saveContentItem(item) {
   const now    = new Date().toISOString()
   const record = { ...item, updatedAt: now }
   if (!record.id)        record.id        = uid()
   if (!record.createdAt) record.createdAt = now
+  // Persist the multi-block shape and drop the legacy single-type fields so the
+  // stored record stays clean once a lesson has been edited.
+  if (Array.isArray(record.blocks)) {
+    delete record.type
+    delete record.videoUrl
+    delete record.body
+    delete record.fileUrl
+    delete record.fileName
+  }
   return api('saveContentItem', { item: record }, await adminToken())
 }
 
