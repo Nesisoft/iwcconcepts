@@ -148,5 +148,56 @@ async function run(db) {
     sent++
   }
 
-  return { ok: true, sent, considered, days }
+  const membership = await sendMembershipExpiryReminders(db, settings, baseUrl)
+
+  return { ok: true, sent, considered, days, membership }
+}
+
+// ── Membership expiry reminders ────────────────────────────────────────────
+// One reminder per expiry cycle, sent within EXPIRY_WINDOW_DAYS of expiresAt.
+// Tracked via data.lastExpiryReminderFor (= the expiresAt it was sent for), so
+// a renewal (new expiresAt) re-arms the reminder automatically.
+const EXPIRY_WINDOW_DAYS = 7
+const MAX_EXPIRY_SENDS   = 100
+
+async function sendMembershipExpiryReminders(db, settings, baseUrl) {
+  let rows
+  try {
+    ({ rows } = await db.query(`SELECT data FROM members WHERE data->>'expiresAt' IS NOT NULL`))
+  } catch {
+    return { skipped: true, reason: 'members_table_missing' }
+  }
+
+  const now = Date.now()
+  let sent = 0
+  for (const r of rows) {
+    if (sent >= MAX_EXPIRY_SENDS) break
+    const m = r.data
+    if (m.status !== 'active' || !m.expiresAt) continue
+    const exp = new Date(m.expiresAt).getTime()
+    if (exp < now) continue                                        // already expired
+    if (exp - now > EXPIRY_WINDOW_DAYS * 86400000) continue        // not close yet
+    if (m.lastExpiryReminderFor === m.expiresAt) continue          // already reminded for this cycle
+
+    const expStr = new Date(m.expiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+    const result = await sendMail({
+      to: m.email,
+      subject: `Your ${m.planName || ''} membership expires on ${expStr}`,
+      text:
+`Hi ${m.name || 'there'},
+
+Your ${m.planName || ''} membership with IWC Concepts expires on ${expStr}.
+
+Renew to keep access to your courses and member events${baseUrl ? `: ${baseUrl}/#/join?renew=1` : '.'}
+
+— IWC Concepts`,
+      settings,
+    })
+    if (result?.skipped) return { skipped: true, reason: result.reason, sent }
+
+    const updated = { ...m, lastExpiryReminderFor: m.expiresAt }
+    await db.query('UPDATE members SET data = $2 WHERE lower(email) = lower($1)', [m.email, updated])
+    sent++
+  }
+  return { ok: true, sent }
 }

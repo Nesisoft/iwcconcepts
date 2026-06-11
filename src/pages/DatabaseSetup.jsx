@@ -110,6 +110,20 @@ create table if not exists email_reminders (
   course_id text        not null,
   last_sent  timestamptz not null default now(),
   primary key (user_email, course_id)
+);
+
+create table if not exists members (
+  id         text        primary key,
+  email      text        not null unique,
+  data       jsonb       not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists members_email_idx on members(lower(email));
+
+create table if not exists notifications (
+  id         text        primary key,
+  data       jsonb       not null,
+  created_at timestamptz not null default now()
 );`
 
 // ── Vercel env vars ────────────────────────────────────────────────────────────

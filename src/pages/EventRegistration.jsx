@@ -361,6 +361,7 @@ export default function EventRegistration() {
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [pageIdx, setPageIdx] = useState(0)
   const formRef = useRef(null)
 
   // Determine if this is feedback or registration
@@ -401,9 +402,9 @@ export default function EventRegistration() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
 
-  function validate() {
+  function validateFields(fieldList) {
     const errs = {}
-    formConfig.fields.forEach(f => {
+    fieldList.forEach(f => {
       if (f.type === 'section') return
       const v = formData[f.id]
       if (f.required) {
@@ -420,8 +421,10 @@ export default function EventRegistration() {
     return errs
   }
 
+  function validate() { return validateFields(formConfig.fields) }
+
   async function handleSubmit(e) {
-    e.preventDefault()
+    e?.preventDefault()
     const errs = validate()
     if (Object.keys(errs).length > 0) {
       setErrors(errs)
@@ -534,6 +537,97 @@ export default function EventRegistration() {
     )
   }
 
+  // ── Step-by-step mode (form.displayMode === 'steps') ──────────────────────
+  // Section dividers split the form into wizard pages; per-page validation.
+  const isSteps = (formConfig.displayMode || 'single') === 'steps' && fields.length > 0
+  const pages = (() => {
+    if (!isSteps) return []
+    const out = []
+    let cur = { title: '', description: '', fields: [] }
+    for (const f of fields) {
+      if (f.type === 'section') {
+        if (cur.fields.length) out.push(cur)
+        cur = { title: f.label, description: f.description, fields: [] }
+      } else cur.fields.push(f)
+    }
+    if (cur.fields.length || out.length === 0) out.push(cur)
+    return out
+  })()
+  const page = pages[Math.min(pageIdx, Math.max(pages.length - 1, 0))] || { fields: [] }
+
+  function nextPage() {
+    const errs = validateFields(page.fields)
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs)
+      formRef.current?.querySelector('[data-error]')?.scrollIntoView({ behavior: 'smooth' })
+      return
+    }
+    setErrors({})
+    if (pageIdx >= pages.length - 1) { handleSubmit(); return }
+    setPageIdx(i => i + 1)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+  function prevPage() {
+    if (pageIdx === 0) return
+    setErrors({})
+    setPageIdx(i => i - 1)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const stepsForm = isSteps && (
+    <div ref={formRef}>
+      {/* Progress */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+        <div style={{ flex: 1, height: 5, background: 'rgba(255,255,255,0.08)', borderRadius: 3 }}>
+          <div style={{ width: `${Math.round(((pageIdx + 1) / pages.length) * 100)}%`, height: '100%', background: `linear-gradient(90deg, ${acc}, ${acc2})`, borderRadius: 3, transition: 'width 0.3s' }} />
+        </div>
+        <div style={{ fontSize: 10, fontWeight: 800, color: acc, letterSpacing: 1, flexShrink: 0 }}>STEP {pageIdx + 1} / {pages.length}</div>
+      </div>
+
+      {(page.title || page.description) && (
+        <div style={{ marginBottom: 18 }}>
+          {page.title && <div style={{ fontSize: 14, fontWeight: 900, color: acc, letterSpacing: 0.3 }}>{page.title}</div>}
+          {page.description && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', lineHeight: 1.65, marginTop: 4 }}>{page.description}</div>}
+        </div>
+      )}
+
+      {page.fields.map(f => (
+        <FormField
+          key={f.id}
+          field={f}
+          value={formData[f.id]}
+          onChange={v => setFormData(p => ({ ...p, [f.id]: v }))}
+          accent={acc}
+          errors={errors}
+        />
+      ))}
+
+      {submitError && (
+        <div style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#f87171', marginBottom: 16 }}>⚠ {submitError}</div>
+      )}
+
+      <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+        {pageIdx > 0 && (
+          <button type="button" onClick={prevPage} disabled={submitting} style={{
+            background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)',
+            borderRadius: 12, color: 'rgba(255,255,255,0.75)', fontSize: 13, fontWeight: 700,
+            padding: '14px 22px', cursor: 'pointer',
+          }}>← Back</button>
+        )}
+        <button type="button" onClick={nextPage} disabled={submitting} style={{
+          flex: 1, background: submitting ? 'rgba(255,255,255,0.1)' : `linear-gradient(135deg,${acc},${acc2})`,
+          border: 'none', borderRadius: 12, color: submitting ? 'rgba(255,255,255,0.5)' : '#1a0a00',
+          fontSize: 14, fontWeight: 900, padding: '14px', cursor: submitting ? 'not-allowed' : 'pointer',
+          letterSpacing: 0.5,
+        }}>
+          {pageIdx >= pages.length - 1
+            ? (submitting ? '⏳ Submitting...' : (isFeedback ? '⭐ Submit Feedback' : '🎉 Complete Registration'))
+            : 'Continue →'}
+        </button>
+      </div>
+    </div>
+  )
+
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg,#08040f 0%,#130826 50%,#0a0614 100%)', fontFamily: "'Montserrat',sans-serif", color: 'white' }}>
       {/* Brand header */}
@@ -601,6 +695,7 @@ export default function EventRegistration() {
             {isFeedback ? 'Your feedback helps us improve every event.' : 'All fields marked * are required.'}
           </div>
 
+          {isSteps ? stepsForm : (
           <form ref={formRef} onSubmit={handleSubmit}>
             {fields.map(f => {
               if (f.type === 'section') {
@@ -651,6 +746,7 @@ export default function EventRegistration() {
               </button>
             )}
           </form>
+          )}
         </div>
 
         {/* Footer */}

@@ -545,7 +545,7 @@ export default function LandingPage() {
       ) : (
         <>
           <HeroCarousel courses={courses} />
-          <UpcomingEventsSection events={courses.filter(c => c.courseType === 'event')} />
+          <UpcomingEventsSection events={courses.filter(c => c.courseType === 'event' && (c.audience?.type || 'public') !== 'restricted')} />
           <CoursesSection courses={courses.filter(c => (c.courseType || 'course') !== 'event')} />
           <TestimonialsSection testimonials={testimonials} />
           <SiteFooter />

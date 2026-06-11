@@ -416,6 +416,54 @@ export const deleteLessonCommentAdmin = (id) =>
   adminToken().then(t => api('deleteLessonComment', { id, asAdmin: true }, t))
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Membership — plans live in settings ('membershipPlans'), members in their own
+// table. Rank = position in the plans array (higher index = higher tier).
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const getMembershipPlans = () =>
+  api('getSetting', { key: 'membershipPlans' }).then(d => d?.plans || [])
+
+export const saveMembershipPlans = (plans) =>
+  adminToken().then(t => api('saveSetting', { key: 'membershipPlans', value: { plans } }, t))
+
+export const getMembershipConfig = () =>
+  api('getSetting', { key: 'membershipConfig' }).then(d => d || {})
+
+export const saveMembershipConfig = (config) =>
+  adminToken().then(t => api('saveSetting', { key: 'membershipConfig', value: config }, t))
+
+// Public — called from the /join flow after payment (server validates the plan
+// and dedupes on paymentRef).
+export async function addMember(member) {
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
+  return api('addMember', { member, baseUrl })
+}
+
+export const getMyMembership = (token) => api('getMyMembership', {}, token)
+
+export const getMembers   = ()  => adminToken().then(t => api('getMembers', {}, t))
+export const saveMemberAdmin = (member) => adminToken().then(t => api('saveMember', { member }, t))
+export const deleteMemberAdmin = (email) => adminToken().then(t => api('deleteMember', { email }, t))
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Events & notifications (customer portal)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const getMyEvents = (token) => api('getMyEvents', {}, token)
+
+export const getMyNotifications = (token) => api('getMyNotifications', {}, token)
+
+export const markNotificationsRead = (ids, token) =>
+  api('markNotificationsRead', { ids }, token)
+
+// Admin: announce an event (in-portal notification + emails to its audience)
+export const notifyEventAudience = (eventId, kind = 'created') =>
+  adminToken().then(t => api('notifyEventAudience', {
+    eventId, kind,
+    baseUrl: typeof window !== 'undefined' ? window.location.origin : '',
+  }, t))
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Utility helpers (unchanged — no DB calls)
 // ═══════════════════════════════════════════════════════════════════════════════
 
