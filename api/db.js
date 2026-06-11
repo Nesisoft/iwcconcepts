@@ -63,6 +63,8 @@ const ADMIN_ACTIONS = new Set([
   'saveSetting',
   'getAllLessonComments',
   'sendTestEmail',
+  'getMembers', 'saveMember', 'deleteMember',
+  'notifyEventAudience',
 ])
 
 // Optional: comma-separated admin emails. When set, only these accounts can post
@@ -84,7 +86,123 @@ const CUSTOMER_ACTIONS = new Set([
   'getLessonComments',
   'addLessonComment',
   'deleteLessonComment',
+  'getMyMembership',
+  'getMyEvents',
+  'getMyNotifications',
+  'markNotificationsRead',
 ])
+
+// ── Membership helpers ─────────────────────────────────────────────────────────
+// Plans live in settings.membershipPlans = { plans: [...] }. Rank = array index
+// (higher index = higher tier). A member with rank N can access courses that
+// require rank ≤ N.
+async function loadPlans(db) {
+  const { rows } = await db.query(`SELECT data FROM settings WHERE key = 'membershipPlans'`)
+  return rows[0]?.data?.plans || []
+}
+
+function planRankOf(plans, planId) {
+  const i = plans.findIndex(p => p.id === planId)
+  return i === -1 ? null : i
+}
+
+function isMemberActive(member) {
+  if (!member || member.status !== 'active') return false
+  if (member.expiresAt && new Date(member.expiresAt) < new Date()) return false
+  return true
+}
+
+async function getMemberByEmail(db, email) {
+  const { rows } = await db.query(
+    'SELECT data FROM members WHERE lower(email) = lower($1)',
+    [email || '']
+  )
+  return rows[0]?.data ?? null
+}
+
+// Event/notification audience: { type: 'public'|'restricted', planIds: [], emails: [] }
+// Missing audience = public (backwards compatible with existing events).
+function audienceMatches(audience, { email, planId } = {}) {
+  const a = audience || {}
+  if ((a.type || 'public') !== 'restricted') return true
+  const emails = (a.emails || []).map(e => String(e).trim().toLowerCase()).filter(Boolean)
+  if (email && emails.includes(email.toLowerCase())) return true
+  if (planId && (a.planIds || []).includes(planId)) return true
+  return false
+}
+
+// Upsert a member record keyed by email. Dedupes on paymentRef so the client
+// return path and the Paystack webhook can both call this safely.
+async function upsertMember(db, incoming, { baseUrl } = {}) {
+  const email = String(incoming.email || '').trim()
+  if (!email) throw new Error('Member email is required')
+
+  const plans = await loadPlans(db)
+  const plan  = plans.find(pl => pl.id === incoming.planId)
+  if (!plan) throw new Error('Unknown membership plan')
+
+  const existing = await getMemberByEmail(db, email)
+  if (existing && incoming.paymentRef && existing.paymentRef === incoming.paymentRef) {
+    return { member: existing, isNew: false, changed: false } // duplicate path — already processed
+  }
+
+  const now       = new Date()
+  const joinedAt  = now.toISOString()
+  const duration  = Number(plan.durationDays) || 0
+  const expiresAt = duration > 0 ? new Date(now.getTime() + duration * 86400000).toISOString() : null
+
+  const member = {
+    id:         existing?.id || incoming.id || ('m' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7)),
+    email,
+    name:       incoming.name || existing?.name || '',
+    planId:     plan.id,
+    planName:   plan.name,
+    planRank:   planRankOf(plans, plan.id),
+    status:     'active',
+    paymentRef: incoming.paymentRef || null,
+    amountPaid: incoming.amountPaid ?? plan.price ?? 0,
+    currency:   incoming.currency || plan.currency || 'GHS',
+    joinedAt:   existing?.joinedAt || joinedAt,
+    renewedAt:  existing ? joinedAt : null,
+    expiresAt,
+    formSubmissionId: incoming.formSubmissionId || existing?.formSubmissionId || null,
+    source:     incoming.source || 'client',
+    history: [
+      ...(existing?.history || []),
+      ...(existing ? [{ planId: existing.planId, planName: existing.planName, paymentRef: existing.paymentRef, expiresAt: existing.expiresAt, replacedAt: joinedAt }] : []),
+    ],
+  }
+
+  await db.query(
+    `INSERT INTO members (id, email, data, created_at)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (email) DO UPDATE SET data = $3`,
+    [member.id, email, member, member.joinedAt]
+  )
+
+  // Welcome / upgrade email — once per new payment.
+  const settings = await loadEmailSettings(db)
+  if (settings.welcomeEnabled) {
+    const portal = baseUrl || process.env.PUBLIC_BASE_URL || ''
+    await trySend(db, {
+      to: email,
+      subject: `Welcome to IWC Concepts — ${plan.name} member 🎉`,
+      text:
+`Hi ${member.name || 'there'},
+
+Your ${plan.name} membership is now active${expiresAt ? ` until ${new Date(expiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}.
+
+You now have access to every course included in your plan${plan.perks?.length ? `, plus:\n- ${plan.perks.join('\n- ')}` : '.'}
+
+Visit your learning portal to get started${portal ? `: ${portal}/#/portal` : '.'}
+
+— IWC Concepts`,
+      settings,
+    })
+  }
+
+  return { member, isNew: !existing, changed: true }
+}
 
 // ── Database connection ────────────────────────────────────────────────────────
 // New client per invocation — correct for serverless.
@@ -418,8 +536,10 @@ async function handleAction(db, action, p, user = null) {
     }
 
     case 'getPortalContent': {
-      // Free courses with portal access are open to all portal users —
-      // no enrollment record required.
+      // Access ladder:
+      //   1. "Open" courses (and legacy free+portal courses) — any portal user.
+      //   2. An enrollment record — grandfathered per-course access.
+      //   3. An active membership whose plan rank ≥ the course's required plan.
       const { rows: pr } = await db.query(
         'SELECT data FROM courses WHERE id = $1',
         [p.courseId]
@@ -427,9 +547,11 @@ async function handleAction(db, action, p, user = null) {
       const prog = pr[0]?.data
       // hasPortalAccess can be boolean true or string "true" depending on how old
       // records were saved, so coerce to boolean.
-      const isFreePortal = prog &&
-        prog.type === 'free' &&
-        (prog.hasPortalAccess === true || prog.hasPortalAccess === 'true')
+      const isFreePortal = prog && (
+        prog.accessMode === 'open' ||
+        (!prog.accessMode && prog.type === 'free' &&
+          (prog.hasPortalAccess === true || prog.hasPortalAccess === 'true'))
+      )
 
       if (!isFreePortal) {
         const { rows: er } = await db.query(
@@ -437,7 +559,24 @@ async function handleAction(db, action, p, user = null) {
            WHERE course_id = $1 AND data->>'participantEmail' = $2`,
           [p.courseId, user.email]
         )
-        if (er.length === 0) throw new Error('Not enrolled in this course')
+        const enrolled = er.length > 0
+
+        if (!enrolled) {
+          // Membership-gated course?
+          if (prog?.accessMode === 'plan' && prog.accessPlanId) {
+            const plans  = await loadPlans(db)
+            const reqRank = planRankOf(plans, prog.accessPlanId)
+            const member  = await getMemberByEmail(db, user.email)
+            const memRank = isMemberActive(member) ? planRankOf(plans, member.planId) : null
+            const ok = reqRank !== null && memRank !== null && memRank >= reqRank
+            if (!ok) {
+              const reqName = plans.find(pl => pl.id === prog.accessPlanId)?.name || 'a higher'
+              throw new Error(`This course requires the ${reqName} plan or higher — upgrade your membership to access it`)
+            }
+          } else {
+            throw new Error('Not enrolled in this course')
+          }
+        }
       }
 
       const [sr, ir] = await Promise.all([
@@ -637,6 +776,184 @@ async function handleAction(db, action, p, user = null) {
         return { ok: false, skipped: true, reason: result.reason }
       }
       return { ok: true, to }
+    }
+
+    // ── Membership ────────────────────────────────────────────────────────────
+    case 'addMember': {
+      // Public — called from the /join flow after payment (or by the Paystack
+      // webhook safety net). Validates the plan server-side and dedupes on
+      // paymentRef, so double calls are harmless.
+      const { member } = await upsertMember(db, p.member || {}, { baseUrl: p.baseUrl })
+      return member
+    }
+
+    case 'getMyMembership': {
+      const member = await getMemberByEmail(db, user.email)
+      if (!member) return null
+      return { ...member, active: isMemberActive(member) }
+    }
+
+    case 'getMembers': {
+      const { rows } = await db.query('SELECT data FROM members ORDER BY created_at DESC')
+      return rows.map(r => ({ ...r.data, active: isMemberActive(r.data) }))
+    }
+
+    case 'saveMember': {
+      // Admin edit — e.g. extend expiry, change plan, deactivate.
+      const m = p.member
+      if (!m?.email) throw new Error('Member email is required')
+      await db.query(
+        `INSERT INTO members (id, email, data, created_at)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (email) DO UPDATE SET data = $3`,
+        [m.id, m.email, m, m.joinedAt || new Date().toISOString()]
+      )
+      return m
+    }
+
+    case 'deleteMember': {
+      await db.query('DELETE FROM members WHERE lower(email) = lower($1)', [p.email || ''])
+      return { ok: true }
+    }
+
+    // ── Events (member-visible) ───────────────────────────────────────────────
+    case 'getMyEvents': {
+      const [{ rows: er }, member] = await Promise.all([
+        db.query(`SELECT data FROM courses WHERE data->>'courseType' = 'event' AND data->>'status' <> 'draft'`),
+        getMemberByEmail(db, user.email),
+      ])
+      const me = {
+        email:  user.email,
+        planId: isMemberActive(member) ? member.planId : null,
+      }
+      const now = Date.now()
+      return er.rows
+        .map(r => r.data)
+        .filter(ev => audienceMatches(ev.audience, me))
+        .filter(ev => {
+          const end = ev.endDate || ev.startDate
+          if (!end) return true                       // undated events stay visible
+          return new Date(end).getTime() >= now - 86400000   // hide >24h past
+        })
+        .sort((a, b) => new Date(a.startDate || 0) - new Date(b.startDate || 0))
+        .map(ev => ({
+          id: ev.id, title: ev.title, tagline: ev.tagline, image: ev.image,
+          startDate: ev.startDate, endDate: ev.endDate, venue: ev.venue,
+          status: ev.status, registrationFormId: ev.registrationFormId || null,
+          eventAccess: ev.eventAccess || null,        // link / passcode for eligible users only
+        }))
+    }
+
+    // ── Notifications ─────────────────────────────────────────────────────────
+    case 'getMyNotifications': {
+      const [{ rows: nr }, member] = await Promise.all([
+        db.query('SELECT data FROM notifications ORDER BY created_at DESC LIMIT 50'),
+        getMemberByEmail(db, user.email),
+      ])
+      const me = { email: user.email, planId: isMemberActive(member) ? member.planId : null }
+      return nr.rows
+        .map(r => r.data)
+        .filter(n => audienceMatches(n.audience, me))
+        .map(n => ({
+          id: n.id, type: n.type, eventId: n.eventId || null,
+          title: n.title, body: n.body, createdAt: n.createdAt,
+          read: (n.readBy || []).includes(user.email.toLowerCase()),
+        }))
+    }
+
+    case 'markNotificationsRead': {
+      const ids = Array.isArray(p.ids) ? p.ids : []
+      if (ids.length) {
+        await db.query(
+          `UPDATE notifications
+           SET data = jsonb_set(data, '{readBy}', coalesce(data->'readBy', '[]'::jsonb) || to_jsonb($1::text))
+           WHERE id = ANY($2) AND NOT (coalesce(data->'readBy', '[]'::jsonb) ? $1)`,
+          [user.email.toLowerCase(), ids]
+        )
+      }
+      return { ok: true }
+    }
+
+    case 'notifyEventAudience': {
+      // Admin: create an in-portal notification + email everyone in the event's
+      // audience (members of the chosen plans, invited emails, or all active
+      // members for public events).
+      const { rows: cr } = await db.query('SELECT data FROM courses WHERE id = $1', [p.eventId])
+      const ev = cr[0]?.data
+      if (!ev) throw new Error('Event not found')
+
+      const kind  = p.kind === 'updated' ? 'updated' : 'created'
+      const when  = ev.startDate
+        ? new Date(ev.startDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+        : 'Date to be announced'
+      const access = ev.eventAccess || {}
+      const mode   = access.mode || 'online'
+      const whereLine = mode === 'in_person'
+        ? `Venue: ${access.address || ev.venue || 'TBA'}`
+        : `Online${access.platform ? ` via ${access.platform}` : ''}${access.link ? `\nLink: ${access.link}` : ''}${access.passcode ? `\nPasscode: ${access.passcode}` : ''}`
+
+      const title = kind === 'updated' ? `Event updated: ${ev.title}` : `New event: ${ev.title}`
+      const body  = `${when}\n${whereLine}${access.notes ? `\n${access.notes}` : ''}`
+
+      // In-portal notification
+      const nid = 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
+      const notification = {
+        id: nid, type: 'event', kind, eventId: ev.id,
+        title, body,
+        audience: ev.audience || { type: 'public' },
+        createdAt: new Date().toISOString(),
+        readBy: [],
+      }
+      await db.query(
+        'INSERT INTO notifications (id, data, created_at) VALUES ($1, $2, $3)',
+        [nid, notification, notification.createdAt]
+      )
+
+      // Email recipients
+      const { rows: mr } = await db.query('SELECT data FROM members')
+      const activeMembers = mr.map(r => r.data).filter(isMemberActive)
+      const a = ev.audience || {}
+      let recipients
+      if ((a.type || 'public') === 'restricted') {
+        const planSet = new Set(a.planIds || [])
+        recipients = new Set([
+          ...activeMembers.filter(m => planSet.has(m.planId)).map(m => m.email.toLowerCase()),
+          ...(a.emails || []).map(e => String(e).trim().toLowerCase()).filter(Boolean),
+        ])
+      } else {
+        recipients = new Set(activeMembers.map(m => m.email.toLowerCase()))
+      }
+
+      const settings = await loadEmailSettings(db)
+      const portal   = p.baseUrl || process.env.PUBLIC_BASE_URL || ''
+      const list     = [...recipients].slice(0, 300)   // serverless safety cap
+      let sent = 0
+      for (const to of list) {
+        const r = await trySend(db, {
+          to,
+          subject: `📅 ${title}`,
+          text:
+`Hi there,
+
+${kind === 'updated' ? 'An event you have access to was updated.' : "You're invited to a new event."}
+
+${ev.title}
+${when}
+${whereLine}
+${access.notes ? `\n${access.notes}\n` : ''}
+${portal ? `See it in your portal (and add it to your calendar): ${portal}/#/portal` : ''}
+
+— IWC Concepts`,
+          settings,
+        })
+        if (r && !r.skipped) sent++
+      }
+
+      // Stamp the event so the admin UI can show when it was last announced.
+      const stamped = { ...ev, lastNotifiedAt: new Date().toISOString() }
+      await db.query('UPDATE courses SET data = $2 WHERE id = $1', [ev.id, stamped])
+
+      return { ok: true, recipients: list.length, sent, notificationId: nid }
     }
 
     default:

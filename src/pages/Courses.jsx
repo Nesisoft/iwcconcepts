@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getAllCourses } from '../utils/formStorage'
+import { getAllCourses, getMembershipPlans } from '../utils/formStorage'
 import SiteNav from '../components/SiteNav'
 import SiteFooter from '../components/SiteFooter'
-import { Calendar, MapPin, Star, BookOpen, ArrowRight, Search, Clock } from 'lucide-react'
+import { Calendar, MapPin, Star, BookOpen, ArrowRight, Search, Clock, Ticket } from 'lucide-react'
 
 const BRAND = '#6c3fc5'
 const GOLD  = '#C9A84C'
@@ -20,21 +20,28 @@ function formatDate(iso) {
 }
 
 const FILTERS = [
-  { key: 'all',  label: 'All Courses' },
-  { key: 'free', label: 'Free' },
-  { key: 'paid', label: 'Premium' },
+  { key: 'all',        label: 'All Courses' },
+  { key: 'free',       label: 'Free' },
+  { key: 'membership', label: 'Membership' },
 ]
+
+// Access helpers (accessMode wins; legacy courses fall back to type)
+const isFreeAccess       = p => p.accessMode === 'open' || (p.accessMode !== 'plan' && p.type === 'free')
+const isMembershipAccess = p => p.accessMode === 'plan' || (p.accessMode !== 'open' && p.type === 'paid')
+// Restricted events are members-only — never listed publicly
+const isPubliclyVisible  = p => !(p.courseType === 'event' && p.audience?.type === 'restricted')
 
 export default function Courses() {
   const navigate = useNavigate()
   const [courses, setCourses] = useState([])
+  const [plans,   setPlans]   = useState([])
   const [loading,  setLoading]  = useState(true)
   const [filter,   setFilter]   = useState('all')
   const [query,    setQuery]    = useState('')
 
   useEffect(() => {
-    getAllCourses()
-      .then(ps => setCourses(ps || []))
+    Promise.all([getAllCourses(), getMembershipPlans().catch(() => [])])
+      .then(([ps, pls]) => { setCourses(ps || []); setPlans(pls || []) })
       .catch(() => setCourses([]))
       .finally(() => setLoading(false))
   }, [])
@@ -43,7 +50,8 @@ export default function Courses() {
     const q = query.trim().toLowerCase()
     return courses
       .filter(p => p.status !== 'draft')
-      .filter(p => filter === 'all' ? true : p.type === filter)
+      .filter(isPubliclyVisible)
+      .filter(p => filter === 'all' ? true : filter === 'free' ? isFreeAccess(p) : isMembershipAccess(p))
       .filter(p => {
         if (!q) return true
         return [p.title, p.tagline, p.description, ...(p.tags || [])]
@@ -53,11 +61,11 @@ export default function Courses() {
   }, [courses, filter, query])
 
   const counts = useMemo(() => {
-    const live = courses.filter(p => p.status !== 'draft')
+    const live = courses.filter(p => p.status !== 'draft').filter(isPubliclyVisible)
     return {
-      all:  live.length,
-      free: live.filter(p => p.type === 'free').length,
-      paid: live.filter(p => p.type === 'paid').length,
+      all:        live.length,
+      free:       live.filter(isFreeAccess).length,
+      membership: live.filter(isMembershipAccess).length,
     }
   }, [courses])
 
@@ -76,9 +84,18 @@ export default function Courses() {
         <h1 style={{ fontSize: 'clamp(30px, 5vw, 48px)', fontWeight: 900, margin: '0 auto 16px', lineHeight: 1.15, maxWidth: 700 }}>
           Explore Every Course
         </h1>
-        <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.7)', maxWidth: 540, margin: '0 auto', lineHeight: 1.7 }}>
+        <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.7)', maxWidth: 540, margin: '0 auto 26px', lineHeight: 1.7 }}>
           Free and premium faith-based courses to grow your business, leadership, and impact.
         </p>
+        <button onClick={() => navigate('/join')} style={{
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+          background: `linear-gradient(135deg, ${GOLD}, #e8c060)`, color: '#1A1A2E',
+          border: 'none', borderRadius: 30, padding: '13px 30px',
+          fontWeight: 800, fontSize: 14, cursor: 'pointer',
+          boxShadow: '0 4px 24px rgba(201,168,76,0.35)',
+        }}>
+          <Ticket size={17} /> Become a Member
+        </button>
       </section>
 
       {/* Controls */}
@@ -128,7 +145,7 @@ export default function Courses() {
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 24 }}>
-            {visible.map(p => <CourseCard key={p.id} course={p} navigate={navigate} />)}
+            {visible.map(p => <CourseCard key={p.id} course={p} plans={plans} navigate={navigate} />)}
           </div>
         )}
       </section>
@@ -138,12 +155,16 @@ export default function Courses() {
   )
 }
 
-function CourseCard({ course, navigate }) {
-  const isPaid = course.type === 'paid'
+function CourseCard({ course, plans = [], navigate }) {
+  const isPlanGated = course.accessMode === 'plan' && course.accessPlanId
+  const isPaid      = !isPlanGated && course.accessMode !== 'open' && course.type === 'paid'
   const canRegister = course.status === 'open'
+  const reqPlan     = isPlanGated ? plans.find(pl => pl.id === course.accessPlanId) : null
 
   function handleCTA() {
-    if (canRegister && course.registrationFormId) navigate(`/onboard?courseId=${course.id}`)
+    if (!canRegister) return
+    if (isPlanGated) { navigate('/join'); return }
+    if (course.registrationFormId) navigate(`/onboard?courseId=${course.id}`)
   }
 
   return (
@@ -161,6 +182,11 @@ function CourseCard({ course, navigate }) {
           : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #6c3fc520, #6c3fc540)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BookOpen size={40} color={BRAND} /></div>
         }
         <span style={{ position: 'absolute', top: 12, left: 12, background: statusColor(course.status), color: '#fff', fontSize: 11, fontWeight: 700, borderRadius: 20, padding: '3px 10px', textTransform: 'capitalize' }}>{course.status}</span>
+        {isPlanGated && (
+          <span style={{ position: 'absolute', top: 12, right: 12, background: `linear-gradient(135deg, ${reqPlan?.color || BRAND}, ${reqPlan?.color || BRAND}cc)`, color: '#fff', fontSize: 11, fontWeight: 800, borderRadius: 20, padding: '4px 12px', boxShadow: '0 2px 8px rgba(0,0,0,0.25)', display: 'inline-flex', alignItems: 'center', gap: 5 }} title={`Included from the ${reqPlan?.name || ''} plan and above`}>
+            🎫 {reqPlan?.name || 'Members'}+
+          </span>
+        )}
         {isPaid && (
           <span style={{ position: 'absolute', top: 12, right: 12, background: `linear-gradient(135deg, ${GOLD}, #e8c060)`, borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }} title="Premium course">
             <Star size={15} color="#1A1A2E" fill="#1A1A2E" />
@@ -190,13 +216,13 @@ function CourseCard({ course, navigate }) {
           style={{
             marginTop: 12, width: '100%', border: 'none', borderRadius: 9, padding: '11px 0',
             fontWeight: 700, fontSize: 13, cursor: canRegister ? 'pointer' : 'not-allowed',
-            background: canRegister ? (isPaid ? BRAND : '#059669') : '#e5e7eb',
+            background: canRegister ? ((isPaid || isPlanGated) ? BRAND : '#059669') : '#e5e7eb',
             color: canRegister ? '#fff' : '#9ca3af',
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
           }}
         >
           {canRegister
-            ? <>{isPaid ? 'Register' : 'Join Free'} <ArrowRight size={15} /></>
+            ? <>{isPlanGated ? 'Join to Access' : isPaid ? 'Register' : 'Join Free'} <ArrowRight size={15} /></>
             : (course.status === 'upcoming' ? 'Coming Soon' : course.status === 'closed' ? 'Registration Closed' : 'Completed')
           }
         </button>

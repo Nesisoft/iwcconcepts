@@ -168,16 +168,21 @@ export default function CoursePortal() {
   )
 
   if (error) {
-    const isAccessError = error.toLowerCase().includes('enrolled') || error.toLowerCase().includes('access')
+    const isUpgradeError = error.toLowerCase().includes('plan')
+    const isAccessError  = isUpgradeError || error.toLowerCase().includes('enrolled') || error.toLowerCase().includes('access')
     return (
       <div style={{ minHeight: '100vh', background: '#f9fafb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, sans-serif', flexDirection: 'column', gap: 16, padding: 24 }}>
         {isAccessError ? <Lock size={46} color="#9ca3af" /> : <AlertTriangle size={46} color="#f59e0b" />}
         <div style={{ fontSize: 18, fontWeight: 700, color: '#374151', textAlign: 'center' }}>
-          {isAccessError ? "You don't have access to this course" : 'Could not load content'}
+          {isUpgradeError ? 'This course is in a higher membership tier' : isAccessError ? "You don't have access to this course" : 'Could not load content'}
         </div>
-        {!isAccessError && <div style={{ fontSize: 13, color: '#9ca3af', textAlign: 'center', maxWidth: 400 }}>{error}</div>}
+        {(isUpgradeError || !isAccessError) && <div style={{ fontSize: 13, color: '#9ca3af', textAlign: 'center', maxWidth: 400 }}>{error}</div>}
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
-          <button onClick={load} style={{ background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 8, padding: '10px 20px', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>Try Again</button>
+          {isUpgradeError ? (
+            <button onClick={() => navigate('/join?upgrade=1')} style={{ background: 'linear-gradient(135deg, #6c3fc5, #9333ea)', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>🎫 Upgrade My Plan</button>
+          ) : (
+            <button onClick={load} style={{ background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 8, padding: '10px 20px', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>Try Again</button>
+          )}
           <button onClick={() => navigate('/portal')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: BRAND, color: '#fff', border: 'none', borderRadius: 8, padding: '10px 24px', fontWeight: 600, cursor: 'pointer' }}><ArrowLeft size={15} /> My Courses</button>
         </div>
       </div>

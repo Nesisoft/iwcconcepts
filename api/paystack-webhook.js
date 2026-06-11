@@ -79,7 +79,12 @@ export default async function handler(req, res) {
   if (event?.event !== 'charge.success') return res.status(200).json({ received: true })
 
   try {
-    await withDb(db => enrollFromCharge(db, event.data || {}))
+    const data = event.data || {}
+    if (data?.metadata?.type === 'membership') {
+      await withDb(db => membershipFromCharge(db, data))
+    } else {
+      await withDb(db => enrollFromCharge(db, data))
+    }
   } catch (e) {
     // Return 200 so Paystack doesn't keep retrying; we log for investigation.
     console.error('[paystack-webhook]', e.message)
@@ -87,6 +92,70 @@ export default async function handler(req, res) {
   }
 
   return res.status(200).json({ received: true })
+}
+
+// Membership purchases (metadata.type === 'membership') — server-side safety
+// net mirroring the client /join return path. Dedupes on paymentRef.
+async function membershipFromCharge(db, data) {
+  const { reference, amount, currency = 'GHS', customer = {}, metadata = {} } = data
+  const { planId, participantName = '' } = metadata || {}
+  const email = customer?.email
+  if (!reference || !planId || !email) return
+
+  const { rows: sr } = await db.query(`SELECT data FROM settings WHERE key = 'membershipPlans'`)
+  const plans = sr[0]?.data?.plans || []
+  const plan  = plans.find(p => p.id === planId)
+  if (!plan) { console.warn('[paystack-webhook] unknown plan', planId); return }
+
+  const { rows: mr } = await db.query('SELECT data FROM members WHERE lower(email) = lower($1)', [email])
+  const existing = mr[0]?.data
+  if (existing && existing.paymentRef === reference) return // client path already completed
+
+  const now       = new Date()
+  const duration  = Number(plan.durationDays) || 0
+  const expiresAt = duration > 0 ? new Date(now.getTime() + duration * 86400000).toISOString() : null
+  const member = {
+    id:         existing?.id || `mref_${reference}`,
+    email,
+    name:       participantName || existing?.name || '',
+    planId:     plan.id,
+    planName:   plan.name,
+    planRank:   plans.findIndex(p => p.id === plan.id),
+    status:     'active',
+    paymentRef: reference,
+    amountPaid: Math.round((Number(amount) || 0) / 100),
+    currency,
+    joinedAt:   existing?.joinedAt || now.toISOString(),
+    renewedAt:  existing ? now.toISOString() : null,
+    expiresAt,
+    source:     'webhook',
+    history: [
+      ...(existing?.history || []),
+      ...(existing ? [{ planId: existing.planId, planName: existing.planName, paymentRef: existing.paymentRef, expiresAt: existing.expiresAt, replacedAt: now.toISOString() }] : []),
+    ],
+  }
+
+  await db.query(
+    `INSERT INTO members (id, email, data, created_at)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (email) DO UPDATE SET data = $3`,
+    [member.id, email, member, member.joinedAt]
+  )
+
+  const { rows } = await db.query("SELECT data FROM settings WHERE key = 'emailSettings'")
+  const settings = { ...DEFAULT_EMAIL_SETTINGS, ...(rows[0]?.data || {}) }
+  if (settings.welcomeEnabled) {
+    try {
+      await sendMail({
+        to: email,
+        subject: `Welcome to IWC Concepts — ${plan.name} member 🎉`,
+        text: `Hi ${member.name || 'there'},\n\nYour ${plan.name} membership is now active${expiresAt ? ` until ${new Date(expiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}.\n\nVisit your learning portal to get started${process.env.PUBLIC_BASE_URL ? `: ${process.env.PUBLIC_BASE_URL}/#/portal` : '.'}\n\n— IWC Concepts`,
+        settings,
+      })
+    } catch (e) {
+      console.warn('[paystack-webhook] membership welcome email failed:', e.message)
+    }
+  }
 }
 
 async function enrollFromCharge(db, data) {

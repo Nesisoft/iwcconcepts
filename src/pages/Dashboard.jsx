@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   MessageSquare, Megaphone, ClipboardList, BarChart3, Database,
   GraduationCap, Star, Globe, Users, Award, LineChart, MessagesSquare, Mail,
+  Ticket,
 } from 'lucide-react'
 
 const tools = [
@@ -66,6 +67,16 @@ const tools = [
     desc: 'Create and manage courses. Control the hero carousel, set pricing, link registration forms, and publish to the public landing page.',
     tags: ['Courses', 'Carousel', 'Paystack', 'Publish'],
     accent: '#6c3fc5',
+    available: true,
+  },
+  {
+    id: 'plans-admin',
+    path: '/plans-admin',
+    Icon: Ticket,
+    title: 'Membership Plans',
+    desc: 'Define membership tiers up to Premium — perks, pricing, validity — link the join form, and manage members and expiries.',
+    tags: ['Plans', 'Tiers', 'Members', 'Join Form'],
+    accent: '#C9A84C',
     available: true,
   },
   {

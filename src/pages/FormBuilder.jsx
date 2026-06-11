@@ -535,6 +535,24 @@ export default function FormBuilder() {
                   <Field label="Form Title">
                     <input style={inp()} value={form.title} onChange={e => setF('title', e.target.value)} />
                   </Field>
+                  <Field label="Display Mode (how registrants see this form)">
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      {[
+                        { v: 'single', icon: '📝', name: 'Single Form', desc: 'All fields on one page. Quick to complete.' },
+                        { v: 'steps',  icon: '🧭', name: 'Step-by-Step', desc: 'Section dividers become wizard steps with a progress bar.' },
+                      ].map(m => (
+                        <div key={m.v} onClick={() => setF('displayMode', m.v)} style={{ flex: 1, border: `2px solid ${(form.displayMode || 'single') === m.v ? ACC : 'rgba(255,255,255,0.12)'}`, borderRadius: 10, padding: '12px 14px', cursor: 'pointer', background: (form.displayMode || 'single') === m.v ? `${ACC}15` : 'transparent' }}>
+                          <div style={{ fontWeight: 800, fontSize: 12, color: (form.displayMode || 'single') === m.v ? ACC2 : 'white', marginBottom: 4 }}>{m.icon} {m.name}</div>
+                          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>{m.desc}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {(form.displayMode || 'single') === 'steps' && !(form.fields || []).some(f => f.type === 'section') && (
+                      <div style={{ marginTop: 8, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '8px 12px', fontSize: 10, color: '#fbbf24' }}>
+                        ⚠ No Section/Divider fields yet — all fields will appear as one step. Add sections in the Fields tab to create steps.
+                      </div>
+                    )}
+                  </Field>
                   <Field label="Description">
                     <RichTextEditor dark value={form.description || ''} onChange={v => setF('description', v)} placeholder="Describe this form or event…" minRows={3} />
                   </Field>

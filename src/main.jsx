@@ -14,13 +14,19 @@ import './styles/global.css'
   //    Stash reference + courseId in sessionStorage, then redirect into the
   //    hash router so CourseOnboarding can complete the enrollment.
   if (search.get('paystack_return') === '1') {
-    const courseId = search.get('courseId')
-    const reference = search.get('reference') || search.get('trxref')
-    if (courseId && reference) {
+    const courseId     = search.get('courseId')
+    const planId       = search.get('planId')
+    const isMembership = search.get('membership') === '1'
+    const reference    = search.get('reference') || search.get('trxref')
+
+    if (isMembership && reference) {
+      // Membership purchase → MembershipJoin completes the activation
+      sessionStorage.setItem('iwc_paystack_return_membership', JSON.stringify({ planId, reference }))
+    } else if (courseId && reference) {
       sessionStorage.setItem('iwc_paystack_return', JSON.stringify({ courseId, reference }))
     }
-    // Route into HashRouter → CourseOnboarding will pick up the stashed ref
-    const target = courseId ? `/#/onboard?courseId=${courseId}` : '/'
+    // Route into HashRouter → the right page picks up the stashed ref
+    const target = isMembership ? '/#/join' : (courseId ? `/#/onboard?courseId=${courseId}` : '/')
     window.location.replace(window.location.origin + target)
     return // stop — page is reloading
   }
