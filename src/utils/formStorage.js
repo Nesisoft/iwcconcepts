@@ -258,6 +258,26 @@ export async function deleteCourse(id) {
   return api('deleteCourse', { id }, await adminToken())
 }
 
+// ── Events ─────────────────────────────────────────────────────────────────────
+// Events are stored in the same `courses` table (courseType: 'event') so the
+// backend stays unchanged — these wrappers just give the Events Manager a clean,
+// separate API. Courses-only and events-only views filter the shared list.
+
+export const getAllEvents = () =>
+  getAllCourses().then(list => (list || []).filter(c => (c.courseType || 'course') === 'event'))
+
+export const getCoursesOnly = () =>
+  getAllCourses().then(list => (list || []).filter(c => (c.courseType || 'course') !== 'event'))
+
+export async function saveEvent(event) {
+  // Force the discriminator so an event can never be mistaken for a course.
+  return saveCourse({ ...event, courseType: 'event' })
+}
+
+export async function deleteEvent(id) {
+  return deleteCourse(id)
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Enrollments CRUD  (public inserts, admin reads)
 // ═══════════════════════════════════════════════════════════════════════════════

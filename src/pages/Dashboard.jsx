@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   MessageSquare, Megaphone, ClipboardList, BarChart3, Database,
   GraduationCap, Star, Globe, Users, Award, LineChart, MessagesSquare, Mail,
-  Ticket,
+  Ticket, Lock, Calendar,
 } from 'lucide-react'
 
 const tools = [
@@ -77,6 +77,26 @@ const tools = [
     desc: 'Define membership tiers up to Premium — perks, pricing, validity — link the join form, and manage members and expiries.',
     tags: ['Plans', 'Tiers', 'Members', 'Join Form'],
     accent: '#C9A84C',
+    available: true,
+  },
+  {
+    id: 'events-admin',
+    path: '/events-admin',
+    Icon: Calendar,
+    title: 'Events Manager',
+    desc: 'Create and run events separately from courses — dates, venue/online join details, free / paid-ticket / membership access, promo codes, RSVP forms, and audience announcements.',
+    tags: ['Events', 'Tickets', 'Promo Codes', 'Announce'],
+    accent: '#f59e0b',
+    available: true,
+  },
+  {
+    id: 'access-audit',
+    path: '/access-audit',
+    Icon: Lock,
+    title: 'Access Audit',
+    desc: 'See every course and event with the one access path it uses — Open, Membership, or One-time — and catch anything double-gated, mispriced, or ambiguous.',
+    tags: ['Access', 'Membership', 'Conflicts', 'Review'],
+    accent: '#6c3fc5',
     available: true,
   },
   {

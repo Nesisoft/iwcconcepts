@@ -34,6 +34,8 @@ import EmailAdmin from './pages/EmailAdmin'
 import PortalCertificate from './pages/PortalCertificate'
 import PlansManager from './pages/PlansManager'
 import MembershipJoin from './pages/MembershipJoin'
+import AccessAudit from './pages/AccessAudit'
+import EventsManager from './pages/EventsManager'
 
 // Pages that are publicly accessible (no login required)
 const PUBLIC_ROUTES = (
@@ -85,6 +87,7 @@ export default function App() {
             <Route path="/event-dashboard"     element={<AdminRoute element={<EventDashboard />} />} />
             <Route path="/db-setup"            element={<AdminRoute element={<DatabaseSetup />} />} />
             <Route path="/courses-admin"      element={<AdminRoute element={<CoursesManager />} />} />
+            <Route path="/events-admin"       element={<AdminRoute element={<EventsManager />} />} />
             <Route path="/testimonials-admin"  element={<AdminRoute element={<TestimonialsManager />} />} />
             <Route path="/content-admin"       element={<AdminRoute element={<ContentManager />} />} />
             <Route path="/user-progress"       element={<AdminRoute element={<UserProgressAdmin />} />} />
@@ -93,6 +96,7 @@ export default function App() {
             <Route path="/discussions"         element={<AdminRoute element={<DiscussionsAdmin />} />} />
             <Route path="/email-admin"         element={<AdminRoute element={<EmailAdmin />} />} />
             <Route path="/plans-admin"         element={<AdminRoute element={<PlansManager />} />} />
+            <Route path="/access-audit"        element={<AdminRoute element={<AccessAudit />} />} />
           </Routes>
         </CustomerAuthProvider>
       </AuthProvider>

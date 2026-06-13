@@ -102,7 +102,9 @@ export default function Portal() {
       const live = (allProgs || []).filter(p => p.status !== 'draft' && isCourse(p) && !enrolledIds.has(p.id))
 
       const isOpen   = p => p.accessMode === 'open' || (!p.accessMode && p.type === 'free')
-      const isLegacy = p => (!p.accessMode || p.accessMode === 'legacy') && p.type === 'paid'
+      // "standalone" is the new first-class name for a one-time paid course;
+      // older records used accessMode 'legacy' (or none) + type 'paid'.
+      const isLegacy = p => p.accessMode === 'standalone' || ((!p.accessMode || p.accessMode === 'legacy') && p.type === 'paid')
       const isPlan   = p => p.accessMode === 'plan' && p.accessPlanId
 
       const freeProgs = live.filter(p => isOpen(p) && (p.hasPortalAccess === true || p.hasPortalAccess === 'true'))
@@ -459,9 +461,9 @@ function EventCard({ event, navigate }) {
     <div style={{
       background: '#fff', borderRadius: 16, overflow: 'hidden',
       boxShadow: '0 2px 12px rgba(0,0,0,0.07)', border: '1px solid #f3f4f6',
-      display: 'flex', flexDirection: 'column', minHeight: 250,
+      display: 'flex', flexDirection: 'column', minHeight: 250, height: '100%', boxSizing: 'border-box',
     }}>
-      <div style={{ height: 96, background: 'linear-gradient(135deg, #1e0f3a, #3b1d6e)', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ height: 96, flexShrink: 0, background: 'linear-gradient(135deg, #1e0f3a, #3b1d6e)', position: 'relative', overflow: 'hidden' }}>
         {event.image && <img src={event.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85 }} />}
         <span style={{ position: 'absolute', top: 10, left: 10, background: '#f59e0b', color: '#fff', fontSize: 10, fontWeight: 800, borderRadius: 20, padding: '3px 10px' }}>EVENT</span>
         <span style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(255,255,255,0.92)', color: '#374151', fontSize: 10, fontWeight: 700, borderRadius: 20, padding: '3px 10px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -471,7 +473,7 @@ function EventCard({ event, navigate }) {
       </div>
 
       <div style={{ padding: '14px 16px 16px', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <h3 style={{ margin: 0, fontSize: 14.5, fontWeight: 800, color: '#111827', lineHeight: 1.3 }}>{event.title}</h3>
+        <h3 style={{ margin: 0, fontSize: 14.5, fontWeight: 800, color: '#111827', lineHeight: 1.3, minHeight: '2.6em', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{event.title}</h3>
         {event.startDate && (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: BRAND, fontWeight: 700 }}>
             <Calendar size={13} /> {formatDateTime(event.startDate)}
@@ -496,6 +498,15 @@ function EventCard({ event, navigate }) {
         )}
         {a.notes && <div style={{ fontSize: 11, color: '#9ca3af', lineHeight: 1.5 }}>{a.notes}</div>}
 
+        {event.needsTicket && (
+          <button onClick={() => navigate(`/onboard?courseId=${event.id}`)} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 12.5, color: '#fff', background: `linear-gradient(135deg, ${BRAND}, ${BRAND2})`, borderRadius: 8, padding: '9px 12px', border: 'none', fontWeight: 800, cursor: 'pointer', marginTop: 4 }}>
+            🎟️ Get Ticket — {event.currency || 'GHS'} {Number(event.price || 0).toLocaleString()}
+          </button>
+        )}
+        {event.hasTicket && event.accessMode === 'standalone' && (
+          <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, marginTop: 2 }}>✓ Ticket confirmed</div>
+        )}
+
         <div style={{ flex: 1 }} />
 
         {/* Add to calendar + RSVP */}
@@ -506,7 +517,7 @@ function EventCard({ event, navigate }) {
           <button onClick={() => downloadICS(event)} style={{ flex: 1, minWidth: 100, background: '#f5f0ff', color: BRAND, border: 'none', borderRadius: 8, padding: '9px 0', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
             ⬇ .ics file
           </button>
-          {event.registrationFormId && (
+          {event.registrationFormId && !event.needsTicket && (
             <button onClick={() => navigate(`/register?id=${event.registrationFormId}`)} style={{ flexBasis: '100%', background: '#fff', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 8, padding: '9px 0', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
             ✋ RSVP / Register
             </button>
@@ -544,7 +555,7 @@ function Section({ title, subtitle, children, horizontal, onViewAll }) {
           scrollbarColor: '#e5e7eb transparent',
         }}>
           {kids.map((child, i) => (
-            <div key={i} style={{ flexShrink: 0, width: 280, scrollSnapAlign: 'start' }}>{child}</div>
+            <div key={i} style={{ flexShrink: 0, width: 280, scrollSnapAlign: 'start', display: 'flex', flexDirection: 'column' }}>{child}</div>
           ))}
         </div>
       ) : (
@@ -563,10 +574,10 @@ function CourseCard({ course, fallbackTitle, badge, badgeColor, badgeBg, sub, ac
     <div style={{
       background: '#fff', borderRadius: 16, overflow: 'hidden',
       boxShadow: '0 2px 12px rgba(0,0,0,0.07)', border: '1px solid #f3f4f6',
-      display: 'flex', flexDirection: 'column',
+      display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box',
     }}>
       {/* Thumbnail */}
-      <div style={{ height: 140, background: '#f3f4f6', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ height: 140, flexShrink: 0, background: '#f3f4f6', position: 'relative', overflow: 'hidden' }}>
         {course?.image
           ? <img src={course.image} alt={course?.title || fallbackTitle} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #6c3fc520, #6c3fc540)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BookOpen size={34} color={BRAND} /></div>
@@ -580,7 +591,7 @@ function CourseCard({ course, fallbackTitle, badge, badgeColor, badgeBg, sub, ac
 
       {/* Info */}
       <div style={{ padding: '16px 18px 18px', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#111827', lineHeight: 1.3 }}>
+        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#111827', lineHeight: 1.3, minHeight: '2.6em', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
           {course?.title || fallbackTitle}
         </h3>
         {sub && <div style={{ fontSize: 12, color: '#9ca3af' }}>{sub}</div>}

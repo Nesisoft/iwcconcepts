@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAllCourses, getMembershipPlans } from '../utils/formStorage'
+import { accessModeOf, isOpenAccess, isPlanAccess, isStandaloneAccess, requiredPlan } from '../utils/access'
 import SiteNav from '../components/SiteNav'
 import SiteFooter from '../components/SiteFooter'
 import { Calendar, MapPin, Star, BookOpen, ArrowRight, Search, Clock, Ticket } from 'lucide-react'
@@ -20,14 +21,12 @@ function formatDate(iso) {
 }
 
 const FILTERS = [
-  { key: 'all',        label: 'All Courses' },
-  { key: 'free',       label: 'Free' },
+  { key: 'all',        label: 'All' },
+  { key: 'open',       label: 'Free' },
   { key: 'membership', label: 'Membership' },
+  { key: 'onetime',    label: 'One-time' },
 ]
 
-// Access helpers (accessMode wins; legacy courses fall back to type)
-const isFreeAccess       = p => p.accessMode === 'open' || (p.accessMode !== 'plan' && p.type === 'free')
-const isMembershipAccess = p => p.accessMode === 'plan' || (p.accessMode !== 'open' && p.type === 'paid')
 // Restricted events are members-only — never listed publicly
 const isPubliclyVisible  = p => !(p.courseType === 'event' && p.audience?.type === 'restricted')
 
@@ -51,7 +50,7 @@ export default function Courses() {
     return courses
       .filter(p => p.status !== 'draft')
       .filter(isPubliclyVisible)
-      .filter(p => filter === 'all' ? true : filter === 'free' ? isFreeAccess(p) : isMembershipAccess(p))
+      .filter(p => filter === 'all' ? true : filter === 'open' ? isOpenAccess(p) : filter === 'membership' ? isPlanAccess(p) : isStandaloneAccess(p))
       .filter(p => {
         if (!q) return true
         return [p.title, p.tagline, p.description, ...(p.tags || [])]
@@ -64,8 +63,9 @@ export default function Courses() {
     const live = courses.filter(p => p.status !== 'draft').filter(isPubliclyVisible)
     return {
       all:        live.length,
-      free:       live.filter(isFreeAccess).length,
-      membership: live.filter(isMembershipAccess).length,
+      open:       live.filter(isOpenAccess).length,
+      membership: live.filter(isPlanAccess).length,
+      onetime:    live.filter(isStandaloneAccess).length,
     }
   }, [courses])
 
@@ -156,27 +156,30 @@ export default function Courses() {
 }
 
 function CourseCard({ course, plans = [], navigate }) {
-  const isPlanGated = course.accessMode === 'plan' && course.accessPlanId
-  const isPaid      = !isPlanGated && course.accessMode !== 'open' && course.type === 'paid'
+  const mode        = accessModeOf(course)
+  const isPlanGated = mode === 'plan'
+  const isPaid      = mode === 'standalone'
   const canRegister = course.status === 'open'
-  const reqPlan     = isPlanGated ? plans.find(pl => pl.id === course.accessPlanId) : null
+  const reqPlan     = requiredPlan(course, plans)
 
   function handleCTA() {
     if (!canRegister) return
     if (isPlanGated) { navigate('/join'); return }
-    if (course.registrationFormId) navigate(`/onboard?courseId=${course.id}`)
+    // Paid items reach checkout even without a registration form (the ticket is the registration).
+    if (isPaid || course.registrationFormId) navigate(`/onboard?courseId=${course.id}`)
   }
 
   return (
     <div style={{
       background: '#fff', borderRadius: 16, overflow: 'hidden',
       boxShadow: '0 2px 12px rgba(0,0,0,0.08)', border: '1px solid #f3f4f6',
-      display: 'flex', flexDirection: 'column', transition: 'transform 0.2s, box-shadow 0.2s',
+      display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box',
+      transition: 'transform 0.2s, box-shadow 0.2s',
     }}
       onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.13)' }}
       onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.08)' }}
     >
-      <div style={{ height: 170, background: '#f3f4f6', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ height: 170, flexShrink: 0, background: '#f3f4f6', position: 'relative', overflow: 'hidden' }}>
         {course.image
           ? <img src={course.image} alt={course.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #6c3fc520, #6c3fc540)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BookOpen size={40} color={BRAND} /></div>
@@ -195,8 +198,8 @@ function CourseCard({ course, plans = [], navigate }) {
       </div>
 
       <div style={{ padding: '18px 20px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#111827', lineHeight: 1.3 }}>{course.title}</h3>
-        {course.tagline && <p style={{ margin: 0, fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>{course.tagline}</p>}
+        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#111827', lineHeight: 1.3, minHeight: '2.6em', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{course.title}</h3>
+        {course.tagline && <p style={{ margin: 0, fontSize: 13, color: '#6b7280', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{course.tagline}</p>}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
           {course.startDate && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Calendar size={13} /> {formatDate(course.startDate)}</span>}
           {course.duration && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Clock size={13} /> {course.duration}</span>}

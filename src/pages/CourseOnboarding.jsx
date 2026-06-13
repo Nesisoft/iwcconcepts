@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getCourseById, getFormById, addSubmission, addEnrollment, uid } from '../utils/formStorage'
+import { findPromoCode, priceAfterPromo } from '../utils/access'
 import { useCustomerAuth } from '../contexts/CustomerAuthContext'
 import {
   primaryBtn, inputStyle, NavButtons, findFieldId, splitFormSteps,
@@ -148,21 +149,39 @@ function buildSteps(form, course) {
   return steps
 }
 
-function PaymentScreen({ course, discountedPrice, discountPct, email, name, form, formData }) {
-  const [paying, setPaying]  = useState(null)
-  const [error,  setError]   = useState('')
+function PaymentScreen({ course, discountedPrice, discountPct, email, name, form, formData, onFreeComplete, submitting }) {
+  const [paying, setPaying]   = useState(null)
+  const [error,  setError]    = useState('')
+  const [code,   setCode]     = useState('')
+  const [promo,  setPromo]    = useState(null)
+  const [promoMsg, setPromoMsg] = useState('')
   const originalPrice = Number(course.price || 0)
+  const isEvent = (course.courseType || 'course') === 'event'
+  const currency = course.currency || 'GHS'
+
+  // Promo applies on top of any spin-wheel discount. due === 0 → free path.
+  const due  = promo ? priceAfterPromo(discountedPrice, promo) : discountedPrice
+  const free = due <= 0
+
+  function applyPromo() {
+    const p = findPromoCode(course, code)
+    if (!p) { setPromo(null); setPromoMsg(`That code isn't valid for this ${isEvent ? 'event' : 'course'}.`); return }
+    setPromo(p)
+    setPromoMsg(p.kind === 'free' ? '✅ Free entry unlocked with this code!' : `✅ ${p.value}% off applied!`)
+  }
 
   async function pay(channel) {
     setPaying(channel)
     setError('')
 
-    // Stash enrollment context so the return handler can complete the enrollment
-    // after Paystack redirects back.
+    // Stash context (incl. the charged amount + any promo) so the return handler
+    // records the correct enrollment after Paystack redirects back.
     localStorage.setItem('iwc_pending_payment', JSON.stringify({
       email, name, courseId: course.id,
       formId:   form?.id   || null,
       formData: formData   || {},
+      amount:   due,
+      promoCode: promo?.code || null,
       channel,
     }))
 
@@ -174,11 +193,11 @@ function PaymentScreen({ course, discountedPrice, discountPct, email, name, form
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: email || 'customer@example.com',
-          amount: discountedPrice,
-          currency: 'GHS',
+          amount: due,
+          currency,
           channels: [channel],
           callback_url: callbackUrl,
-          metadata: { courseId: course.id, courseTitle: course.title, participantName: name },
+          metadata: { courseId: course.id, courseTitle: course.title, participantName: name, promoCode: promo?.code || null },
         }),
       })
       const data = await res.json()
@@ -199,13 +218,13 @@ function PaymentScreen({ course, discountedPrice, discountPct, email, name, form
 
   return (
     <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 24px' }}>
-      <div style={{ textAlign: 'center', marginBottom: 36 }}>
-        <div style={{ fontSize: 44, marginBottom: 12 }}>💳</div>
+      <div style={{ textAlign: 'center', marginBottom: 28 }}>
+        <div style={{ fontSize: 44, marginBottom: 12 }}>{isEvent ? '🎟️' : '💳'}</div>
         <h2 style={{ fontSize: 'clamp(20px, 4vw, 26px)', fontWeight: 900, color: '#111827', margin: '0 0 6px' }}>
-          Complete Your Enrollment
+          {isEvent ? 'Get Your Ticket' : 'Complete Your Enrollment'}
         </h2>
         <p style={{ color: '#6b7280', fontSize: 14, margin: 0 }}>
-          Choose how you'd like to pay{name ? `, ${name.split(' ')[0]}` : ''}
+          {free ? 'Confirm your spot below' : `Choose how you'd like to pay${name ? `, ${name.split(' ')[0]}` : ''}`}
         </p>
       </div>
 
@@ -213,54 +232,76 @@ function PaymentScreen({ course, discountedPrice, discountPct, email, name, form
       <div style={{
         background: 'linear-gradient(135deg, #f5f0ff, #ede9fe)',
         border: `1px solid ${BRAND}28`, borderRadius: 16,
-        padding: '20px 24px', marginBottom: 28, textAlign: 'center',
+        padding: '20px 24px', marginBottom: 22, textAlign: 'center',
       }}>
-        {discountPct > 0 && (
-          <div style={{ marginBottom: 6 }}>
-            <span style={{ textDecoration: 'line-through', color: '#9ca3af', fontSize: 14, marginRight: 10 }}>
+        {(discountPct > 0 || (promo && !free)) && (
+          <div style={{ marginBottom: 6, display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <span style={{ textDecoration: 'line-through', color: '#9ca3af', fontSize: 14 }}>
               GHS {originalPrice.toLocaleString()}
             </span>
-            <span style={{
-              background: '#dcfce7', color: '#16a34a',
-              borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700,
-            }}>{discountPct}% OFF</span>
+            {discountPct > 0 && <span style={{ background: '#dcfce7', color: '#16a34a', borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>{discountPct}% OFF</span>}
+            {promo && <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>{promo.code}</span>}
           </div>
         )}
-        <div style={{ fontSize: 38, fontWeight: 900, color: BRAND, lineHeight: 1 }}>
-          GHS {discountedPrice.toLocaleString()}
+        <div style={{ fontSize: 38, fontWeight: 900, color: free ? '#16a34a' : BRAND, lineHeight: 1 }}>
+          {free ? 'FREE' : `${currency} ${due.toLocaleString()}`}
         </div>
         <div style={{ fontSize: 13, color: '#6b7280', marginTop: 6 }}>{course.title}</div>
       </div>
 
-      {/* Payment option buttons */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {[
-          { channel: 'mobile_money', icon: '📱', label: 'Pay with Mobile Money', sub: 'MTN MoMo · Vodafone Cash · AirtelTigo' },
-          { channel: 'card',         icon: '💳', label: 'Pay with Card',         sub: 'Visa · Mastercard · bank card' },
-        ].map(({ channel, icon, label, sub }) => (
-          <button
-            key={channel}
-            onClick={() => pay(channel)}
-            disabled={paying !== null}
-            style={{
-              width: '100%', padding: '18px 22px', borderRadius: 14,
-              border: `2px solid ${paying === channel ? BRAND : channel === 'mobile_money' ? BRAND : '#e5e7eb'}`,
-              background: paying === channel ? '#f5f0ff' : '#fff',
-              cursor: paying ? 'not-allowed' : 'pointer',
-              display: 'flex', alignItems: 'center', gap: 16,
-              transition: 'all 0.18s', textAlign: 'left',
-            }}
-          >
-            <span style={{ fontSize: 34, lineHeight: 1 }}>{icon}</span>
-            <div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: '#111827' }}>
-                {paying === channel ? 'Processing…' : label}
-              </div>
-              <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{sub}</div>
-            </div>
-          </button>
-        ))}
+      {/* Promo / invite code */}
+      <div style={{ marginBottom: 22 }}>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            value={code}
+            onChange={e => { setCode(e.target.value); setPromoMsg('') }}
+            placeholder="Promo / invite code (optional)"
+            style={{ ...inputStyle, flex: 1, textTransform: 'uppercase' }}
+          />
+          <button onClick={applyPromo} disabled={!code.trim()} style={{
+            border: 'none', borderRadius: 10, padding: '0 18px', fontWeight: 800, fontSize: 13,
+            cursor: code.trim() ? 'pointer' : 'not-allowed',
+            background: code.trim() ? BRAND : '#e5e7eb', color: code.trim() ? '#fff' : '#9ca3af',
+          }}>Apply</button>
+        </div>
+        {promoMsg && <div style={{ fontSize: 12.5, fontWeight: 600, color: promo ? '#16a34a' : '#dc2626', marginTop: 7 }}>{promoMsg}</div>}
       </div>
+
+      {/* Action area: free → register without payment; otherwise pay */}
+      {free ? (
+        <button onClick={() => onFreeComplete(promo?.code || null)} disabled={submitting} style={primaryBtn(submitting)}>
+          {submitting ? 'Completing…' : (isEvent ? 'Complete Free Registration →' : 'Complete Registration →')}
+        </button>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {[
+            { channel: 'mobile_money', icon: '📱', label: 'Pay with Mobile Money', sub: 'MTN MoMo · Vodafone Cash · AirtelTigo' },
+            { channel: 'card',         icon: '💳', label: 'Pay with Card',         sub: 'Visa · Mastercard · bank card' },
+          ].map(({ channel, icon, label, sub }) => (
+            <button
+              key={channel}
+              onClick={() => pay(channel)}
+              disabled={paying !== null}
+              style={{
+                width: '100%', padding: '18px 22px', borderRadius: 14,
+                border: `2px solid ${paying === channel ? BRAND : channel === 'mobile_money' ? BRAND : '#e5e7eb'}`,
+                background: paying === channel ? '#f5f0ff' : '#fff',
+                cursor: paying ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', gap: 16,
+                transition: 'all 0.18s', textAlign: 'left',
+              }}
+            >
+              <span style={{ fontSize: 34, lineHeight: 1 }}>{icon}</span>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#111827' }}>
+                  {paying === channel ? 'Processing…' : label}
+                </div>
+                <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{sub}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
 
       {error && (
         <div style={{
@@ -269,9 +310,11 @@ function PaymentScreen({ course, discountedPrice, discountPct, email, name, form
         }}>{error}</div>
       )}
 
-      <p style={{ textAlign: 'center', fontSize: 12, color: '#9ca3af', marginTop: 20 }}>
-        🔒 Secured by Paystack. Your payment information is encrypted.
-      </p>
+      {!free && (
+        <p style={{ textAlign: 'center', fontSize: 12, color: '#9ca3af', marginTop: 20 }}>
+          🔒 Secured by Paystack. Your payment information is encrypted.
+        </p>
+      )}
     </div>
   )
 }
@@ -410,6 +453,8 @@ export default function CourseOnboarding() {
           const payName     = ctx?.name     || ''
           const payFormData = ctx?.formData || {}
           const payFormId   = ctx?.formId   || null
+          const payAmount   = (ctx && typeof ctx.amount === 'number') ? ctx.amount : null
+          const payPromo    = ctx?.promoCode || null
 
           if (payEmail) setEmail(payEmail)
           if (payName)  setName(payName)
@@ -423,8 +468,8 @@ export default function CourseOnboarding() {
               id: `ref_${ret.reference}`, courseId: p.id, courseTitle: p.title,
               participantName: payName, participantEmail: payEmail,
               paymentRef: ret.reference,
-              amountPaid: Math.round(Number(p.price || 0) * (1 - (Number(p.discount) || 0) / 100)),
-              currency: 'GHS', enrolledAt: new Date().toISOString(),
+              amountPaid: payAmount != null ? payAmount : Math.round(Number(p.price || 0) * (1 - (Number(p.discount) || 0) / 100)),
+              currency: p.currency || 'GHS', promoCode: payPromo, enrolledAt: new Date().toISOString(),
               ...(loadedForm && payFormId ? { formSubmissionId: submissionId } : {}),
             })
             setPayRef(ret.reference)
@@ -527,8 +572,10 @@ export default function CourseOnboarding() {
     }
   }
 
-  async function submitFree() {
+  async function submitFree(promoCode = null) {
     if (submitting) return
+    // Guard against an event object being passed when used directly as an onClick.
+    const code = typeof promoCode === 'string' ? promoCode : null
     setSubmitting(true)
     try {
       const submissionId = uid()
@@ -539,7 +586,8 @@ export default function CourseOnboarding() {
         id: uid(), courseId: course.id, courseTitle: course.title,
         participantName: resolvedName,
         participantEmail: resolvedEmail,
-        paymentRef: null, amountPaid: 0, currency: 'GHS',
+        paymentRef: null, amountPaid: 0, currency: course.currency || 'GHS',
+        promoCode: code,
         enrolledAt: new Date().toISOString(),
         ...(form ? { formSubmissionId: submissionId } : {}),
       })
@@ -652,6 +700,8 @@ export default function CourseOnboarding() {
             name={resolvedName}
             form={form}
             formData={formData}
+            onFreeComplete={submitFree}
+            submitting={submitting}
           />
         )
 

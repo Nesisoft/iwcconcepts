@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAllCourses, getAllTestimonials } from '../utils/formStorage'
+import { accessModeOf } from '../utils/access'
 import SiteNav from '../components/SiteNav'
 import SiteFooter from '../components/SiteFooter'
 import { Calendar, MapPin, Star, BookOpen, CircleDot, Clock, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -120,10 +121,11 @@ function HeroCarousel({ courses }) {
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <button
               onClick={() => {
-                if (slide.registrationFormId) navigate(`/onboard?courseId=${slide.id}`)
+                if (accessModeOf(slide) === 'plan') { navigate('/join'); return }
+                if (accessModeOf(slide) === 'standalone' || slide.registrationFormId) navigate(`/onboard?courseId=${slide.id}`)
               }}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: GOLD, color: '#1A1A2E', border: 'none', borderRadius: 10, padding: '14px 32px', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}
-            >{slide.type === 'paid' ? 'Register' : 'Join Free'} <ArrowRight size={17} /></button>
+            >{accessModeOf(slide) === 'plan' ? 'Join to Access' : accessModeOf(slide) === 'standalone' ? 'Register' : 'Join Free'} <ArrowRight size={17} /></button>
           </div>
         </div>
       </div>
@@ -177,12 +179,15 @@ function arrowBtn(side) {
 
 function CourseCard({ course }) {
   const navigate = useNavigate()
-  const isPaid = course.type === 'paid'
+  const mode = accessModeOf(course)
+  const isPlanGated = mode === 'plan'
+  const isPaid = mode === 'standalone'
   const canRegister = ['open'].includes(course.status)
 
   function handleCTA() {
     if (!canRegister) return
-    if (course.registrationFormId) navigate(`/onboard?courseId=${course.id}`)
+    if (isPlanGated) { navigate('/join'); return }
+    if (isPaid || course.registrationFormId) navigate(`/onboard?courseId=${course.id}`)
   }
 
   return (
@@ -191,13 +196,14 @@ function CourseCard({ course }) {
       boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
       border: '1px solid #f3f4f6',
       display: 'flex', flexDirection: 'column',
+      height: '100%', boxSizing: 'border-box',
       transition: 'transform 0.2s, box-shadow 0.2s',
     }}
       onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.13)' }}
       onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.08)' }}
     >
       {/* Image */}
-      <div style={{ height: 180, background: '#f3f4f6', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ height: 180, flexShrink: 0, background: '#f3f4f6', position: 'relative', overflow: 'hidden' }}>
         {course.image
           ? <img src={course.image} alt={course.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #6c3fc520, #6c3fc540)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BookOpen size={40} color={BRAND} /></div>
@@ -230,9 +236,9 @@ function CourseCard({ course }) {
 
       {/* Body */}
       <div style={{ padding: '18px 20px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#111827', lineHeight: 1.3 }}>{course.title}</h3>
+        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#111827', lineHeight: 1.3, minHeight: '2.6em', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{course.title}</h3>
         {course.tagline && (
-          <p style={{ margin: 0, fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>{course.tagline}</p>
+          <p style={{ margin: 0, fontSize: 13, color: '#6b7280', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{course.tagline}</p>
         )}
         {course.description && (
           <p style={{ margin: 0, fontSize: 12, color: '#9ca3af', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
@@ -257,13 +263,13 @@ function CourseCard({ course }) {
           style={{
             marginTop: 12, width: '100%', border: 'none', borderRadius: 9, padding: '11px 0',
             fontWeight: 700, fontSize: 13, cursor: canRegister ? 'pointer' : 'not-allowed',
-            background: canRegister ? (isPaid ? BRAND : '#059669') : '#e5e7eb',
+            background: canRegister ? ((isPaid || isPlanGated) ? BRAND : '#059669') : '#e5e7eb',
             color: canRegister ? '#fff' : '#9ca3af',
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
           }}
         >
           {canRegister
-            ? <>{isPaid ? 'Register' : 'Join Free'} <ArrowRight size={15} /></>
+            ? <>{isPlanGated ? 'Join to Access' : isPaid ? 'Register' : 'Join Free'} <ArrowRight size={15} /></>
             : (course.status === 'upcoming' ? 'Coming Soon' : course.status === 'closed' ? 'Registration Closed' : 'Completed')
           }
         </button>
@@ -276,11 +282,13 @@ function CourseCard({ course }) {
 
 function EventCard({ course }) {
   const navigate = useNavigate()
-  const canRegister = course.status === 'open' && course.registrationFormId
+  const isPaid = accessModeOf(course) === 'standalone'
+  const canRegister = course.status === 'open' && (course.registrationFormId || isPaid)
 
   return (
     <div style={{
       flex: '0 0 300px',
+      height: '100%', boxSizing: 'border-box',
       background: 'linear-gradient(160deg, #1e1040 0%, #2a1558 100%)',
       borderRadius: 16, overflow: 'hidden',
       border: '1px solid rgba(255,255,255,0.09)',
@@ -291,7 +299,7 @@ function EventCard({ course }) {
       onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(0,0,0,0.5)' }}
       onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 28px rgba(0,0,0,0.35)' }}
     >
-      <div style={{ height: 150, background: 'rgba(255,255,255,0.04)', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ height: 150, flexShrink: 0, background: 'rgba(255,255,255,0.04)', position: 'relative', overflow: 'hidden' }}>
         {course.image
           ? <img src={course.image} alt={course.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -307,8 +315,8 @@ function EventCard({ course }) {
       </div>
       <div style={{ padding: '16px 18px 18px', flex: 1, display: 'flex', flexDirection: 'column', gap: 7 }}>
         <div style={{ fontSize: 10, fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Event</div>
-        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#fff', lineHeight: 1.3 }}>{course.title}</h3>
-        {course.tagline && <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.4 }}>{course.tagline}</p>}
+        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#fff', lineHeight: 1.3, minHeight: '2.6em', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{course.title}</h3>
+        {course.tagline && <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{course.tagline}</p>}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 4 }}>
           {course.startDate && (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgba(255,255,255,0.55)' }}>
@@ -333,7 +341,7 @@ function EventCard({ course }) {
             transition: 'opacity 0.15s',
           }}
         >
-          {canRegister ? 'Register Now →' : course.status === 'upcoming' ? 'Coming Soon' : 'Registration Closed'}
+          {canRegister ? (isPaid ? 'Get Ticket →' : 'Register Now →') : course.status === 'upcoming' ? 'Coming Soon' : 'Registration Closed'}
         </button>
       </div>
     </div>
@@ -409,7 +417,7 @@ function CoursesSection({ courses }) {
         ) : (
           <div style={{ display: 'flex', gap: 24, overflowX: 'auto', paddingBottom: 16, scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}>
             {shown.map(p => (
-              <div key={p.id} style={{ flex: '0 0 300px' }}>
+              <div key={p.id} style={{ flex: '0 0 300px', display: 'flex', flexDirection: 'column' }}>
                 <CourseCard course={p} />
               </div>
             ))}

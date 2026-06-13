@@ -1,13 +1,30 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { uid, getAllForms, getAllCourses, saveCourse, deleteCourse, getMembershipPlans, notifyEventAudience } from '../utils/formStorage'
+import { uid, getAllForms, getCoursesOnly, saveCourse, deleteCourse, getMembershipPlans } from '../utils/formStorage'
+import { accessModeOf } from '../utils/access'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import AdminSelect from '../components/AdminSelect'
 import RichTextEditor from '../components/RichTextEditor'
+import Loader from '../components/Loader'
 
 const ACC = '#E4600A'
 const ACC2 = '#F5B800'
 const DARK = '#0e0a1e'
+
+// ── Save-status pill ─────────────────────────────────────────────────────────
+function SaveStatus({ state }) {
+  const map = {
+    saving: { t: '⏳ Saving…',   c: '#fbbf24', b: 'rgba(245,158,11,0.12)' },
+    saved:  { t: '✓ Saved',     c: '#34d399', b: 'rgba(16,185,129,0.12)' },
+    error:  { t: '⚠ Not saved', c: '#f87171', b: 'rgba(239,68,68,0.12)' },
+  }
+  const s = map[state] || map.saved
+  return (
+    <span style={{ fontSize: 10, fontWeight: 700, color: s.c, background: s.b, border: `1px solid ${s.c}40`, borderRadius: 20, padding: '4px 10px', whiteSpace: 'nowrap' }}>
+      {s.t}
+    </span>
+  )
+}
 
 const STATUS_OPTS = ['draft', 'upcoming', 'open', 'closed', 'completed']
 const STATUS_COLORS = { draft: '#6b7280', upcoming: '#8B5CF6', open: '#10B981', closed: '#E4600A', completed: '#3498DB' }
@@ -65,7 +82,7 @@ function makeDefault() {
     hasPortalAccess: false,
     awardsCertificate: false,
     duration: '',
-    accessMode: 'open',                                       // 'open' | 'plan' | 'legacy'
+    accessMode: 'open',                                       // 'open' | 'plan' | 'standalone'
     accessPlanId: '',                                         // when accessMode === 'plan'
     audience: { type: 'public', planIds: [], emails: [] },    // events: who can see it
     eventAccess: { mode: 'online', platform: '', link: '', passcode: '', address: '', notes: '' },
@@ -82,62 +99,98 @@ export default function CoursesManager() {
   const [prog, setProg] = useState(null)
   const [tab, setTab] = useState('details')
   const [tagInput, setTagInput] = useState('')
-  const [inviteText, setInviteText] = useState('')
   const [uploading, setUploading] = useState(false)
-  const [notifying, setNotifying] = useState(false)
+  const [listLoading, setListLoading] = useState(true)
+  const [saveState, setSaveState] = useState('saved')   // 'saving' | 'saved' | 'error'
+  const [shortLink, setShortLink] = useState('')
+  const [shortLoading, setShortLoading] = useState(false)
+
+  // Refs backing the reliable-autosave logic
+  const saveTimerRef    = useRef(null)
+  const pendingRef      = useRef(null)
+  const skipAutosaveRef = useRef(false)
 
   const refresh = useCallback(async () => {
-    const [ps, fs, pls] = await Promise.all([getAllCourses(), getAllForms(), getMembershipPlans().catch(() => [])])
-    setCourses(ps)
-    setForms(fs)
-    setPlans(pls)
+    setListLoading(true)
+    try {
+      const [ps, fs, pls] = await Promise.all([getCoursesOnly(), getAllForms(), getMembershipPlans().catch(() => [])])
+      setCourses(ps)
+      setForms(fs)
+      setPlans(pls)
+    } finally {
+      setListLoading(false)
+    }
   }, [])
 
   useEffect(() => { refresh() }, [refresh])
 
-  const debounced = useCallback((p) => {
+  // ── Reliable autosave ──────────────────────────────────────────────────────
+  const flushSave = useCallback(async () => {
+    if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null }
+    const p = pendingRef.current
     if (!p) return
-    const t = setTimeout(() => saveCourse(p), 600)
-    return () => clearTimeout(t)
+    pendingRef.current = null
+    setSaveState('saving')
+    try {
+      await saveCourse(p)
+      setSaveState('saved')
+    } catch (e) {
+      console.error('[CoursesManager] save failed:', e)
+      pendingRef.current = p
+      setSaveState('error')
+    }
   }, [])
 
   useEffect(() => {
     if (!prog) return
-    const cleanup = debounced(prog)
-    return cleanup
-  }, [prog, debounced])
+    if (skipAutosaveRef.current) { skipAutosaveRef.current = false; return }
+    pendingRef.current = prog
+    setSaveState('saving')
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(flushSave, 800)
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
+  }, [prog, flushSave])
+
+  // Flush a pending save on navigation / tab close instead of dropping it
+  useEffect(() => {
+    const onBeforeUnload = () => { if (pendingRef.current) saveCourse(pendingRef.current) }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload)
+      if (pendingRef.current) saveCourse(pendingRef.current)
+    }
+  }, [])
 
   function set(k, v) { setProg(p => ({ ...p, [k]: v })) }
 
-  // Event audience / access helpers
-  const aud      = prog?.audience    || { type: 'public', planIds: [], emails: [] }
-  const evAccess = prog?.eventAccess || { mode: 'online', platform: '', link: '', passcode: '', address: '', notes: '' }
-  const setAud      = (k, v) => set('audience',    { ...aud,      [k]: v })
-  const setEvAccess = (k, v) => set('eventAccess', { ...evAccess, [k]: v })
-
   function selectCourse(p) {
+    skipAutosaveRef.current = true
     setSelected(p.id)
     setProg({ ...p })
-    setInviteText((p.audience?.emails || []).join('\n'))
     setTab('details')
+    setSaveState('saved')
+    setShortLink('')
   }
 
-  async function notifyAudience() {
+  async function generateShortLink() {
     if (!prog) return
-    const kind = prog.lastNotifiedAt ? 'updated' : 'created'
-    const who = (aud.type || 'public') === 'restricted'
-      ? 'its selected plans and invited people'
-      : 'all active members'
-    if (!confirm(`Announce "${prog.title}" to ${who} now?\n\nThey'll receive an email and see it in their portal.`)) return
-    setNotifying(true)
+    // Public registration / onboarding page for this course or event
+    const base = window.location.href.split('#')[0]
+    const url = `${base}#/onboard?courseId=${prog.id}`
+    setShortLoading(true)
     try {
-      const r = await notifyEventAudience(prog.id, kind)
-      set('lastNotifiedAt', new Date().toISOString())
-      alert(`✅ Sent to ${r.recipients} recipient${r.recipients !== 1 ? 's' : ''} (${r.sent} email${r.sent !== 1 ? 's' : ''} delivered).`)
-    } catch (e) {
-      alert('Could not send: ' + e.message)
+      const res = await fetch(`/api/shorten?url=${encodeURIComponent(url)}`)
+      const json = await res.json()
+      if (json.shorturl) {
+        setShortLink(json.shorturl)
+        try { await navigator.clipboard.writeText(json.shorturl) } catch { /* ignore */ }
+      } else {
+        alert('Could not generate short link: ' + (json.errormessage || 'Unknown error'))
+      }
+    } catch {
+      alert('Could not generate short link. Please check your connection.')
     } finally {
-      setNotifying(false)
+      setShortLoading(false)
     }
   }
 
@@ -145,7 +198,9 @@ export default function CoursesManager() {
     const p = makeDefault()
     await saveCourse(p)
     await refresh()
-    setProg(p); setSelected(p.id); setInviteText(''); setTab('details')
+    skipAutosaveRef.current = true
+    setProg(p); setSelected(p.id); setTab('details')
+    setSaveState('saved'); setShortLink('')
   }
 
   async function handleDelete(id) {
@@ -195,6 +250,9 @@ export default function CoursesManager() {
     return steps
   })() : []
 
+  // Public registration / onboarding link for the selected course or event
+  const onboardUrl = prog ? `${window.location.href.split('#')[0]}#/onboard?courseId=${prog.id}` : ''
+
   const panelStyle = { background: '#130a24', height: '100%', overflowY: 'auto', padding: 16 }
   const tabBtn = (t) => ({
     padding: '7px 14px', fontSize: 11, fontWeight: 700, cursor: 'pointer', border: 'none',
@@ -218,7 +276,23 @@ export default function CoursesManager() {
             </div>
           </div>
         </div>
-        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{courses.length} course{courses.length !== 1 ? 's' : ''} · Auto-saved</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{courses.length} course{courses.length !== 1 ? 's' : ''}</span>
+          {prog && <SaveStatus state={saveState} />}
+          <button
+            onClick={flushSave}
+            disabled={!prog || saveState === 'saving'}
+            title="Save all changes now"
+            style={{
+              background: !prog ? 'rgba(255,255,255,0.05)' : `linear-gradient(135deg,${ACC},#c04800)`,
+              border: 'none', borderRadius: 7, color: 'white', padding: '7px 16px',
+              fontSize: 11, fontWeight: 800, cursor: (!prog || saveState === 'saving') ? 'not-allowed' : 'pointer',
+              opacity: !prog ? 0.5 : 1,
+            }}
+          >
+            {saveState === 'saving' ? 'Saving…' : '💾 Save'}
+          </button>
+        </div>
       </header>
 
       <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', flex: 1, overflow: 'hidden' }}>
@@ -226,13 +300,17 @@ export default function CoursesManager() {
         <div style={{ ...panelStyle, borderRight: '1px solid rgba(255,255,255,0.07)' }}>
           <button onClick={create} style={{ width: '100%', background: `linear-gradient(135deg,${ACC},#c04800)`, border: 'none', borderRadius: 8, color: 'white', padding: '10px', fontSize: 11, fontWeight: 700, cursor: 'pointer', marginBottom: 12 }}>+ New Course</button>
           <div style={divider} />
-          {courses.length === 0 && (
+          {listLoading && courses.length === 0 && (
+            <Loader label="Loading courses…" accent={ACC2} style={{ padding: '34px 0' }} />
+          )}
+          {!listLoading && courses.length === 0 && (
             <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>
               <div style={{ fontSize: 32, marginBottom: 8 }}>🎓</div>No courses yet
             </div>
           )}
           {courses.map(p => {
             const active = p.id === selected
+            const m = accessModeOf(p)
             return (
               <div key={p.id} onClick={() => selectCourse(p)} style={{ background: active ? 'rgba(228,96,10,0.12)' : 'rgba(255,255,255,0.03)', border: `1px solid ${active ? ACC : 'rgba(255,255,255,0.07)'}`, borderRadius: 10, padding: '10px 12px', marginBottom: 8, cursor: 'pointer' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
@@ -241,15 +319,12 @@ export default function CoursesManager() {
                 </div>
                 <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
                   <span style={{ fontSize: 8, fontWeight: 800, padding: '2px 7px', borderRadius: 10, background: `${STATUS_COLORS[p.status] || '#6b7280'}30`, color: STATUS_COLORS[p.status] || '#6b7280', letterSpacing: 1, textTransform: 'uppercase' }}>{p.status}</span>
-                  <span style={{ fontSize: 8, fontWeight: 800, padding: '2px 7px', borderRadius: 10, background: p.accessMode === 'plan' ? 'rgba(108,63,197,0.2)' : p.type === 'paid' && p.accessMode !== 'open' ? 'rgba(245,184,0,0.15)' : 'rgba(16,185,129,0.15)', color: p.accessMode === 'plan' ? '#b79df0' : p.type === 'paid' && p.accessMode !== 'open' ? ACC2 : '#34d399', letterSpacing: 1, textTransform: 'uppercase' }}>
-                    {p.accessMode === 'plan'
+                  <span style={{ fontSize: 8, fontWeight: 800, padding: '2px 7px', borderRadius: 10, background: m === 'plan' ? 'rgba(108,63,197,0.2)' : m === 'standalone' ? 'rgba(245,184,0,0.15)' : 'rgba(16,185,129,0.15)', color: m === 'plan' ? '#b79df0' : m === 'standalone' ? ACC2 : '#34d399', letterSpacing: 1, textTransform: 'uppercase' }}>
+                    {m === 'plan'
                       ? `🎫 ${(plans.find(x => x.id === p.accessPlanId)?.name || 'PLAN')}`
-                      : p.accessMode === 'open' ? 'OPEN'
-                      : p.type === 'paid' ? `GHS ${p.price}` : 'FREE'}
+                      : m === 'standalone' ? `GHS ${p.price || 0}`
+                      : 'OPEN'}
                   </span>
-                  {p.courseType === 'event' && (p.audience?.type === 'restricted') && (
-                    <span style={{ fontSize: 8, fontWeight: 800, padding: '2px 7px', borderRadius: 10, background: 'rgba(139,92,246,0.18)', color: '#a78bfa', letterSpacing: 1 }}>🔒</span>
-                  )}
                 </div>
                 <div style={{ display: 'flex', gap: 5, marginTop: 8 }}>
                   <button onClick={e => { e.stopPropagation(); openOnboarding(p.id) }} style={{ flex: 1, background: 'rgba(52,152,219,0.15)', border: 'none', borderRadius: 6, color: '#74b9e8', fontSize: 9, fontWeight: 700, padding: '5px', cursor: 'pointer' }}>Preview</button>
@@ -300,19 +375,6 @@ export default function CoursesManager() {
                         minRows={5}
                       />
                     </Fld>
-                    <Fld label="Content Type">
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        {[{ v: 'course', label: '🎓 Course' }, { v: 'event', label: '🎪 Event' }].map(opt => (
-                          <button key={opt.v} type="button" onClick={() => set('courseType', opt.v)} style={{
-                            flex: 1, padding: '8px 0', borderRadius: 8, fontWeight: 700, fontSize: 12,
-                            border: `1.5px solid ${(prog.courseType || 'course') === opt.v ? ACC : 'rgba(255,255,255,0.15)'}`,
-                            background: (prog.courseType || 'course') === opt.v ? `${ACC}25` : 'transparent',
-                            color: (prog.courseType || 'course') === opt.v ? '#fff' : 'rgba(255,255,255,0.45)',
-                            cursor: 'pointer', transition: 'all 0.2s',
-                          }}>{opt.label}</button>
-                        ))}
-                      </div>
-                    </Fld>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       <Fld label="Start Date"><input type="datetime-local" style={inp()} value={prog.startDate} onChange={e => set('startDate', e.target.value)} /></Fld>
                       <Fld label="End Date (optional)"><input type="datetime-local" style={inp()} value={prog.endDate} onChange={e => set('endDate', e.target.value)} /></Fld>
@@ -322,101 +384,6 @@ export default function CoursesManager() {
                       <Fld label="Capacity (0 = unlimited)"><input type="number" style={inp()} min={0} value={prog.capacity} onChange={e => set('capacity', Number(e.target.value))} /></Fld>
                     </div>
 
-                    {/* ── Event-only: audience + access details + announce ── */}
-                    {prog.courseType === 'event' && (
-                      <>
-                        <div style={divider} />
-                        <Label>Who can see this event?</Label>
-                        <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-                          {[
-                            { v: 'public',     icon: '🌐', t: 'Public',            d: 'Everyone — including visitors who are not members.' },
-                            { v: 'restricted', icon: '🔒', t: 'Selected audience', d: 'Only chosen plans and/or invited people.' },
-                          ].map(o => (
-                            <div key={o.v} onClick={() => setAud('type', o.v)} style={{ flex: 1, border: `2px solid ${(aud.type || 'public') === o.v ? ACC : 'rgba(255,255,255,0.12)'}`, borderRadius: 10, padding: '10px 12px', cursor: 'pointer', background: (aud.type || 'public') === o.v ? `${ACC}15` : 'transparent' }}>
-                              <div style={{ fontWeight: 800, fontSize: 11, color: (aud.type || 'public') === o.v ? ACC2 : 'white', marginBottom: 3 }}>{o.icon} {o.t}</div>
-                              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>{o.d}</div>
-                            </div>
-                          ))}
-                        </div>
-
-                        {(aud.type || 'public') === 'restricted' && (
-                          <>
-                            <Fld label="Membership plans (groups) that can see it">
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                                {plans.length === 0 && <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>No plans yet — create them in Membership Plans.</span>}
-                                {plans.map(pl => {
-                                  const on = (aud.planIds || []).includes(pl.id)
-                                  return (
-                                    <button key={pl.id} type="button" onClick={() => setAud('planIds', on ? (aud.planIds || []).filter(x => x !== pl.id) : [...(aud.planIds || []), pl.id])} style={{
-                                      border: `1.5px solid ${on ? (pl.color || ACC) : 'rgba(255,255,255,0.18)'}`,
-                                      background: on ? `${pl.color || ACC}28` : 'transparent',
-                                      color: on ? 'white' : 'rgba(255,255,255,0.5)',
-                                      borderRadius: 18, padding: '5px 13px', fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                                    }}>{on ? '✓ ' : ''}{pl.name}</button>
-                                  )
-                                })}
-                              </div>
-                            </Fld>
-                            <Fld label="Invite specific people (one email per line — works even without a plan)">
-                              <textarea
-                                style={inp({ minHeight: 70, resize: 'vertical', lineHeight: 1.6 })}
-                                value={inviteText}
-                                placeholder={'ama@example.com\nkofi@example.com'}
-                                onChange={e => {
-                                  setInviteText(e.target.value)
-                                  setAud('emails', e.target.value.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean))
-                                }}
-                              />
-                            </Fld>
-                          </>
-                        )}
-
-                        <div style={divider} />
-                        <Label>How do attendees join?</Label>
-                        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                          {[
-                            { v: 'online',    label: '💻 Online' },
-                            { v: 'in_person', label: '📍 In person' },
-                            { v: 'hybrid',    label: '🔀 Hybrid' },
-                          ].map(o => (
-                            <button key={o.v} type="button" onClick={() => setEvAccess('mode', o.v)} style={{
-                              flex: 1, padding: '8px 0', borderRadius: 8, fontWeight: 700, fontSize: 11,
-                              border: `1.5px solid ${(evAccess.mode || 'online') === o.v ? ACC : 'rgba(255,255,255,0.15)'}`,
-                              background: (evAccess.mode || 'online') === o.v ? `${ACC}25` : 'transparent',
-                              color: (evAccess.mode || 'online') === o.v ? '#fff' : 'rgba(255,255,255,0.45)',
-                              cursor: 'pointer',
-                            }}>{o.label}</button>
-                          ))}
-                        </div>
-                        {(evAccess.mode || 'online') !== 'in_person' && (
-                          <>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                              <Fld label="Platform"><input style={inp()} value={evAccess.platform || ''} onChange={e => setEvAccess('platform', e.target.value)} placeholder="Zoom / Google Meet / Teams" /></Fld>
-                              <Fld label="Passcode (optional)"><input style={inp()} value={evAccess.passcode || ''} onChange={e => setEvAccess('passcode', e.target.value)} placeholder="e.g. 482913" /></Fld>
-                            </div>
-                            <Fld label="Meeting link"><input style={inp()} value={evAccess.link || ''} onChange={e => setEvAccess('link', e.target.value)} placeholder="https://zoom.us/j/…" /></Fld>
-                          </>
-                        )}
-                        {(evAccess.mode || 'online') !== 'online' && (
-                          <Fld label="Address / Directions"><input style={inp()} value={evAccess.address || ''} onChange={e => setEvAccess('address', e.target.value)} placeholder="e.g. IWC Hub, East Legon, Accra" /></Fld>
-                        )}
-                        <Fld label="Extra notes for attendees (optional)">
-                          <textarea style={inp({ minHeight: 56, resize: 'vertical', lineHeight: 1.6 })} value={evAccess.notes || ''} onChange={e => setEvAccess('notes', e.target.value)} placeholder="e.g. Doors open 30 minutes early. Bring a notebook." />
-                        </Fld>
-
-                        <div style={{ background: 'rgba(108,63,197,0.1)', border: '1px solid rgba(108,63,197,0.3)', borderRadius: 10, padding: 14, marginTop: 4 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                            <button onClick={notifyAudience} disabled={notifying} style={{ background: notifying ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg,#6c3fc5,#9333ea)', border: 'none', borderRadius: 8, color: 'white', fontSize: 11, fontWeight: 800, padding: '10px 18px', cursor: notifying ? 'not-allowed' : 'pointer' }}>
-                              {notifying ? '⏳ Sending…' : `📣 ${prog.lastNotifiedAt ? 'Send update to audience' : 'Announce to audience'}`}
-                            </button>
-                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', flex: 1, minWidth: 160, lineHeight: 1.6 }}>
-                              Emails everyone in the audience and adds it to their portal notifications.
-                              {prog.lastNotifiedAt && <><br />Last announced: {new Date(prog.lastNotifiedAt).toLocaleString('en-GB')}</>}
-                            </div>
-                          </div>
-                        </div>
-                      </>
-                    )}
                     <Fld label="Duration (e.g. 4 weeks, 3 months)">
                       <input style={inp()} value={prog.duration || ''} onChange={e => set('duration', e.target.value)} placeholder="e.g. 4 weeks" />
                     </Fld>
@@ -503,15 +470,18 @@ export default function CoursesManager() {
                   <>
                     <div style={{ marginBottom: 16 }}>
                       <Label>Who can access this {prog.courseType === 'event' ? 'event' : 'course'}?</Label>
+                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 10, lineHeight: 1.6 }}>
+                        Pick <strong>one</strong> path — an item is never gated two ways at once.
+                      </div>
                       <div style={{ display: 'flex', gap: 10 }}>
                         {[
-                          { v: 'open',   icon: '🌐', t: 'Open',            d: 'Free for everyone. No membership needed.' },
-                          { v: 'plan',   icon: '🎫', t: 'Membership',      d: 'Included from a chosen plan and above.' },
-                          { v: 'legacy', icon: '💳', t: 'One-time price',  d: 'Classic per-course payment (legacy).' },
+                          { v: 'open',       icon: '🌐', t: 'Open',       d: 'Free for everyone. No membership needed.' },
+                          { v: 'plan',       icon: '🎫', t: 'Membership', d: 'Included from a chosen plan and above.' },
+                          { v: 'standalone', icon: '💳', t: 'One-time',   d: 'A paid one-off, not part of membership.' },
                         ].map(o => {
-                          const cur = prog.accessMode || 'legacy'
+                          const cur = accessModeOf(prog)
                           return (
-                            <div key={o.v} onClick={() => set('accessMode', o.v)} style={{ flex: 1, border: `2px solid ${cur === o.v ? ACC : 'rgba(255,255,255,0.12)'}`, borderRadius: 10, padding: '12px 12px', cursor: 'pointer', background: cur === o.v ? `${ACC}15` : 'transparent', textAlign: 'center' }}>
+                            <div key={o.v} onClick={() => setProg(p => ({ ...p, accessMode: o.v, type: o.v === 'standalone' ? 'paid' : 'free' }))} style={{ flex: 1, border: `2px solid ${cur === o.v ? ACC : 'rgba(255,255,255,0.12)'}`, borderRadius: 10, padding: '12px 12px', cursor: 'pointer', background: cur === o.v ? `${ACC}15` : 'transparent', textAlign: 'center' }}>
                               <div style={{ fontSize: 20, marginBottom: 4 }}>{o.icon}</div>
                               <div style={{ fontWeight: 800, fontSize: 12, color: cur === o.v ? ACC2 : 'white' }}>{o.t}</div>
                               <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 4, lineHeight: 1.5 }}>{o.d}</div>
@@ -521,7 +491,7 @@ export default function CoursesManager() {
                       </div>
                     </div>
 
-                    {(prog.accessMode || 'legacy') === 'plan' && (
+                    {accessModeOf(prog) === 'plan' && (
                       <>
                         <Fld label="Available from this plan and above">
                           <AdminSelect
@@ -545,7 +515,7 @@ export default function CoursesManager() {
                       </>
                     )}
 
-                    {(prog.accessMode || 'legacy') === 'open' && (
+                    {accessModeOf(prog) === 'open' && (
                       <div style={{ textAlign: 'center', padding: '24px', color: 'rgba(255,255,255,0.35)', fontSize: 12, lineHeight: 1.8 }}>
                         <div style={{ fontSize: 36, marginBottom: 8 }}>🌐</div>
                         Open to everyone, free of charge.<br />
@@ -553,20 +523,7 @@ export default function CoursesManager() {
                       </div>
                     )}
 
-                    {(prog.accessMode || 'legacy') === 'legacy' && (
-                      <>
-                    <div style={{ marginBottom: 16 }}>
-                      <Label>Course Type</Label>
-                      <div style={{ display: 'flex', gap: 10 }}>
-                        {['free', 'paid'].map(t => (
-                          <div key={t} onClick={() => set('type', t)} style={{ flex: 1, border: `2px solid ${prog.type === t ? (t === 'paid' ? ACC2 : '#10B981') : 'rgba(255,255,255,0.12)'}`, borderRadius: 10, padding: '12px 14px', cursor: 'pointer', background: prog.type === t ? 'rgba(255,255,255,0.05)' : 'transparent', textAlign: 'center' }}>
-                            <div style={{ fontSize: 20, marginBottom: 4 }}>{t === 'free' ? '🎁' : '💳'}</div>
-                            <div style={{ fontWeight: 800, fontSize: 12, color: t === 'paid' ? ACC2 : '#34d399' }}>{t === 'free' ? 'Free' : 'Paid'}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    {prog.type === 'paid' && (
+                    {accessModeOf(prog) === 'standalone' && (
                       <>
                         <Fld label="Price (GHS)"><input type="number" style={inp()} min={0} value={prog.price} onChange={e => set('price', Number(e.target.value))} /></Fld>
                         <Fld label="Discount (%) — applied at registration via spin wheel">
@@ -591,14 +548,6 @@ export default function CoursesManager() {
                           4. Paste it below
                         </div>
                         <Fld label="Paystack Public Key"><input style={inp()} value={prog.paystackPublicKey} onChange={e => set('paystackPublicKey', e.target.value)} placeholder="pk_live_xxxxxxxxxxxxxxxx" /></Fld>
-                      </>
-                    )}
-                    {prog.type === 'free' && (
-                      <div style={{ textAlign: 'center', padding: '30px', color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>
-                        <div style={{ fontSize: 36, marginBottom: 8 }}>🎁</div>
-                        This course is free — no payment configuration needed.
-                      </div>
-                    )}
                       </>
                     )}
                   </>
@@ -643,7 +592,10 @@ export default function CoursesManager() {
                       <strong style={{ color: ACC }}>Closed</strong> — visible, registration link disabled<br />
                       <strong style={{ color: '#3498DB' }}>Completed</strong> — visible as past course
                     </div>
-                    <Toggle label="Allow portal access (learning portal)" checked={prog.hasPortalAccess} onChange={e => set('hasPortalAccess', e.target.checked)} />
+                    <Toggle label="Has a learning portal (lessons inside the app)" checked={prog.hasPortalAccess} onChange={e => set('hasPortalAccess', e.target.checked)} />
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, margin: '-4px 0 10px' }}>
+                      Turn on when this {prog.courseType === 'event' ? 'event' : 'course'} has lessons learners open in the portal. This is separate from the access path above — it decides <em>whether there is content to open</em>, not <em>who</em> can open it. Membership and one-time {prog.courseType === 'event' ? 'events' : 'courses'} usually have this on.
+                    </div>
                     <Toggle label="Award a certificate on course completion" checked={prog.awardsCertificate} onChange={e => set('awardsCertificate', e.target.checked)} />
                     <div style={divider} />
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -653,6 +605,33 @@ export default function CoursesManager() {
                       <button onClick={() => navigate(`/content-admin?courseId=${prog.id}`)} style={{ width: '100%', background: `rgba(201,168,76,0.15)`, border: `1px solid rgba(201,168,76,0.3)`, borderRadius: 8, color: ACC2, fontSize: 11, fontWeight: 700, padding: '10px', cursor: 'pointer' }}>
                         📚 Manage Course Content
                       </button>
+                    </div>
+
+                    {/* ── Share registration link (short URL) ── */}
+                    <div style={divider} />
+                    <Label>{prog.courseType === 'event' ? 'Event' : 'Course'} registration link</Label>
+                    <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '9px 12px', fontSize: 10, color: 'rgba(255,255,255,0.5)', wordBreak: 'break-all', marginBottom: 8, lineHeight: 1.6 }}>
+                      {onboardUrl}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button
+                        onClick={() => { navigator.clipboard?.writeText(onboardUrl) }}
+                        style={{ flex: 1, minWidth: 120, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: 'white', fontSize: 11, fontWeight: 700, padding: '9px', cursor: 'pointer' }}
+                      >📋 Copy Full Link</button>
+                      <button
+                        onClick={generateShortLink}
+                        disabled={shortLoading}
+                        style={{ flex: 1, minWidth: 120, background: shortLoading ? 'rgba(255,255,255,0.05)' : 'rgba(52,152,219,0.15)', border: '1px solid rgba(52,152,219,0.35)', borderRadius: 8, color: '#74b9e8', fontSize: 11, fontWeight: 700, padding: '9px', cursor: shortLoading ? 'not-allowed' : 'pointer' }}
+                      >{shortLoading ? '⏳ Generating…' : '🔗 Generate Short Link'}</button>
+                    </div>
+                    {shortLink && (
+                      <div style={{ marginTop: 8, background: 'rgba(52,152,219,0.1)', border: '1px solid rgba(52,152,219,0.25)', borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <span style={{ fontSize: 12, color: '#74b9e8', fontWeight: 700, wordBreak: 'break-all' }}>{shortLink}</span>
+                        <button onClick={() => navigator.clipboard?.writeText(shortLink)} style={{ background: 'rgba(52,152,219,0.25)', border: 'none', borderRadius: 6, color: '#74b9e8', fontSize: 10, fontWeight: 700, padding: '4px 10px', cursor: 'pointer', flexShrink: 0 }}>Copy</button>
+                      </div>
+                    )}
+                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginTop: 6, lineHeight: 1.5 }}>
+                      Short links are generated via TinyURL and copied to your clipboard automatically.
                     </div>
                   </>
                 )}
