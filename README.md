@@ -30,12 +30,14 @@ Change `DATABASE_URL` and nothing else to switch databases.
 ## Local development
 
 ### 1. Install dependencies
+
 ```bash
 npm install
 cd server && npm install
 ```
 
 ### 2. Configure
+
 ```bash
 # Frontend auth (optional — can also enter in the Database Setup UI)
 cp .env.example .env
@@ -47,10 +49,12 @@ cp server/.env.example server/.env
 ```
 
 ### 3. Create database tables
+
 Run the SQL in the **Database Setup** page (`/db-setup` in the app).  
 Plain SQL — works on any PostgreSQL (Supabase SQL Editor, psql, pgAdmin, Neon console, etc.).
 
 ### 4. Run
+
 ```bash
 npm run dev    # starts Vite (port 5173) + Express (port 3001) concurrently
 ```
@@ -62,19 +66,21 @@ npm run dev    # starts Vite (port 5173) + Express (port 3001) concurrently
 The repo includes `render.yaml` for one-click Blueprint deployment.
 
 **Manual setup:**
+
 1. Render → **New Web Service** → connect GitHub repo
 2. Leave root directory blank
 3. **Build command**: `npm install && npm run build && cd server && npm install`
 4. **Start command**: `node server/index.js`
 5. Add env vars:
 
-| Variable | Where to find it |
-|---|---|
-| `DATABASE_URL` | Your PostgreSQL provider's connection string |
-| `SUPABASE_JWT_SECRET` | Supabase → Settings → API → JWT Settings |
-| `CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET` | cloudinary.com → Dashboard |
-| `VITE_SUPABASE_URL` | Supabase → Settings → API → Project URL |
-| `VITE_SUPABASE_ANON_KEY` | Supabase → Settings → API → anon public |
+| Variable                                   | Where to find it                             |
+| ------------------------------------------ | -------------------------------------------- |
+| `DATABASE_URL`                             | Your PostgreSQL provider's connection string |
+| `SUPABASE_JWT_SECRET`                      | Supabase → Settings → API → JWT Settings     |
+| `CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET` | cloudinary.com → Dashboard                   |
+| `TINYURL_API_TOKEN`                        | tinyurl.com → log in → Settings → API        |
+| `VITE_SUPABASE_URL`                        | Supabase → Settings → API → Project URL      |
+| `VITE_SUPABASE_ANON_KEY`                   | Supabase → Settings → API → anon public      |
 
 Health check endpoint: `GET /api/health`
 
@@ -90,12 +96,12 @@ Health check endpoint: `GET /api/health`
 
 ## Tech stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | React 18, Vite 5, React Router 6 |
-| Backend | Node.js, Express 4 |
-| Database | Any PostgreSQL via `pg` (node-postgres) |
-| Auth | Supabase Auth + `jsonwebtoken` (local JWT verification) |
-| Images | Cloudinary (signed upload) with canvas-resize fallback |
-| Email | EmailJS |
-| URL shortener | TinyURL |
+| Layer         | Technology                                              |
+| ------------- | ------------------------------------------------------- |
+| Frontend      | React 18, Vite 5, React Router 6                        |
+| Backend       | Node.js, Express 4                                      |
+| Database      | Any PostgreSQL via `pg` (node-postgres)                 |
+| Auth          | Supabase Auth + `jsonwebtoken` (local JWT verification) |
+| Images        | Cloudinary (signed upload) with canvas-resize fallback  |
+| Email         | EmailJS                                                 |
+| URL shortener | TinyURL                                                 |
