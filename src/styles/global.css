@@ -61,6 +61,30 @@ textarea:focus, input[type=text]:focus {
 
 button { font-family: 'Montserrat', sans-serif; cursor: pointer; }
 
+/* ── Loading spinner ────────────────────────────────────────────────────────
+   Reusable spinner used by the Loader component on dashboards and editors. */
+@keyframes iwc-spin { to { transform: rotate(360deg); } }
+.iwc-spinner {
+  border-radius: 50%;
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.15);
+  border-top-color: var(--gold);
+  animation: iwc-spin 0.7s linear infinite;
+}
+@keyframes iwc-pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.9; } }
+
+/* ── Card text clamping ─────────────────────────────────────────────────────
+   Keep card titles/taglines to a fixed number of lines so a long title can't
+   stretch one card taller than its neighbours. */
+.clamp-1, .clamp-2, .clamp-3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.clamp-1 { -webkit-line-clamp: 1; }
+.clamp-2 { -webkit-line-clamp: 2; }
+.clamp-3 { -webkit-line-clamp: 3; }
+
 /* ── Rich-text content ──────────────────────────────────────────────────────
    The global `* { margin:0; padding:0 }` reset above strips the default
    indentation from lists and the spacing from quotes/headings. These rules

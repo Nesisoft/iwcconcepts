@@ -1,13 +1,29 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { uid, getAllForms, getAllCourses, saveCourse, deleteCourse, getMembershipPlans, notifyEventAudience } from '../utils/formStorage'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import AdminSelect from '../components/AdminSelect'
 import RichTextEditor from '../components/RichTextEditor'
+import Loader from '../components/Loader'
 
 const ACC = '#E4600A'
 const ACC2 = '#F5B800'
 const DARK = '#0e0a1e'
+
+// ── Save-status pill ─────────────────────────────────────────────────────────
+function SaveStatus({ state }) {
+  const map = {
+    saving: { t: '⏳ Saving…',   c: '#fbbf24', b: 'rgba(245,158,11,0.12)' },
+    saved:  { t: '✓ Saved',     c: '#34d399', b: 'rgba(16,185,129,0.12)' },
+    error:  { t: '⚠ Not saved', c: '#f87171', b: 'rgba(239,68,68,0.12)' },
+  }
+  const s = map[state] || map.saved
+  return (
+    <span style={{ fontSize: 10, fontWeight: 700, color: s.c, background: s.b, border: `1px solid ${s.c}40`, borderRadius: 20, padding: '4px 10px', whiteSpace: 'nowrap' }}>
+      {s.t}
+    </span>
+  )
+}
 
 const STATUS_OPTS = ['draft', 'upcoming', 'open', 'closed', 'completed']
 const STATUS_COLORS = { draft: '#6b7280', upcoming: '#8B5CF6', open: '#10B981', closed: '#E4600A', completed: '#3498DB' }
@@ -85,27 +101,66 @@ export default function CoursesManager() {
   const [inviteText, setInviteText] = useState('')
   const [uploading, setUploading] = useState(false)
   const [notifying, setNotifying] = useState(false)
+  const [listLoading, setListLoading] = useState(true)
+  const [saveState, setSaveState] = useState('saved')   // 'saving' | 'saved' | 'error'
+  const [shortLink, setShortLink] = useState('')
+  const [shortLoading, setShortLoading] = useState(false)
+
+  // Refs backing the reliable-autosave logic
+  const saveTimerRef    = useRef(null)
+  const pendingRef      = useRef(null)
+  const skipAutosaveRef = useRef(false)
 
   const refresh = useCallback(async () => {
-    const [ps, fs, pls] = await Promise.all([getAllCourses(), getAllForms(), getMembershipPlans().catch(() => [])])
-    setCourses(ps)
-    setForms(fs)
-    setPlans(pls)
+    setListLoading(true)
+    try {
+      const [ps, fs, pls] = await Promise.all([getAllCourses(), getAllForms(), getMembershipPlans().catch(() => [])])
+      setCourses(ps)
+      setForms(fs)
+      setPlans(pls)
+    } finally {
+      setListLoading(false)
+    }
   }, [])
 
   useEffect(() => { refresh() }, [refresh])
 
-  const debounced = useCallback((p) => {
+  // ── Reliable autosave ──────────────────────────────────────────────────────
+  const flushSave = useCallback(async () => {
+    if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null }
+    const p = pendingRef.current
     if (!p) return
-    const t = setTimeout(() => saveCourse(p), 600)
-    return () => clearTimeout(t)
+    pendingRef.current = null
+    setSaveState('saving')
+    try {
+      await saveCourse(p)
+      setSaveState('saved')
+    } catch (e) {
+      console.error('[CoursesManager] save failed:', e)
+      pendingRef.current = p
+      setSaveState('error')
+    }
   }, [])
 
   useEffect(() => {
     if (!prog) return
-    const cleanup = debounced(prog)
-    return cleanup
-  }, [prog, debounced])
+    if (skipAutosaveRef.current) { skipAutosaveRef.current = false; return }
+    pendingRef.current = prog
+    setSaveState('saving')
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(flushSave, 800)
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
+  }, [prog, flushSave])
+
+  // Flush a pending save on navigation / tab close instead of dropping it
+  useEffect(() => {
+    const onBeforeUnload = () => { if (pendingRef.current) saveCourse(pendingRef.current) }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload)
+      if (pendingRef.current) saveCourse(pendingRef.current)
+    }
+  }, [])
 
   function set(k, v) { setProg(p => ({ ...p, [k]: v })) }
 
@@ -116,10 +171,35 @@ export default function CoursesManager() {
   const setEvAccess = (k, v) => set('eventAccess', { ...evAccess, [k]: v })
 
   function selectCourse(p) {
+    skipAutosaveRef.current = true
     setSelected(p.id)
     setProg({ ...p })
     setInviteText((p.audience?.emails || []).join('\n'))
     setTab('details')
+    setSaveState('saved')
+    setShortLink('')
+  }
+
+  async function generateShortLink() {
+    if (!prog) return
+    // Public registration / onboarding page for this course or event
+    const base = window.location.href.split('#')[0]
+    const url = `${base}#/onboard?courseId=${prog.id}`
+    setShortLoading(true)
+    try {
+      const res = await fetch(`/api/shorten?url=${encodeURIComponent(url)}`)
+      const json = await res.json()
+      if (json.shorturl) {
+        setShortLink(json.shorturl)
+        try { await navigator.clipboard.writeText(json.shorturl) } catch { /* ignore */ }
+      } else {
+        alert('Could not generate short link: ' + (json.errormessage || 'Unknown error'))
+      }
+    } catch {
+      alert('Could not generate short link. Please check your connection.')
+    } finally {
+      setShortLoading(false)
+    }
   }
 
   async function notifyAudience() {
@@ -145,7 +225,9 @@ export default function CoursesManager() {
     const p = makeDefault()
     await saveCourse(p)
     await refresh()
+    skipAutosaveRef.current = true
     setProg(p); setSelected(p.id); setInviteText(''); setTab('details')
+    setSaveState('saved'); setShortLink('')
   }
 
   async function handleDelete(id) {
@@ -195,6 +277,9 @@ export default function CoursesManager() {
     return steps
   })() : []
 
+  // Public registration / onboarding link for the selected course or event
+  const onboardUrl = prog ? `${window.location.href.split('#')[0]}#/onboard?courseId=${prog.id}` : ''
+
   const panelStyle = { background: '#130a24', height: '100%', overflowY: 'auto', padding: 16 }
   const tabBtn = (t) => ({
     padding: '7px 14px', fontSize: 11, fontWeight: 700, cursor: 'pointer', border: 'none',
@@ -218,7 +303,23 @@ export default function CoursesManager() {
             </div>
           </div>
         </div>
-        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{courses.length} course{courses.length !== 1 ? 's' : ''} · Auto-saved</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{courses.length} course{courses.length !== 1 ? 's' : ''}</span>
+          {prog && <SaveStatus state={saveState} />}
+          <button
+            onClick={flushSave}
+            disabled={!prog || saveState === 'saving'}
+            title="Save all changes now"
+            style={{
+              background: !prog ? 'rgba(255,255,255,0.05)' : `linear-gradient(135deg,${ACC},#c04800)`,
+              border: 'none', borderRadius: 7, color: 'white', padding: '7px 16px',
+              fontSize: 11, fontWeight: 800, cursor: (!prog || saveState === 'saving') ? 'not-allowed' : 'pointer',
+              opacity: !prog ? 0.5 : 1,
+            }}
+          >
+            {saveState === 'saving' ? 'Saving…' : '💾 Save'}
+          </button>
+        </div>
       </header>
 
       <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', flex: 1, overflow: 'hidden' }}>
@@ -226,7 +327,10 @@ export default function CoursesManager() {
         <div style={{ ...panelStyle, borderRight: '1px solid rgba(255,255,255,0.07)' }}>
           <button onClick={create} style={{ width: '100%', background: `linear-gradient(135deg,${ACC},#c04800)`, border: 'none', borderRadius: 8, color: 'white', padding: '10px', fontSize: 11, fontWeight: 700, cursor: 'pointer', marginBottom: 12 }}>+ New Course</button>
           <div style={divider} />
-          {courses.length === 0 && (
+          {listLoading && courses.length === 0 && (
+            <Loader label="Loading courses…" accent={ACC2} style={{ padding: '34px 0' }} />
+          )}
+          {!listLoading && courses.length === 0 && (
             <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>
               <div style={{ fontSize: 32, marginBottom: 8 }}>🎓</div>No courses yet
             </div>
@@ -653,6 +757,33 @@ export default function CoursesManager() {
                       <button onClick={() => navigate(`/content-admin?courseId=${prog.id}`)} style={{ width: '100%', background: `rgba(201,168,76,0.15)`, border: `1px solid rgba(201,168,76,0.3)`, borderRadius: 8, color: ACC2, fontSize: 11, fontWeight: 700, padding: '10px', cursor: 'pointer' }}>
                         📚 Manage Course Content
                       </button>
+                    </div>
+
+                    {/* ── Share registration link (short URL) ── */}
+                    <div style={divider} />
+                    <Label>{prog.courseType === 'event' ? 'Event' : 'Course'} registration link</Label>
+                    <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '9px 12px', fontSize: 10, color: 'rgba(255,255,255,0.5)', wordBreak: 'break-all', marginBottom: 8, lineHeight: 1.6 }}>
+                      {onboardUrl}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button
+                        onClick={() => { navigator.clipboard?.writeText(onboardUrl) }}
+                        style={{ flex: 1, minWidth: 120, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: 'white', fontSize: 11, fontWeight: 700, padding: '9px', cursor: 'pointer' }}
+                      >📋 Copy Full Link</button>
+                      <button
+                        onClick={generateShortLink}
+                        disabled={shortLoading}
+                        style={{ flex: 1, minWidth: 120, background: shortLoading ? 'rgba(255,255,255,0.05)' : 'rgba(52,152,219,0.15)', border: '1px solid rgba(52,152,219,0.35)', borderRadius: 8, color: '#74b9e8', fontSize: 11, fontWeight: 700, padding: '9px', cursor: shortLoading ? 'not-allowed' : 'pointer' }}
+                      >{shortLoading ? '⏳ Generating…' : '🔗 Generate Short Link'}</button>
+                    </div>
+                    {shortLink && (
+                      <div style={{ marginTop: 8, background: 'rgba(52,152,219,0.1)', border: '1px solid rgba(52,152,219,0.25)', borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <span style={{ fontSize: 12, color: '#74b9e8', fontWeight: 700, wordBreak: 'break-all' }}>{shortLink}</span>
+                        <button onClick={() => navigator.clipboard?.writeText(shortLink)} style={{ background: 'rgba(52,152,219,0.25)', border: 'none', borderRadius: 6, color: '#74b9e8', fontSize: 10, fontWeight: 700, padding: '4px 10px', cursor: 'pointer', flexShrink: 0 }}>Copy</button>
+                      </div>
+                    )}
+                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginTop: 6, lineHeight: 1.5 }}>
+                      Short links are generated via TinyURL and copied to your clipboard automatically.
                     </div>
                   </>
                 )}

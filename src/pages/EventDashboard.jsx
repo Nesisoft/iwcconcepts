@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import AdminSelect from '../components/AdminSelect'
+import Loader from '../components/Loader'
 import {
   getAllForms, saveForm, getFormSubmissions, deleteSubmission, exportCSV,
   getEventTasks, saveEventTasks, formatDate, getTimeLeft, uid,
@@ -141,6 +142,30 @@ function OverviewTab({ form, subs }) {
   const todayCount = subs.filter(s => new Date(s.timestamp).toDateString() === today).length
   const recent = [...subs].reverse().slice(0, 5)
 
+  // Short registration/feedback link for this form
+  const [shortLink, setShortLink] = useState('')
+  const [shortLoading, setShortLoading] = useState(false)
+  useEffect(() => { setShortLink('') }, [form.id])
+  const regKind = form.type === 'feedback' ? 'feedback' : 'register'
+  const regUrl = `${window.location.href.split('#')[0]}#/${regKind}?id=${form.id}`
+  const genShort = async () => {
+    setShortLoading(true)
+    try {
+      const res = await fetch(`/api/shorten?url=${encodeURIComponent(regUrl)}`)
+      const json = await res.json()
+      if (json.shorturl) {
+        setShortLink(json.shorturl)
+        try { await navigator.clipboard.writeText(json.shorturl) } catch { /* ignore */ }
+      } else {
+        alert('Could not generate short link: ' + (json.errormessage || 'Unknown error'))
+      }
+    } catch {
+      alert('Could not generate short link. Please check your connection.')
+    } finally {
+      setShortLoading(false)
+    }
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* Stats */}
@@ -191,15 +216,22 @@ function OverviewTab({ form, subs }) {
       <div style={S.card}>
         <div style={S.label}>Quick Links</div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          {form.shareUrl && (
-            <a href={form.shareUrl} target="_blank" rel="noreferrer" style={{ ...S.btn('#C9A84C', 'outline'), textDecoration: 'none' }}>
-              Open Registration Form ↗
-            </a>
-          )}
-          <button style={S.btn('#3498DB', 'outline')} onClick={async () => exportCSV(form.id)}>
+          <a href={regUrl} target="_blank" rel="noreferrer" style={{ ...S.btn('#C9A84C', 'outline'), textDecoration: 'none' }}>
+            Open {form.type === 'feedback' ? 'Feedback' : 'Registration'} Form ↗
+          </a>
+          <button style={S.btn('#3498DB', 'outline')} onClick={genShort} disabled={shortLoading}>
+            {shortLoading ? 'Generating…' : '🔗 Short Link'}
+          </button>
+          <button style={S.btn('#2ECC71', 'outline')} onClick={async () => exportCSV(form.id)}>
             Export CSV
           </button>
         </div>
+        {shortLink && (
+          <div style={{ marginTop: 12, background: 'rgba(52,152,219,0.1)', border: '1px solid rgba(52,152,219,0.3)', borderRadius: 8, padding: '9px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <span style={{ fontSize: 13, color: '#74b9e8', fontWeight: 700, wordBreak: 'break-all' }}>{shortLink}</span>
+            <button onClick={() => navigator.clipboard?.writeText(shortLink)} style={{ ...S.btn('#3498DB', 'outline'), padding: '4px 12px', fontSize: 10, flexShrink: 0 }}>Copy</button>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -690,26 +722,47 @@ export default function EventDashboard() {
   const [selectedId, setSelectedId] = useState(initId || null)
   const [tab, setTab] = useState('overview')
   const [subs, setSubs] = useState([])
+  const [loading, setLoading] = useState(true)        // initial forms load
+  const [subsLoading, setSubsLoading] = useState(false) // submissions for selected form
 
-  // Reload forms and subs
-  const reload = useCallback(async () => {
+  const loadForms = useCallback(async () => {
     const all = await getAllForms()
     setForms(all)
-    if (selectedId) setSubs(await getFormSubmissions(selectedId))
-  }, [selectedId])
+    return all
+  }, [])
 
-  useEffect(() => { reload() }, [reload])
+  const loadSubs = useCallback(async (id, { silent } = {}) => {
+    if (!id) { setSubs([]); return }
+    if (!silent) setSubsLoading(true)
+    try { setSubs(await getFormSubmissions(id)) }
+    finally { if (!silent) setSubsLoading(false) }
+  }, [])
+
+  // Initial load (with full-page loader)
+  useEffect(() => {
+    setLoading(true)
+    loadForms().finally(() => setLoading(false))
+  }, [loadForms])
+
+  // Load submissions whenever the selected form changes (with a spinner)
+  useEffect(() => { loadSubs(selectedId) }, [selectedId, loadSubs])
 
   // Auto-select first form
   useEffect(() => {
     if (!selectedId && forms.length > 0) setSelectedId(forms[0].id)
   }, [forms, selectedId])
 
-  // Auto-refresh every 30s
+  // Silent auto-refresh every 30s (no spinners, so it doesn't flicker)
   useEffect(() => {
-    const iv = setInterval(reload, 30000)
+    const iv = setInterval(() => { loadForms(); loadSubs(selectedId, { silent: true }) }, 30000)
     return () => clearInterval(iv)
-  }, [reload])
+  }, [loadForms, loadSubs, selectedId])
+
+  // Manual refresh (Refresh button / after delete) — shows the submissions spinner
+  const reload = useCallback(async () => {
+    await loadForms()
+    await loadSubs(selectedId)
+  }, [loadForms, loadSubs, selectedId])
 
   const form = forms.find(f => f.id === selectedId) || null
 
@@ -721,8 +774,7 @@ export default function EventDashboard() {
 
   const handleFormChange = async (updated) => {
     await saveForm(updated)
-    const all = await getAllForms()
-    setForms(all)
+    await loadForms()
   }
 
   const tabs = [
@@ -766,10 +818,17 @@ export default function EventDashboard() {
       </header>
 
       {/* Form selector */}
-      <FormSelector forms={forms} selected={selectedId} onSelect={async id => { setSelectedId(id); setSubs(await getFormSubmissions(id)) }} />
+      <FormSelector forms={forms} selected={selectedId} onSelect={id => setSelectedId(id)} />
+
+      {/* Initial load */}
+      {loading && (
+        <div style={{ padding: '90px 20px' }}>
+          <Loader label="Loading dashboard…" />
+        </div>
+      )}
 
       {/* No forms */}
-      {forms.length === 0 && (
+      {!loading && forms.length === 0 && (
         <div style={{ textAlign: 'center', padding: '80px 20px', color: 'rgba(255,255,255,0.4)' }}>
           <div style={{ fontSize: 40, marginBottom: 16 }}>📋</div>
           <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>No forms yet</div>
@@ -779,7 +838,7 @@ export default function EventDashboard() {
       )}
 
       {/* No form selected */}
-      {forms.length > 0 && !form && (
+      {!loading && forms.length > 0 && !form && (
         <div style={{ textAlign: 'center', padding: '60px 20px', color: 'rgba(255,255,255,0.4)' }}>
           <div style={{ fontSize: 13 }}>Select a form above to view its dashboard</div>
         </div>
@@ -802,8 +861,8 @@ export default function EventDashboard() {
 
           <TabBar tabs={tabs} active={tab} onChange={setTab} />
 
-          {tab === 'overview' && <OverviewTab form={form} subs={subs} />}
-          {tab === 'submissions' && <SubmissionsTab form={form} subs={subs} onDelete={handleDeleteSub} />}
+          {tab === 'overview' && (subsLoading ? <Loader fill label="Loading submissions…" style={{ minHeight: 240 }} /> : <OverviewTab form={form} subs={subs} />)}
+          {tab === 'submissions' && (subsLoading ? <Loader fill label="Loading submissions…" style={{ minHeight: 240 }} /> : <SubmissionsTab form={form} subs={subs} onDelete={handleDeleteSub} />)}
           {tab === 'speakers' && <SpeakersTab form={form} onChange={handleFormChange} />}
           {tab === 'checklist' && <ChecklistTab formId={form.id} />}
           {tab === 'reminders' && <RemindersTab form={form} subs={subs} />}

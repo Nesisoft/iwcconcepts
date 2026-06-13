@@ -171,12 +171,13 @@ function CourseCard({ course, plans = [], navigate }) {
     <div style={{
       background: '#fff', borderRadius: 16, overflow: 'hidden',
       boxShadow: '0 2px 12px rgba(0,0,0,0.08)', border: '1px solid #f3f4f6',
-      display: 'flex', flexDirection: 'column', transition: 'transform 0.2s, box-shadow 0.2s',
+      display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box',
+      transition: 'transform 0.2s, box-shadow 0.2s',
     }}
       onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.13)' }}
       onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.08)' }}
     >
-      <div style={{ height: 170, background: '#f3f4f6', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ height: 170, flexShrink: 0, background: '#f3f4f6', position: 'relative', overflow: 'hidden' }}>
         {course.image
           ? <img src={course.image} alt={course.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #6c3fc520, #6c3fc540)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BookOpen size={40} color={BRAND} /></div>
@@ -195,8 +196,8 @@ function CourseCard({ course, plans = [], navigate }) {
       </div>
 
       <div style={{ padding: '18px 20px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#111827', lineHeight: 1.3 }}>{course.title}</h3>
-        {course.tagline && <p style={{ margin: 0, fontSize: 13, color: '#6b7280', lineHeight: 1.5 }}>{course.tagline}</p>}
+        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#111827', lineHeight: 1.3, minHeight: '2.6em', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{course.title}</h3>
+        {course.tagline && <p style={{ margin: 0, fontSize: 13, color: '#6b7280', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{course.tagline}</p>}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
           {course.startDate && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Calendar size={13} /> {formatDate(course.startDate)}</span>}
           {course.duration && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Clock size={13} /> {course.duration}</span>}

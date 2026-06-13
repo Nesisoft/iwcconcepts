@@ -1,7 +1,23 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AdminSelect from '../components/AdminSelect'
 import RichTextEditor from '../components/RichTextEditor'
+import Loader from '../components/Loader'
+
+// ── Save-status pill (shared look for the Save button area) ──────────────────
+function SaveStatus({ state }) {
+  const map = {
+    saving: { t: '⏳ Saving…',        c: '#fbbf24', b: 'rgba(245,158,11,0.12)' },
+    saved:  { t: '✓ Saved',          c: '#34d399', b: 'rgba(16,185,129,0.12)' },
+    error:  { t: '⚠ Not saved',      c: '#f87171', b: 'rgba(239,68,68,0.12)' },
+  }
+  const s = map[state] || map.saved
+  return (
+    <span style={{ fontSize: 10, fontWeight: 700, color: s.c, background: s.b, border: `1px solid ${s.c}40`, borderRadius: 20, padding: '4px 10px', whiteSpace: 'nowrap' }}>
+      {s.t}
+    </span>
+  )
+}
 import {
   uid, getAllForms, saveForm, deleteForm, getFormSubmissions,
   DEFAULT_REGISTRATION_FIELDS, DEFAULT_FEEDBACK_FIELDS, encodeFormConfig,
@@ -265,16 +281,29 @@ export default function FormBuilder() {
   const [shortLinks, setShortLinks] = useState({})
   const [shortLoading, setShortLoading] = useState({})
   const [submissionCount, setSubmissionCount] = useState(0)
+  const [listLoading, setListLoading] = useState(true)
+  const [formLoading, setFormLoading] = useState(false)
+  const [saveState, setSaveState] = useState('saved')   // 'saving' | 'saved' | 'error'
+
+  // Refs that back the reliable-autosave logic
+  const saveTimerRef   = useRef(null)
+  const pendingRef     = useRef(null)   // latest form data waiting to be written
+  const skipAutosaveRef = useRef(false) // skip the save that a load/create would otherwise trigger
 
   const refreshForms = useCallback(async () => {
-    const all = await getAllForms()
-    setForms(all)
-    const counts = {}
-    await Promise.all(all.map(async f => {
-      const subs = await getFormSubmissions(f.id)
-      counts[f.id] = subs.length
-    }))
-    setSubCounts(counts)
+    setListLoading(true)
+    try {
+      const all = await getAllForms()
+      setForms(all)
+      const counts = {}
+      await Promise.all(all.map(async f => {
+        const subs = await getFormSubmissions(f.id)
+        counts[f.id] = subs.length
+      }))
+      setSubCounts(counts)
+    } finally {
+      setListLoading(false)
+    }
   }, [])
 
   useEffect(() => { refreshForms() }, [refreshForms])
@@ -285,32 +314,72 @@ export default function FormBuilder() {
     getFormSubmissions(selectedId).then(subs => setSubmissionCount(subs.length))
   }, [selectedId])
 
-  // Auto-save form after 600ms of no changes
-  const debouncedSave = useCallback((f) => {
+  // ── Reliable autosave ──────────────────────────────────────────────────────
+  // Write the pending form to the DB and surface the result. Errors are no
+  // longer swallowed — they flip the indicator to "Not saved" so the manual
+  // Save button can retry.
+  const flushSave = useCallback(async () => {
+    if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null }
+    const f = pendingRef.current
     if (!f) return
-    const t = setTimeout(() => saveForm(f), 600)
-    return () => clearTimeout(t)
+    pendingRef.current = null
+    setSaveState('saving')
+    try {
+      await saveForm(f)
+      setSaveState('saved')
+    } catch (e) {
+      console.error('[FormBuilder] save failed:', e)
+      pendingRef.current = f          // keep it so the next edit / Save retries
+      setSaveState('error')
+    }
   }, [])
 
+  // Debounced autosave on every edit (800ms after the last change)
   useEffect(() => {
     if (!form) return
-    const cleanup = debouncedSave(form)
-    return cleanup
-  }, [form, debouncedSave])
+    if (skipAutosaveRef.current) { skipAutosaveRef.current = false; return }  // don't re-save a just-loaded form
+    pendingRef.current = form
+    setSaveState('saving')
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(flushSave, 800)
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
+  }, [form, flushSave])
+
+  // Flush a pending save when leaving the page (route change) or closing the tab,
+  // instead of cancelling it — this is what previously lost edits.
+  useEffect(() => {
+    const onBeforeUnload = () => { if (pendingRef.current) saveForm(pendingRef.current) }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload)
+      if (pendingRef.current) saveForm(pendingRef.current)   // best-effort flush on unmount
+    }
+  }, [])
 
   async function loadForm(id) {
-    const all = await getAllForms()
-    const f = all.find(x => x.id === id)
-    if (f) { setForm({ ...f, fields: f.fields.map(x => ({ ...x })) }); setSelectedId(id); setTab('content') }
+    setFormLoading(true)
+    try {
+      const all = await getAllForms()
+      const f = all.find(x => x.id === id)
+      if (f) {
+        skipAutosaveRef.current = true
+        setForm({ ...f, fields: f.fields.map(x => ({ ...x })) })
+        setSelectedId(id); setTab('content'); setSaveState('saved')
+      }
+    } finally {
+      setFormLoading(false)
+    }
   }
 
   async function createForm(type) {
     const f = makeDefaultForm(type)
     await saveForm(f)
     await refreshForms()
+    skipAutosaveRef.current = true
     setForm(f)
     setSelectedId(f.id)
     setTab('content')
+    setSaveState('saved')
   }
 
   async function handleDelete(id) {
@@ -442,8 +511,24 @@ export default function FormBuilder() {
             </div>
           </div>
         </div>
-        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>
-          {forms.length} form{forms.length !== 1 ? 's' : ''} · All changes auto-saved
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>
+            {forms.length} form{forms.length !== 1 ? 's' : ''}
+          </span>
+          {form && <SaveStatus state={saveState} />}
+          <button
+            onClick={flushSave}
+            disabled={!form || saveState === 'saving'}
+            title="Save all changes now"
+            style={{
+              background: !form ? 'rgba(255,255,255,0.05)' : `linear-gradient(135deg,${ACC},#7C3AED)`,
+              border: 'none', borderRadius: 7, color: 'white', padding: '7px 16px',
+              fontSize: 11, fontWeight: 800, cursor: (!form || saveState === 'saving') ? 'not-allowed' : 'pointer',
+              opacity: !form ? 0.5 : 1,
+            }}
+          >
+            {saveState === 'saving' ? 'Saving…' : '💾 Save'}
+          </button>
         </div>
       </header>
 
@@ -462,7 +547,11 @@ export default function FormBuilder() {
 
           <div style={divider} />
 
-          {forms.length === 0 && (
+          {listLoading && forms.length === 0 && (
+            <Loader label="Loading forms…" accent={ACC2} style={{ padding: '34px 0' }} />
+          )}
+
+          {!listLoading && forms.length === 0 && (
             <div style={{ textAlign: 'center', padding: '30px 0', color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>
               <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
               <div>No forms yet</div>
@@ -499,7 +588,9 @@ export default function FormBuilder() {
         </div>
 
         {/* ── RIGHT: Form Editor ── */}
-        {!form ? (
+        {formLoading ? (
+          <Loader fill label="Opening form…" accent={ACC2} />
+        ) : !form ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: 'rgba(255,255,255,0.25)', gap: 12 }}>
             <div style={{ fontSize: 52 }}>📋</div>
             <div style={{ fontSize: 14, fontWeight: 700 }}>Select a form to edit</div>
