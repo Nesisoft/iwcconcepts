@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAllCourses, getAllTestimonials } from '../utils/formStorage'
+import { accessModeOf } from '../utils/access'
 import SiteNav from '../components/SiteNav'
 import SiteFooter from '../components/SiteFooter'
 import { Calendar, MapPin, Star, BookOpen, CircleDot, Clock, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -120,10 +121,11 @@ function HeroCarousel({ courses }) {
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <button
               onClick={() => {
-                if (slide.registrationFormId) navigate(`/onboard?courseId=${slide.id}`)
+                if (accessModeOf(slide) === 'plan') { navigate('/join'); return }
+                if (accessModeOf(slide) === 'standalone' || slide.registrationFormId) navigate(`/onboard?courseId=${slide.id}`)
               }}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: GOLD, color: '#1A1A2E', border: 'none', borderRadius: 10, padding: '14px 32px', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}
-            >{slide.type === 'paid' ? 'Register' : 'Join Free'} <ArrowRight size={17} /></button>
+            >{accessModeOf(slide) === 'plan' ? 'Join to Access' : accessModeOf(slide) === 'standalone' ? 'Register' : 'Join Free'} <ArrowRight size={17} /></button>
           </div>
         </div>
       </div>
@@ -177,12 +179,15 @@ function arrowBtn(side) {
 
 function CourseCard({ course }) {
   const navigate = useNavigate()
-  const isPaid = course.type === 'paid'
+  const mode = accessModeOf(course)
+  const isPlanGated = mode === 'plan'
+  const isPaid = mode === 'standalone'
   const canRegister = ['open'].includes(course.status)
 
   function handleCTA() {
     if (!canRegister) return
-    if (course.registrationFormId) navigate(`/onboard?courseId=${course.id}`)
+    if (isPlanGated) { navigate('/join'); return }
+    if (isPaid || course.registrationFormId) navigate(`/onboard?courseId=${course.id}`)
   }
 
   return (
@@ -258,13 +263,13 @@ function CourseCard({ course }) {
           style={{
             marginTop: 12, width: '100%', border: 'none', borderRadius: 9, padding: '11px 0',
             fontWeight: 700, fontSize: 13, cursor: canRegister ? 'pointer' : 'not-allowed',
-            background: canRegister ? (isPaid ? BRAND : '#059669') : '#e5e7eb',
+            background: canRegister ? ((isPaid || isPlanGated) ? BRAND : '#059669') : '#e5e7eb',
             color: canRegister ? '#fff' : '#9ca3af',
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
           }}
         >
           {canRegister
-            ? <>{isPaid ? 'Register' : 'Join Free'} <ArrowRight size={15} /></>
+            ? <>{isPlanGated ? 'Join to Access' : isPaid ? 'Register' : 'Join Free'} <ArrowRight size={15} /></>
             : (course.status === 'upcoming' ? 'Coming Soon' : course.status === 'closed' ? 'Registration Closed' : 'Completed')
           }
         </button>
@@ -277,7 +282,8 @@ function CourseCard({ course }) {
 
 function EventCard({ course }) {
   const navigate = useNavigate()
-  const canRegister = course.status === 'open' && course.registrationFormId
+  const isPaid = accessModeOf(course) === 'standalone'
+  const canRegister = course.status === 'open' && (course.registrationFormId || isPaid)
 
   return (
     <div style={{
@@ -335,7 +341,7 @@ function EventCard({ course }) {
             transition: 'opacity 0.15s',
           }}
         >
-          {canRegister ? 'Register Now →' : course.status === 'upcoming' ? 'Coming Soon' : 'Registration Closed'}
+          {canRegister ? (isPaid ? 'Get Ticket →' : 'Register Now →') : course.status === 'upcoming' ? 'Coming Soon' : 'Registration Closed'}
         </button>
       </div>
     </div>

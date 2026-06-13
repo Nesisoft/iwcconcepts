@@ -131,6 +131,35 @@ function audienceMatches(audience, { email, planId } = {}) {
   return false
 }
 
+// Transactional ticket / join-details email for an event registration.
+// `reveal` controls whether the sensitive online join link/passcode is included
+// (withheld when a paid event is registered with no proof of purchase).
+function eventTicketEmailText(ev, enr, baseUrl, reveal = true) {
+  const when = ev.startDate
+    ? new Date(ev.startDate).toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : 'Date to be announced'
+  const a = ev.eventAccess || {}
+  const mode = a.mode || 'online'
+  const lines = []
+  if (mode !== 'online') lines.push(`Venue: ${a.address || ev.venue || 'TBA'}`)
+  if (reveal && mode !== 'in_person') {
+    if (a.platform) lines.push(`Platform: ${a.platform}`)
+    if (a.link)     lines.push(`Join link: ${a.link}`)
+    if (a.passcode) lines.push(`Passcode: ${a.passcode}`)
+  }
+  if (reveal && a.notes) lines.push('', a.notes)
+  if (!reveal && mode !== 'in_person') lines.push('Your online joining link will appear in your portal once your ticket is confirmed.')
+  const portal = baseUrl ? `\n\nFind it in your portal: ${baseUrl}/#/portal` : ''
+  return `Hi ${enr.participantName || 'there'},
+
+You're registered for ${ev.title}.
+
+When: ${when}${lines.length ? '\n' + lines.join('\n') : ''}${enr.paymentRef ? `\n\nPayment ref: ${enr.paymentRef}` : ''}${portal}
+
+See you there!
+— IWC Concepts`
+}
+
 // Upsert a member record keyed by email. Dedupes on paymentRef so the client
 // return path and the Paystack webhook can both call this safely.
 async function upsertMember(db, incoming, { baseUrl } = {}) {
@@ -416,17 +445,38 @@ async function handleAction(db, action, p, user = null) {
          ON CONFLICT (id) DO NOTHING`,
         [e.id, e.courseId, e, e.enrolledAt || new Date().toISOString()]
       )
-      // Welcome email — only on a genuinely new enrollment row.
+      // Email — only on a genuinely new enrollment row. Wrapped so a lookup or
+      // send error can never undo / fail the enrollment that was just saved.
       if (result.rowCount > 0 && e.participantEmail) {
-        const settings = await loadEmailSettings(db)
-        if (settings.welcomeEnabled) {
-          const vars = emailVars({ name: e.participantName, course: e.courseTitle, baseUrl: p.baseUrl })
-          await trySend(db, {
-            to: e.participantEmail,
-            subject: renderTemplate(settings.welcomeSubject, vars),
-            text: renderTemplate(settings.welcomeBody, vars),
-            settings,
-          })
+        try {
+          const settings = await loadEmailSettings(db)
+          const { rows: cr } = await db.query('SELECT data FROM courses WHERE id = $1', [e.courseId])
+          const course = cr[0]?.data
+          if (course && course.courseType === 'event') {
+            // Events send a transactional ticket email with the join details.
+            // Sensitive online details are revealed only when the event is free or
+            // there's payment/promo evidence — addEnrollment is a public endpoint,
+            // so we never email a paid event's link to someone with no proof of purchase.
+            const isPaid     = course.accessMode === 'standalone'
+            const validPromo = !!(e.promoCode && (course.promoCodes || []).some(pc => String(pc.code || '').toUpperCase() === String(e.promoCode).toUpperCase()))
+            const reveal     = !isPaid || !!e.paymentRef || validPromo
+            await trySend(db, {
+              to: e.participantEmail,
+              subject: `🎟️ You're registered: ${e.courseTitle || course.title}`,
+              text: eventTicketEmailText(course, e, p.baseUrl, reveal),
+              settings,
+            })
+          } else if (settings.welcomeEnabled) {
+            const vars = emailVars({ name: e.participantName, course: e.courseTitle, baseUrl: p.baseUrl })
+            await trySend(db, {
+              to: e.participantEmail,
+              subject: renderTemplate(settings.welcomeSubject, vars),
+              text: renderTemplate(settings.welcomeBody, vars),
+              settings,
+            })
+          }
+        } catch (mailErr) {
+          console.warn('[addEnrollment] post-enrollment email skipped:', mailErr.message)
         }
       }
       return e
@@ -818,10 +868,12 @@ async function handleAction(db, action, p, user = null) {
 
     // ── Events (member-visible) ───────────────────────────────────────────────
     case 'getMyEvents': {
-      const [{ rows: er }, member] = await Promise.all([
+      const [{ rows: er }, member, { rows: enr }] = await Promise.all([
         db.query(`SELECT data FROM courses WHERE data->>'courseType' = 'event' AND data->>'status' <> 'draft'`),
         getMemberByEmail(db, user.email),
+        db.query(`SELECT DISTINCT course_id FROM enrollments WHERE data->>'participantEmail' = $1`, [user.email]),
       ])
+      const ticketed = new Set(enr.map(r => r.course_id))
       const me = {
         email:  user.email,
         planId: isMemberActive(member) ? member.planId : null,
@@ -829,19 +881,31 @@ async function handleAction(db, action, p, user = null) {
       const now = Date.now()
       return er.rows
         .map(r => r.data)
-        .filter(ev => audienceMatches(ev.audience, me))
+        // Visible if the audience matches OR the user already holds a ticket/enrollment.
+        .filter(ev => audienceMatches(ev.audience, me) || ticketed.has(ev.id))
         .filter(ev => {
           const end = ev.endDate || ev.startDate
           if (!end) return true                       // undated events stay visible
           return new Date(end).getTime() >= now - 86400000   // hide >24h past
         })
         .sort((a, b) => new Date(a.startDate || 0) - new Date(b.startDate || 0))
-        .map(ev => ({
-          id: ev.id, title: ev.title, tagline: ev.tagline, image: ev.image,
-          startDate: ev.startDate, endDate: ev.endDate, venue: ev.venue,
-          status: ev.status, registrationFormId: ev.registrationFormId || null,
-          eventAccess: ev.eventAccess || null,        // link / passcode for eligible users only
-        }))
+        .map(ev => {
+          // Paid (standalone) events reveal their join link/passcode only to ticket
+          // holders. Free and membership events behave exactly as before.
+          const isPaid    = ev.accessMode === 'standalone'
+          const hasTicket = ticketed.has(ev.id)
+          const reveal    = !isPaid || hasTicket
+          return {
+            id: ev.id, title: ev.title, tagline: ev.tagline, image: ev.image,
+            startDate: ev.startDate, endDate: ev.endDate, venue: ev.venue,
+            status: ev.status, registrationFormId: ev.registrationFormId || null,
+            accessMode: ev.accessMode || null,
+            price: Number(ev.price) || 0, currency: ev.currency || 'GHS',
+            needsTicket: isPaid && !hasTicket,
+            hasTicket,
+            eventAccess: reveal ? (ev.eventAccess || null) : null,   // join details for eligible users only
+          }
+        })
     }
 
     // ── Notifications ─────────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAllCourses, getMembershipPlans } from '../utils/formStorage'
+import { accessModeOf, isOpenAccess, isPlanAccess, isStandaloneAccess, requiredPlan } from '../utils/access'
 import SiteNav from '../components/SiteNav'
 import SiteFooter from '../components/SiteFooter'
 import { Calendar, MapPin, Star, BookOpen, ArrowRight, Search, Clock, Ticket } from 'lucide-react'
@@ -20,14 +21,12 @@ function formatDate(iso) {
 }
 
 const FILTERS = [
-  { key: 'all',        label: 'All Courses' },
-  { key: 'free',       label: 'Free' },
+  { key: 'all',        label: 'All' },
+  { key: 'open',       label: 'Free' },
   { key: 'membership', label: 'Membership' },
+  { key: 'onetime',    label: 'One-time' },
 ]
 
-// Access helpers (accessMode wins; legacy courses fall back to type)
-const isFreeAccess       = p => p.accessMode === 'open' || (p.accessMode !== 'plan' && p.type === 'free')
-const isMembershipAccess = p => p.accessMode === 'plan' || (p.accessMode !== 'open' && p.type === 'paid')
 // Restricted events are members-only — never listed publicly
 const isPubliclyVisible  = p => !(p.courseType === 'event' && p.audience?.type === 'restricted')
 
@@ -51,7 +50,7 @@ export default function Courses() {
     return courses
       .filter(p => p.status !== 'draft')
       .filter(isPubliclyVisible)
-      .filter(p => filter === 'all' ? true : filter === 'free' ? isFreeAccess(p) : isMembershipAccess(p))
+      .filter(p => filter === 'all' ? true : filter === 'open' ? isOpenAccess(p) : filter === 'membership' ? isPlanAccess(p) : isStandaloneAccess(p))
       .filter(p => {
         if (!q) return true
         return [p.title, p.tagline, p.description, ...(p.tags || [])]
@@ -64,8 +63,9 @@ export default function Courses() {
     const live = courses.filter(p => p.status !== 'draft').filter(isPubliclyVisible)
     return {
       all:        live.length,
-      free:       live.filter(isFreeAccess).length,
-      membership: live.filter(isMembershipAccess).length,
+      open:       live.filter(isOpenAccess).length,
+      membership: live.filter(isPlanAccess).length,
+      onetime:    live.filter(isStandaloneAccess).length,
     }
   }, [courses])
 
@@ -156,15 +156,17 @@ export default function Courses() {
 }
 
 function CourseCard({ course, plans = [], navigate }) {
-  const isPlanGated = course.accessMode === 'plan' && course.accessPlanId
-  const isPaid      = !isPlanGated && course.accessMode !== 'open' && course.type === 'paid'
+  const mode        = accessModeOf(course)
+  const isPlanGated = mode === 'plan'
+  const isPaid      = mode === 'standalone'
   const canRegister = course.status === 'open'
-  const reqPlan     = isPlanGated ? plans.find(pl => pl.id === course.accessPlanId) : null
+  const reqPlan     = requiredPlan(course, plans)
 
   function handleCTA() {
     if (!canRegister) return
     if (isPlanGated) { navigate('/join'); return }
-    if (course.registrationFormId) navigate(`/onboard?courseId=${course.id}`)
+    // Paid items reach checkout even without a registration form (the ticket is the registration).
+    if (isPaid || course.registrationFormId) navigate(`/onboard?courseId=${course.id}`)
   }
 
   return (

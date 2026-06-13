@@ -102,7 +102,9 @@ export default function Portal() {
       const live = (allProgs || []).filter(p => p.status !== 'draft' && isCourse(p) && !enrolledIds.has(p.id))
 
       const isOpen   = p => p.accessMode === 'open' || (!p.accessMode && p.type === 'free')
-      const isLegacy = p => (!p.accessMode || p.accessMode === 'legacy') && p.type === 'paid'
+      // "standalone" is the new first-class name for a one-time paid course;
+      // older records used accessMode 'legacy' (or none) + type 'paid'.
+      const isLegacy = p => p.accessMode === 'standalone' || ((!p.accessMode || p.accessMode === 'legacy') && p.type === 'paid')
       const isPlan   = p => p.accessMode === 'plan' && p.accessPlanId
 
       const freeProgs = live.filter(p => isOpen(p) && (p.hasPortalAccess === true || p.hasPortalAccess === 'true'))
@@ -496,6 +498,15 @@ function EventCard({ event, navigate }) {
         )}
         {a.notes && <div style={{ fontSize: 11, color: '#9ca3af', lineHeight: 1.5 }}>{a.notes}</div>}
 
+        {event.needsTicket && (
+          <button onClick={() => navigate(`/onboard?courseId=${event.id}`)} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 12.5, color: '#fff', background: `linear-gradient(135deg, ${BRAND}, ${BRAND2})`, borderRadius: 8, padding: '9px 12px', border: 'none', fontWeight: 800, cursor: 'pointer', marginTop: 4 }}>
+            🎟️ Get Ticket — {event.currency || 'GHS'} {Number(event.price || 0).toLocaleString()}
+          </button>
+        )}
+        {event.hasTicket && event.accessMode === 'standalone' && (
+          <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, marginTop: 2 }}>✓ Ticket confirmed</div>
+        )}
+
         <div style={{ flex: 1 }} />
 
         {/* Add to calendar + RSVP */}
@@ -506,7 +517,7 @@ function EventCard({ event, navigate }) {
           <button onClick={() => downloadICS(event)} style={{ flex: 1, minWidth: 100, background: '#f5f0ff', color: BRAND, border: 'none', borderRadius: 8, padding: '9px 0', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
             ⬇ .ics file
           </button>
-          {event.registrationFormId && (
+          {event.registrationFormId && !event.needsTicket && (
             <button onClick={() => navigate(`/register?id=${event.registrationFormId}`)} style={{ flexBasis: '100%', background: '#fff', color: '#374151', border: '1px solid #e5e7eb', borderRadius: 8, padding: '9px 0', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
             ✋ RSVP / Register
             </button>
