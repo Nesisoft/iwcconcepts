@@ -14,9 +14,10 @@ const DARK = '#0e0a1e'
 // ── Save-status pill ─────────────────────────────────────────────────────────
 function SaveStatus({ state }) {
   const map = {
-    saving: { t: '⏳ Saving…',   c: '#fbbf24', b: 'rgba(245,158,11,0.12)' },
-    saved:  { t: '✓ Saved',     c: '#34d399', b: 'rgba(16,185,129,0.12)' },
-    error:  { t: '⚠ Not saved', c: '#f87171', b: 'rgba(239,68,68,0.12)' },
+    dirty:  { t: '● Unsaved changes', c: '#fbbf24', b: 'rgba(245,158,11,0.12)' },
+    saving: { t: '⏳ Saving…',         c: '#60a5fa', b: 'rgba(59,130,246,0.12)' },
+    saved:  { t: '✓ Saved',           c: '#34d399', b: 'rgba(16,185,129,0.12)' },
+    error:  { t: '⚠ Not saved',       c: '#f87171', b: 'rgba(239,68,68,0.12)' },
   }
   const s = map[state] || map.saved
   return (
@@ -145,7 +146,7 @@ export default function CoursesManager() {
     if (!prog) return
     if (skipAutosaveRef.current) { skipAutosaveRef.current = false; return }
     pendingRef.current = prog
-    setSaveState('saving')
+    setSaveState('dirty')   // unsaved changes pending — autosave fires in 800ms, or hit Save now
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(flushSave, 800)
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
@@ -279,19 +280,24 @@ export default function CoursesManager() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{courses.length} course{courses.length !== 1 ? 's' : ''}</span>
           {prog && <SaveStatus state={saveState} />}
-          <button
-            onClick={flushSave}
-            disabled={!prog || saveState === 'saving'}
-            title="Save all changes now"
-            style={{
-              background: !prog ? 'rgba(255,255,255,0.05)' : `linear-gradient(135deg,${ACC},#c04800)`,
-              border: 'none', borderRadius: 7, color: 'white', padding: '7px 16px',
-              fontSize: 11, fontWeight: 800, cursor: (!prog || saveState === 'saving') ? 'not-allowed' : 'pointer',
-              opacity: !prog ? 0.5 : 1,
-            }}
-          >
-            {saveState === 'saving' ? 'Saving…' : '💾 Save'}
-          </button>
+          {(() => {
+            const canSave = prog && saveState !== 'saving' && saveState !== 'saved'
+            return (
+              <button
+                onClick={flushSave}
+                disabled={!canSave}
+                title="Save all changes now"
+                style={{
+                  background: !prog ? 'rgba(255,255,255,0.05)' : `linear-gradient(135deg,${ACC},#c04800)`,
+                  border: 'none', borderRadius: 7, color: 'white', padding: '7px 16px',
+                  fontSize: 11, fontWeight: 800, cursor: canSave ? 'pointer' : 'not-allowed',
+                  opacity: canSave ? 1 : 0.5,
+                }}
+              >
+                {saveState === 'saving' ? 'Saving…' : '💾 Save'}
+              </button>
+            )
+          })()}
         </div>
       </header>
 

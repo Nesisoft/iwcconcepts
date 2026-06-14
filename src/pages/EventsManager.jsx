@@ -19,9 +19,10 @@ const DARK = '#0e0a1e'
 // ── Small styled helpers (self-contained, mirrors the admin look) ──────────────
 function SaveStatus({ state }) {
   const map = {
-    saving: { t: '⏳ Saving…',   c: '#fbbf24' },
-    saved:  { t: '✓ Saved',     c: '#34d399' },
-    error:  { t: '⚠ Not saved', c: '#f87171' },
+    dirty:  { t: '● Unsaved changes', c: '#fbbf24' },
+    saving: { t: '⏳ Saving…',         c: '#60a5fa' },
+    saved:  { t: '✓ Saved',           c: '#34d399' },
+    error:  { t: '⚠ Not saved',       c: '#f87171' },
   }
   const s = map[state] || map.saved
   return <span style={{ fontSize: 10, fontWeight: 700, color: s.c, background: `${s.c}1f`, border: `1px solid ${s.c}40`, borderRadius: 20, padding: '4px 10px', whiteSpace: 'nowrap' }}>{s.t}</span>
@@ -120,7 +121,7 @@ export default function EventsManager() {
     if (!ev) return
     if (skipAutosaveRef.current) { skipAutosaveRef.current = false; return }
     pendingRef.current = ev
-    setSaveState('saving')
+    setSaveState('dirty')   // unsaved changes pending — autosave fires in 800ms, or hit Save now
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(flushSave, 800)
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
@@ -231,9 +232,14 @@ export default function EventsManager() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{events.length} event{events.length !== 1 ? 's' : ''}</span>
           {ev && <SaveStatus state={saveState} />}
-          <button onClick={flushSave} disabled={!ev || saveState === 'saving'} style={{ background: !ev ? 'rgba(255,255,255,0.05)' : `linear-gradient(135deg,${EV},#c2700a)`, border: 'none', borderRadius: 7, color: 'white', padding: '7px 16px', fontSize: 11, fontWeight: 800, cursor: (!ev || saveState === 'saving') ? 'not-allowed' : 'pointer', opacity: !ev ? 0.5 : 1 }}>
-            {saveState === 'saving' ? 'Saving…' : '💾 Save'}
-          </button>
+          {(() => {
+            const canSave = ev && saveState !== 'saving' && saveState !== 'saved'
+            return (
+              <button onClick={flushSave} disabled={!canSave} title="Save all changes now" style={{ background: !ev ? 'rgba(255,255,255,0.05)' : `linear-gradient(135deg,${EV},#c2700a)`, border: 'none', borderRadius: 7, color: 'white', padding: '7px 16px', fontSize: 11, fontWeight: 800, cursor: canSave ? 'pointer' : 'not-allowed', opacity: canSave ? 1 : 0.5 }}>
+                {saveState === 'saving' ? 'Saving…' : '💾 Save'}
+              </button>
+            )
+          })()}
         </div>
       </header>
 
@@ -377,7 +383,7 @@ export default function EventsManager() {
                       <>
                         <Fld label="Ticket price (GHS)"><input type="number" style={inp()} min={0} value={ev.price} onChange={e => set('price', Number(e.target.value))} /></Fld>
                         <div style={{ background: `${EV}14`, border: `1px solid ${EV}33`, borderRadius: 10, padding: 12, fontSize: 11, color: EV2, lineHeight: 1.6, marginBottom: 12 }}>
-                          ⚙ Ticket checkout (Paystack) activates in the ticketing step. For now the event is publicly visible with its price shown.
+                          🎟️ Buyers pay securely via Paystack at checkout, then receive their ticket and join details by email and in their portal. Add your Paystack key below to take payments.
                         </div>
                         <Fld label="Paystack Public Key (for ticket checkout)"><input style={inp()} value={ev.paystackPublicKey} onChange={e => set('paystackPublicKey', e.target.value)} placeholder="pk_live_xxxxxxxx" /></Fld>
                       </>
@@ -396,7 +402,7 @@ export default function EventsManager() {
                         <div style={divider} />
                         <Label>Promo codes (let outsiders attend — free or discounted)</Label>
                         <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 8, lineHeight: 1.6 }}>
-                          Codes are saved now; redemption at checkout/registration activates in the ticketing step.
+                          Attendees enter a code at checkout: a <strong style={{ color: EV2 }}>Free</strong> code admits them at no charge, a <strong style={{ color: EV2 }}>% off</strong> code discounts the ticket price.
                         </div>
                         {(ev.promoCodes || []).length > 0 && (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>

@@ -7,9 +7,10 @@ import Loader from '../components/Loader'
 // ── Save-status pill (shared look for the Save button area) ──────────────────
 function SaveStatus({ state }) {
   const map = {
-    saving: { t: '⏳ Saving…',        c: '#fbbf24', b: 'rgba(245,158,11,0.12)' },
-    saved:  { t: '✓ Saved',          c: '#34d399', b: 'rgba(16,185,129,0.12)' },
-    error:  { t: '⚠ Not saved',      c: '#f87171', b: 'rgba(239,68,68,0.12)' },
+    dirty:  { t: '● Unsaved changes', c: '#fbbf24', b: 'rgba(245,158,11,0.12)' },
+    saving: { t: '⏳ Saving…',         c: '#60a5fa', b: 'rgba(59,130,246,0.12)' },
+    saved:  { t: '✓ Saved',           c: '#34d399', b: 'rgba(16,185,129,0.12)' },
+    error:  { t: '⚠ Not saved',       c: '#f87171', b: 'rgba(239,68,68,0.12)' },
   }
   const s = map[state] || map.saved
   return (
@@ -339,7 +340,7 @@ export default function FormBuilder() {
     if (!form) return
     if (skipAutosaveRef.current) { skipAutosaveRef.current = false; return }  // don't re-save a just-loaded form
     pendingRef.current = form
-    setSaveState('saving')
+    setSaveState('dirty')   // unsaved changes pending — autosave fires in 800ms, or hit Save now
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(flushSave, 800)
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
@@ -516,19 +517,24 @@ export default function FormBuilder() {
             {forms.length} form{forms.length !== 1 ? 's' : ''}
           </span>
           {form && <SaveStatus state={saveState} />}
-          <button
-            onClick={flushSave}
-            disabled={!form || saveState === 'saving'}
-            title="Save all changes now"
-            style={{
-              background: !form ? 'rgba(255,255,255,0.05)' : `linear-gradient(135deg,${ACC},#7C3AED)`,
-              border: 'none', borderRadius: 7, color: 'white', padding: '7px 16px',
-              fontSize: 11, fontWeight: 800, cursor: (!form || saveState === 'saving') ? 'not-allowed' : 'pointer',
-              opacity: !form ? 0.5 : 1,
-            }}
-          >
-            {saveState === 'saving' ? 'Saving…' : '💾 Save'}
-          </button>
+          {(() => {
+            const canSave = form && saveState !== 'saving' && saveState !== 'saved'
+            return (
+              <button
+                onClick={flushSave}
+                disabled={!canSave}
+                title="Save all changes now"
+                style={{
+                  background: !form ? 'rgba(255,255,255,0.05)' : `linear-gradient(135deg,${ACC},#7C3AED)`,
+                  border: 'none', borderRadius: 7, color: 'white', padding: '7px 16px',
+                  fontSize: 11, fontWeight: 800, cursor: canSave ? 'pointer' : 'not-allowed',
+                  opacity: canSave ? 1 : 0.5,
+                }}
+              >
+                {saveState === 'saving' ? 'Saving…' : '💾 Save'}
+              </button>
+            )
+          })()}
         </div>
       </header>
 

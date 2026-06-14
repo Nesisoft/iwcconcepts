@@ -511,18 +511,22 @@ export default function CourseOnboarding() {
     </div>
   )
 
-  // Membership-gated courses are not sold per-course — send users to /join.
-  if (course?.accessMode === 'plan' && !confirmed) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb', flexDirection: 'column', gap: 16, padding: 24, textAlign: 'center', fontFamily: 'Inter, -apple-system, sans-serif' }}>
-      <div style={{ fontSize: 48 }}>🎫</div>
-      <div style={{ fontSize: 20, fontWeight: 800, color: '#111827' }}>This course is part of our membership</div>
-      <p style={{ color: '#6b7280', fontSize: 14, maxWidth: 420, margin: 0, lineHeight: 1.7 }}>
-        <strong>{course.title}</strong> is included in a membership plan. Become a member to unlock it — along with every other course in your plan.
-      </p>
-      <button onClick={() => navigate('/join')} style={primaryBtn()}>Become a Member →</button>
-      <button onClick={() => navigate('/courses')} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 13, cursor: 'pointer' }}>← Back to courses</button>
-    </div>
-  )
+  // Membership-gated items are not sold per-item — send users to /join.
+  if (course?.accessMode === 'plan' && !confirmed) {
+    const itemIsEvent = (course.courseType || 'course') === 'event'
+    const noun = itemIsEvent ? 'event' : 'course'
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb', flexDirection: 'column', gap: 16, padding: 24, textAlign: 'center', fontFamily: 'Inter, -apple-system, sans-serif' }}>
+        <div style={{ fontSize: 48 }}>🎫</div>
+        <div style={{ fontSize: 20, fontWeight: 800, color: '#111827' }}>This {noun} is part of our membership</div>
+        <p style={{ color: '#6b7280', fontSize: 14, maxWidth: 420, margin: 0, lineHeight: 1.7 }}>
+          <strong>{course.title}</strong> is included in a membership plan. Become a member to unlock it — along with every other {noun} in your plan.
+        </p>
+        <button onClick={() => navigate('/join')} style={primaryBtn()}>Become a Member →</button>
+        <button onClick={() => navigate(itemIsEvent ? '/' : '/courses')} style={{ background: 'none', border: 'none', color: '#9ca3af', fontSize: 13, cursor: 'pointer' }}>← Back</button>
+      </div>
+    )
+  }
 
   const steps        = buildSteps(form, course)
   const currentStep  = steps[step]

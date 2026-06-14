@@ -27,8 +27,10 @@ const FILTERS = [
   { key: 'onetime',    label: 'One-time' },
 ]
 
-// Restricted events are members-only — never listed publicly
-const isPubliclyVisible  = p => !(p.courseType === 'event' && p.audience?.type === 'restricted')
+// The public catalogue lists COURSES only — events now have their own home (the
+// "Upcoming Events" section on the homepage), keeping the events/courses split
+// consistent everywhere. (This also excludes members-only restricted events.)
+const isCatalogCourse = p => (p.courseType || 'course') !== 'event'
 
 export default function Courses() {
   const navigate = useNavigate()
@@ -49,7 +51,7 @@ export default function Courses() {
     const q = query.trim().toLowerCase()
     return courses
       .filter(p => p.status !== 'draft')
-      .filter(isPubliclyVisible)
+      .filter(isCatalogCourse)
       .filter(p => filter === 'all' ? true : filter === 'open' ? isOpenAccess(p) : filter === 'membership' ? isPlanAccess(p) : isStandaloneAccess(p))
       .filter(p => {
         if (!q) return true
@@ -60,7 +62,7 @@ export default function Courses() {
   }, [courses, filter, query])
 
   const counts = useMemo(() => {
-    const live = courses.filter(p => p.status !== 'draft').filter(isPubliclyVisible)
+    const live = courses.filter(p => p.status !== 'draft').filter(isCatalogCourse)
     return {
       all:        live.length,
       open:       live.filter(isOpenAccess).length,

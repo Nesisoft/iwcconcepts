@@ -476,15 +476,25 @@ async function handleAction(db, action, p, user = null) {
       const { rows: cr } = await db.query('SELECT data FROM courses WHERE id = $1', [e.courseId])
       const course = cr[0]?.data
 
+      // Does the supplied code match a FREE-entry promo on this event? Only a
+      // 'free' code is proof of entitlement on its own — a 'percent' code merely
+      // discounts the price, so a percent-coded registration still has to carry a
+      // verified Paystack reference like any other paid ticket.
+      const freePromo = !!(e.promoCode && (course?.promoCodes || []).some(pc =>
+        String(pc.code || '').toUpperCase() === String(e.promoCode).toUpperCase() &&
+        (pc.kind || 'percent') === 'free'
+      ))
+
       // ── Ticket integrity for PAID events ──────────────────────────────────
       // addEnrollment is a public endpoint, so for a priced standalone event we
-      // require proof of entitlement: a valid promo code, or a Paystack reference
-      // that verifies as successful. We reject only on a definitively bad/absent
-      // reference and allow through a transient verification error, so a genuine
-      // payer is never blocked by an outage. Courses keep their existing behavior.
+      // require proof of entitlement: a FREE-entry promo code, or a Paystack
+      // reference that verifies as successful. (A percentage code is NOT enough on
+      // its own — otherwise anyone could mint a free ticket with a discount code.)
+      // We reject only on a definitively bad/absent reference and allow through a
+      // transient verification error, so a genuine payer is never blocked by an
+      // outage. Courses keep their existing behavior.
       if (course && course.courseType === 'event' && course.accessMode === 'standalone' && Number(course.price) > 0) {
-        const validPromo = !!(e.promoCode && (course.promoCodes || []).some(pc => String(pc.code || '').toUpperCase() === String(e.promoCode).toUpperCase()))
-        if (!validPromo) {
+        if (!freePromo) {
           const verdict = await verifyPaystackPayment(e.paymentRef)
           if (verdict === false) {
             throw new Error('We could not verify a successful payment for this ticket. If you were charged, please contact support with your reference.')
@@ -512,9 +522,11 @@ async function handleAction(db, action, p, user = null) {
             // Sensitive online details are revealed only when the event is free or
             // there's payment/promo evidence — addEnrollment is a public endpoint,
             // so we never email a paid event's link to someone with no proof of purchase.
-            const isPaid     = course.accessMode === 'standalone'
-            const validPromo = !!(e.promoCode && (course.promoCodes || []).some(pc => String(pc.code || '').toUpperCase() === String(e.promoCode).toUpperCase()))
-            const reveal     = !isPaid || !!e.paymentRef || validPromo
+            const isPaid = course.accessMode === 'standalone'
+            // Reveal the sensitive online link only with proof of purchase: a paid
+            // reference, or a free-entry promo. (A percentage promo always carries a
+            // payment reference too, so it is covered by the paymentRef check.)
+            const reveal = !isPaid || !!e.paymentRef || freePromo
             await trySend(db, {
               to: e.participantEmail,
               subject: `🎟️ You're registered: ${e.courseTitle || course.title}`,
