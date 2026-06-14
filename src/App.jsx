@@ -36,7 +36,6 @@ import PlansManager from './pages/PlansManager'
 import MembershipJoin from './pages/MembershipJoin'
 import AccessAudit from './pages/AccessAudit'
 import EventsManager from './pages/EventsManager'
-import PaymentsAdmin from './pages/PaymentsAdmin'
 
 // Pages that are publicly accessible (no login required)
 const PUBLIC_ROUTES = (
@@ -94,7 +93,6 @@ export default function App() {
             <Route path="/user-progress"       element={<AdminRoute element={<UserProgressAdmin />} />} />
             <Route path="/certificate-admin"   element={<AdminRoute element={<CertificateAdmin />} />} />
             <Route path="/analytics"           element={<AdminRoute element={<AnalyticsAdmin />} />} />
-            <Route path="/payments-admin"      element={<AdminRoute element={<PaymentsAdmin />} />} />
             <Route path="/discussions"         element={<AdminRoute element={<DiscussionsAdmin />} />} />
             <Route path="/email-admin"         element={<AdminRoute element={<EmailAdmin />} />} />
             <Route path="/plans-admin"         element={<AdminRoute element={<PlansManager />} />} />

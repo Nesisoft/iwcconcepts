@@ -5,7 +5,7 @@
  * multi-step mode of standalone forms (/register). One source of truth for the
  * question/email/name/terms screens and the step-splitting logic.
  */
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { POLICY_SECTIONS } from './PolicyTerms'
 
 export const BRAND  = '#6c3fc5'
@@ -48,6 +48,92 @@ export const inputStyle = {
   fontFamily: 'inherit',
 }
 
+// ── Spin Wheel (shared by course/event onboarding and membership join) ──────────
+
+const SEG_COLORS = ['#ede9fe', '#c4b5f8', '#a78bfa', '#6c3fc5', '#7c3aed', '#8b5cf6']
+const WINNER_IDX = 3       // wheel always lands on this segment
+const SEG_COUNT  = 6
+const SEG_ANGLE  = 360 / SEG_COUNT
+const WINNER_CENTER = WINNER_IDX * SEG_ANGLE + SEG_ANGLE / 2
+const SPIN_TARGET   = 360 - WINNER_CENTER + 360 * 5
+
+function buildSegments(winPct) {
+  const pool = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70].filter(d => d !== winPct)
+  const decoys = pool.slice(0, SEG_COUNT - 1)
+  const labels = [...decoys]
+  labels.splice(WINNER_IDX, 0, winPct)
+  return labels.map((pct, i) => ({ label: `${pct}% OFF`, color: SEG_COLORS[i] }))
+}
+
+export function SpinWheel({ onDone, discountPct = 50, doneLabel = 'Claim My Discount →' }) {
+  const [rotation, setRotation] = useState(0)
+  const [phase, setPhase] = useState('idle') // idle | spinning | done
+  const segments = useMemo(() => buildSegments(discountPct), [discountPct])
+
+  function spin() {
+    if (phase !== 'idle') return
+    setPhase('spinning')
+    setRotation(SPIN_TARGET)
+    setTimeout(() => setPhase('done'), 3600)
+  }
+
+  const cx = 150, cy = 150, r = 120
+
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ position: 'relative', display: 'inline-block', marginBottom: 28 }}>
+        <div style={{
+          position: 'absolute', top: -2, left: '50%', transform: 'translateX(-50%)',
+          width: 0, height: 0, borderLeft: '11px solid transparent', borderRight: '11px solid transparent',
+          borderTop: '24px solid #dc2626', zIndex: 10, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
+        }} />
+        <svg width={300} height={300} style={{
+          display: 'block', transform: `rotate(${rotation}deg)`,
+          transition: phase === 'spinning' ? 'transform 3.5s cubic-bezier(0.1, 0.5, 0.1, 1)' : 'none',
+          filter: 'drop-shadow(0 8px 24px rgba(108,63,197,0.25))',
+        }}>
+          {segments.map((seg, i) => {
+            const startRad = (i * SEG_ANGLE - 90) * Math.PI / 180
+            const endRad   = ((i + 1) * SEG_ANGLE - 90) * Math.PI / 180
+            const midRad   = ((i + 0.5) * SEG_ANGLE - 90) * Math.PI / 180
+            const x1 = cx + r * Math.cos(startRad)
+            const y1 = cy + r * Math.sin(startRad)
+            const x2 = cx + r * Math.cos(endRad)
+            const y2 = cy + r * Math.sin(endRad)
+            const tx = cx + r * 0.64 * Math.cos(midRad)
+            const ty = cy + r * 0.64 * Math.sin(midRad)
+            const textRot = (i + 0.5) * SEG_ANGLE - 90
+            return (
+              <g key={i}>
+                <path d={`M ${cx} ${cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z`} fill={seg.color} stroke="#fff" strokeWidth={3} />
+                <text x={tx} y={ty} textAnchor="middle" dominantBaseline="middle" fontSize={11} fontWeight="800" fill={i === WINNER_IDX ? '#fff' : '#4c1d95'} transform={`rotate(${textRot}, ${tx}, ${ty})`}>{seg.label}</text>
+              </g>
+            )
+          })}
+          <circle cx={cx} cy={cy} r={17} fill="white" stroke={BRAND} strokeWidth={3} />
+          <circle cx={cx} cy={cy} r={8}  fill={BRAND} />
+        </svg>
+      </div>
+
+      {phase === 'done' ? (
+        <div>
+          <div style={{ fontSize: 52, marginBottom: 8 }}>🎉</div>
+          <h3 style={{ fontSize: 26, fontWeight: 900, color: BRAND, margin: '0 0 8px' }}>You Won {discountPct}% OFF!</h3>
+          <p style={{ color: '#6b7280', fontSize: 14, margin: '0 0 28px' }}>Your discount has been applied automatically.</p>
+          <button onClick={onDone} style={primaryBtn()}>{doneLabel}</button>
+        </div>
+      ) : (
+        <div>
+          <p style={{ color: '#6b7280', fontSize: 15, margin: '0 0 24px' }}>Spin the wheel to reveal your exclusive discount!</p>
+          <button onClick={spin} disabled={phase === 'spinning'} style={primaryBtn(phase === 'spinning')}>
+            {phase === 'spinning' ? '🎰 Spinning…' : '🎰 SPIN THE WHEEL'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Step helpers ───────────────────────────────────────────────────────────────
 
 export function findFieldId(form, keyword) {
@@ -77,6 +163,30 @@ export function splitFormSteps(form) {
   return { steps, hasEmail, hasName }
 }
 
+// Validate a single field's value. Returns an error string ('' = valid).
+// Used by both the step-by-step and single-page renderers so membership / event /
+// course forms validate consistently (e.g. real email addresses).
+export function validateField(field, value) {
+  if (!field) return ''
+  const type = field.type || 'text'
+  const label = (field.label || '').toLowerCase()
+  const isEmpty = value === undefined || value === null || value === '' ||
+    (Array.isArray(value) && value.length === 0)
+
+  if (field.required && isEmpty) return 'This field is required.'
+  if (isEmpty) return ''   // optional + empty → fine
+
+  if (type === 'email' || label.includes('email')) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value).trim())) return 'Enter a valid email address.'
+  }
+  if (type === 'phone' || type === 'whatsapp') {
+    const v = typeof value === 'object' && value ? `${value.code || ''}${value.number || ''}` : value
+    if (String(v).replace(/\D/g, '').length < 7) return 'Enter a valid phone number.'
+  }
+  if (type === 'number' && Number.isNaN(Number(value))) return 'Enter a number.'
+  return ''
+}
+
 // ── Screen components ──────────────────────────────────────────────────────────
 
 export function QuestionScreen({ field, value, onChange, onNext, onBack, stepNum, totalQuestions }) {
@@ -87,6 +197,9 @@ export function QuestionScreen({ field, value, onChange, onNext, onBack, stepNum
   const hasAnswer = isMulti
     ? (Array.isArray(value) && value.length > 0)
     : (value !== undefined && value !== '' && value !== null)
+
+  const error    = validateField(field, value)   // '' when valid (or optional+empty)
+  const canGo     = !error
 
   function pickCard(opt) {
     onChange(opt)
@@ -206,19 +319,20 @@ export function QuestionScreen({ field, value, onChange, onNext, onBack, stepNum
               value={value || ''} onChange={e => onChange(e.target.value)}
               placeholder={field.placeholder || 'Your answer…'}
               rows={4}
-              style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6, marginBottom: 28 }}
+              style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6, marginBottom: hasAnswer && error ? 8 : 28, borderColor: hasAnswer && error ? '#ef4444' : '#e5e7eb' }}
             />
           ) : (
             <input
               type={field.type === 'email' ? 'email' : field.type === 'phone' ? 'tel' : 'text'}
               value={value || ''} onChange={e => onChange(e.target.value)}
               placeholder={field.placeholder || 'Your answer…'}
-              style={{ ...inputStyle, marginBottom: 28 }}
-              onKeyDown={e => e.key === 'Enter' && hasAnswer && onNext()}
+              style={{ ...inputStyle, marginBottom: hasAnswer && error ? 8 : 28, borderColor: hasAnswer && error ? '#ef4444' : '#e5e7eb' }}
+              onKeyDown={e => e.key === 'Enter' && canGo && onNext()}
               autoFocus
             />
           )}
-          <NavButtons onBack={onBack} onNext={onNext} canProceed={hasAnswer} />
+          {hasAnswer && error && <div style={{ color: '#ef4444', fontSize: 13, margin: '0 0 22px', fontWeight: 600 }}>{error}</div>}
+          <NavButtons onBack={onBack} onNext={onNext} canProceed={canGo} />
         </>
       )}
     </div>
@@ -373,13 +487,19 @@ export function TermsScreen({ onAccept, onBack, acceptLabel, submitting }) {
 export function SingleFormScreen({ form, formData, setFormData, onNext, onBack, title, subtitle, nextLabel = 'Continue →' }) {
   const fields = (form?.fields || []).filter(f => f.type !== 'section')
   const setVal = (id, v) => setFormData(prev => ({ ...prev, [id]: v }))
+  const [tried, setTried] = useState(false)
 
-  const missing = fields.filter(f => {
-    if (!f.required) return false
-    const v = formData[f.id]
-    if (f.type === 'checkbox') return !Array.isArray(v) || v.length === 0
-    return v === undefined || v === null || v === ''
-  })
+  const errors = {}
+  for (const f of fields) {
+    const e = validateField(f, formData[f.id])
+    if (e) errors[f.id] = e
+  }
+  const hasErrors = Object.keys(errors).length > 0
+
+  function handleNext() {
+    if (hasErrors) { setTried(true); return }
+    onNext()
+  }
 
   return (
     <div style={{ maxWidth: 600, margin: '0 auto', padding: '0 24px' }}>
@@ -451,15 +571,18 @@ export function SingleFormScreen({ form, formData, setFormData, onNext, onBack, 
                 type={f.type === 'email' ? 'email' : (f.type === 'phone' || f.type === 'whatsapp') ? 'tel' : 'text'}
                 value={v || ''} onChange={e => setVal(f.id, e.target.value)}
                 placeholder={f.placeholder || 'Your answer…'}
-                style={inputStyle}
+                style={{ ...inputStyle, borderColor: ((tried || (v !== undefined && v !== '' && v !== null)) && errors[f.id]) ? '#ef4444' : '#e5e7eb' }}
               />
+            )}
+            {(tried || (v !== undefined && v !== '' && v !== null && !(Array.isArray(v) && v.length === 0))) && errors[f.id] && (
+              <div style={{ color: '#ef4444', fontSize: 12.5, marginTop: 6, fontWeight: 600 }}>{errors[f.id]}</div>
             )}
           </div>
         )
       })}
 
       <div style={{ marginTop: 28 }}>
-        <NavButtons onBack={onBack} onNext={onNext} canProceed={missing.length === 0} nextLabel={nextLabel} />
+        <NavButtons onBack={onBack} onNext={handleNext} canProceed={!(tried && hasErrors)} nextLabel={nextLabel} />
       </div>
     </div>
   )

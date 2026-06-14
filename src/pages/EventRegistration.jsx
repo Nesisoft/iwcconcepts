@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
-  decodeFormConfig, getFormById, addSubmission, sendEmailJS, formatDate,
+  decodeFormConfig, getFormById, addSubmission, formatDate,
   getTimeLeft, COUNTRY_CODES, uid,
 } from '../utils/formStorage'
 
@@ -436,55 +436,10 @@ export default function EventRegistration() {
     setSubmitError('')
 
     try {
-      // Store in IndexedDB
+      // Save the submission. Confirmation + admin-notification emails are sent
+      // server-side via Resend (see api/db.js → addSubmission), using the form's
+      // email settings — no client-side EmailJS.
       if (formConfig.id !== 'demo') await addSubmission(formConfig.id, formData)
-
-      // Build human-readable summary for email
-      const summary = formConfig.fields
-        .filter(f => f.type !== 'section')
-        .map(f => {
-          const v = formData[f.id]
-          let display = ''
-          if (f.type === 'whatsapp') display = `${v?.code || ''} ${v?.number || ''}`
-          else if (f.type === 'rating_matrix') display = Object.entries(v || {}).map(([k, r]) => `${k}: ${r}`).join('; ')
-          else if (f.type === 'ranking') display = (Array.isArray(v) ? v : []).map((item, i) => `${i + 1}. ${item}`).join(', ')
-          else if (f.type === 'scale') display = v != null ? String(v) : '(not answered)'
-          else if (Array.isArray(v)) display = v.join(', ')
-          else display = v || '(not answered)'
-          return `${f.label}: ${display}`
-        }).join('\n')
-
-      // Get participant name & email for email vars
-      const nameFld = formConfig.fields.find(f => f.type === 'full_name' || f.label?.toLowerCase().includes('name'))
-      const emailFld = formConfig.fields.find(f => f.type === 'email')
-      const participantName = nameFld ? (formData[nameFld.id] || '') : ''
-      const participantEmail = emailFld ? (formData[emailFld.id] || '') : ''
-
-      const cfg = formConfig.emailConfig
-      if (cfg?.enabled && cfg.serviceId && cfg.publicKey) {
-        // Confirmation to participant
-        if (cfg.confirmTemplateId && participantEmail) {
-          await sendEmailJS(cfg.serviceId, cfg.confirmTemplateId, {
-            to_name: participantName,
-            to_email: participantEmail,
-            event_title: formConfig.title,
-            event_date: formatDate(formConfig.eventDate),
-            brand_name: formConfig.brandName,
-            confirmation_message: cfg.confirmationMessage || 'You are registered!',
-          }, cfg.publicKey)
-        }
-        // Notification to admin
-        if (cfg.notifyTemplateId && cfg.adminEmail) {
-          await sendEmailJS(cfg.serviceId, cfg.notifyTemplateId, {
-            to_email: cfg.adminEmail,
-            event_title: formConfig.title,
-            participant_name: participantName,
-            participant_email: participantEmail,
-            submission_data: summary,
-            timestamp: new Date().toLocaleString(),
-          }, cfg.publicKey)
-        }
-      }
 
       setSubmitted(true)
     } catch (err) {

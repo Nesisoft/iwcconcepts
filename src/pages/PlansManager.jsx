@@ -36,6 +36,7 @@ function makePlan(n) {
     price: 0,
     currency: 'GHS',
     durationDays: 365,
+    discount: 0,                 // per-package discount (%) — 0 = none
     color: PLAN_COLORS[(n - 1) % PLAN_COLORS.length],
     active: true,
   }
@@ -234,6 +235,12 @@ export default function PlansManager() {
                     <input type="number" min={0} style={inp()} value={plan.durationDays} onChange={e => setPlan('durationDays', Number(e.target.value))} />
                   </Fld>
                 </div>
+                <Fld label="Discount for this package (%) — 0 = none">
+                  <input type="number" min={0} max={90} style={inp()} value={plan.discount || 0} onChange={e => setPlan('discount', Math.max(0, Math.min(90, Number(e.target.value))))} />
+                  <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>
+                    A standing discount applied to this package only. The platform-wide discount in the Registration tab applies to <em>all</em> packages (and is the one shown as a spin-wheel). The bigger of the two is used.
+                  </div>
+                </Fld>
                 <Fld label="What's included (one perk per line — shown to users while choosing)">
                   <div style={{ marginBottom: 6 }}>
                     {(plan.perks || []).map((perk, i) => (
@@ -305,11 +312,25 @@ export default function PlansManager() {
               </button>
             </div>
 
+            <div style={card}>
+              <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 4 }}>Membership discount (all packages)</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', lineHeight: 1.7, marginBottom: 12 }}>
+                A platform-wide discount applied to <strong>every</strong> package. When above 0, users spin a
+                discount wheel during registration before choosing their package — exactly like the course flow.
+                Leave at 0 to skip the wheel. (Per-package discounts are set on each plan; the bigger of the two applies.)
+              </div>
+              <Fld label="Discount (%) — 0 = no wheel">
+                <input type="number" min={0} max={90} style={inp({ maxWidth: 160 })} value={config.discount || 0}
+                  onChange={e => persistConfig({ ...config, discount: Math.max(0, Math.min(90, Number(e.target.value))) })} />
+              </Fld>
+            </div>
+
             <div style={{ ...card, background: 'rgba(52,152,219,0.06)', border: '1px solid rgba(52,152,219,0.2)' }}>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', lineHeight: 1.8 }}>
                 <strong style={{ color: '#3498DB' }}>How pricing is shown</strong><br />
-                During registration users see each plan's name, tagline and what's included — <strong style={{ color: 'white' }}>without the price</strong>.
-                The price appears only on the final summary step, right before they choose to pay.
+                During registration users see each package's name, tagline, what's included, and its
+                <strong style={{ color: 'white' }}> price and duration</strong>. Any discount (wheel or per-package) is
+                applied to the displayed price, and the final amount is confirmed on the summary step before payment.
               </div>
             </div>
           </div>

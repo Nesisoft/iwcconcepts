@@ -376,6 +376,51 @@ async function handleAction(db, action, p, user = null) {
          VALUES ($1, $2, $3, $4)`,
         [s.id, s.formId, s, s.timestamp || new Date().toISOString()]
       )
+      // Transactional emails via Resend (server holds the key). Confirmation to the
+      // registrant + a notification to the admin, when the form has email enabled.
+      // Wrapped so an email failure can never fail the submission that was saved.
+      try {
+        const { rows: fr } = await db.query('SELECT data FROM forms WHERE id = $1', [s.formId])
+        const form = fr[0]?.data
+        const cfg  = form?.emailConfig
+        if (form && cfg?.enabled) {
+          const settings = await loadEmailSettings(db)
+          const fields = (form.fields || []).filter(f => f.type !== 'section')
+          const data   = s.data || {}
+          const emailField = fields.find(f => f.type === 'email' || (f.label || '').toLowerCase().includes('email'))
+          const nameField  = fields.find(f => f.type === 'full_name' || (f.label || '').toLowerCase().includes('name'))
+          const toEmail = data.email || (emailField ? data[emailField.id] : '') || ''
+          const toName  = data.name  || (nameField  ? data[nameField.id]  : '') || ''
+          const title   = form.title || 'your registration'
+
+          if (toEmail) {
+            const msg = cfg.confirmationMessage || `Thanks for registering for ${title}. We've received your details and will be in touch.`
+            await trySend(db, {
+              to: toEmail,
+              subject: cfg.confirmSubject || `✅ Registration received: ${title}`,
+              text: `Hi ${toName || 'there'},\n\n${msg}\n\n— ${settings.fromName || 'IWC Concepts'}`,
+              settings,
+            })
+          }
+          if (cfg.adminEmail) {
+            const summary = fields.map(f => {
+              const v = data[f.id]
+              const val = f.type === 'whatsapp' && v ? `${v.code || ''} ${v.number || ''}`.trim()
+                : Array.isArray(v) ? v.join(', ')
+                : (v == null ? '' : String(v))
+              return `${f.label}: ${val}`
+            }).join('\n')
+            await trySend(db, {
+              to: cfg.adminEmail,
+              subject: `📥 New submission: ${title}`,
+              text: `A new submission was received for "${title}".\n\n${summary}\n\nReceived: ${new Date(s.timestamp || Date.now()).toLocaleString('en-GB')}`,
+              settings,
+            })
+          }
+        }
+      } catch (mailErr) {
+        console.warn('[addSubmission] email skipped:', mailErr.message)
+      }
       return s
     }
 

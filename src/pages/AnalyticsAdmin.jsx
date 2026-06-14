@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getEnrolledUsersProgress } from '../utils/formStorage'
+import { getEnrolledUsersProgress, getMembers } from '../utils/formStorage'
+import { buildTransactions, money, formatTxnDate, totalsByCurrency, revenueByMonth, downloadPaymentsCSV } from '../utils/payments'
 import {
   BarChart3, Users, DollarSign, GraduationCap, TrendingUp,
-  Award, BookOpen, CheckCircle,
+  Award, BookOpen, CheckCircle, Receipt, Wallet, Ticket, Download, Search,
 } from 'lucide-react'
 
 const ACC  = '#9B59B6'
@@ -20,15 +21,29 @@ function monthLabel(ym) {
 export default function AnalyticsAdmin() {
   const navigate = useNavigate()
   const [data,    setData]    = useState(null)
+  const [members, setMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState('')
+  const [tab,     setTab]     = useState('overview')   // 'overview' | 'payments'
+
+  // Payments tab filters
+  const [pQuery,    setPQuery]    = useState('')
+  const [pType,     setPType]     = useState('All')
+  const [pPaidOnly, setPPaidOnly] = useState(false)
+  const [pFrom,     setPFrom]     = useState('')        // YYYY-MM-DD
+  const [pTo,       setPTo]       = useState('')
 
   useEffect(() => { load() }, [])
 
   async function load() {
     setLoading(true); setError('')
     try {
-      setData(await getEnrolledUsersProgress())
+      const [prog, mem] = await Promise.all([
+        getEnrolledUsersProgress(),
+        getMembers().catch(() => []),
+      ])
+      setData(prog)
+      setMembers(mem || [])
     } catch (e) {
       setError(e.message)
     } finally {
@@ -37,6 +52,40 @@ export default function AnalyticsAdmin() {
   }
 
   const stats = useMemo(() => computeStats(data), [data])
+
+  // ── Payments (unified transactions across memberships + enrollments) ──────────
+  const allTxns = useMemo(() => buildTransactions({
+    enrollments: data?.enrollments || [],
+    courses:     data?.courses || [],
+    members,
+  }), [data, members])
+
+  const txns = useMemo(() => {
+    const q = pQuery.trim().toLowerCase()
+    const fromT = pFrom ? new Date(pFrom + 'T00:00:00').getTime() : null
+    const toT   = pTo ? new Date(pTo + 'T23:59:59').getTime() : null
+    return allTxns.filter(t => {
+      if (pType !== 'All' && t.type !== pType) return false
+      if (pPaidOnly && t.status !== 'Paid') return false
+      if (fromT || toT) {
+        const d = t.date ? new Date(t.date).getTime() : null
+        if (d == null) return false
+        if (fromT && d < fromT) return false
+        if (toT && d > toT) return false
+      }
+      if (!q) return true
+      return [t.name, t.email, t.item, t.reference, t.promo].filter(Boolean).join(' ').toLowerCase().includes(q)
+    })
+  }, [allTxns, pQuery, pType, pPaidOnly, pFrom, pTo])
+
+  const pTotals  = useMemo(() => totalsByCurrency(txns), [txns])
+  const pMonths  = useMemo(() => revenueByMonth(txns), [txns])
+  const pTotalLabel = Object.keys(pTotals).length === 0 ? 'GHS 0' : Object.entries(pTotals).map(([c, a]) => money(a, c)).join(' · ')
+  const pCounts = useMemo(() => {
+    let m = 0, t = 0
+    for (const x of txns) { if (x.type === 'Membership') m++; else if (x.type === 'Event ticket') t++ }
+    return { memberships: m, tickets: t }
+  }, [txns])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: DARK, fontFamily: "'Montserrat',sans-serif", color: 'white' }}>
@@ -63,9 +112,18 @@ export default function AnalyticsAdmin() {
         {loading && <div style={{ textAlign: 'center', padding: '80px 0', color: 'rgba(255,255,255,0.3)' }}>Crunching the numbers…</div>}
         {error && <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '16px 20px', color: '#f87171', fontSize: 13 }}>{error}</div>}
 
-        {!loading && !error && stats && (
+        {!loading && !error && (
           <div style={{ maxWidth: 1100, margin: '0 auto' }}>
 
+            {/* Tab switcher */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+              {[{ k: 'overview', label: 'Overview' }, { k: 'payments', label: 'Payments' }].map(t => (
+                <button key={t.k} onClick={() => setTab(t.k)} style={{ border: `1.5px solid ${tab === t.k ? ACC : 'rgba(255,255,255,0.12)'}`, background: tab === t.k ? `${ACC}22` : 'transparent', color: tab === t.k ? '#fff' : 'rgba(255,255,255,0.6)', borderRadius: 20, padding: '8px 18px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>{t.label}</button>
+              ))}
+            </div>
+
+            {tab === 'overview' && stats && (
+            <>
             {/* KPI cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 28 }}>
               <Kpi icon={DollarSign}   accent="#10B981" label="Total Revenue"      value={cedis(stats.revenue)} />
@@ -158,12 +216,99 @@ export default function AnalyticsAdmin() {
                 </div>
               )}
             </Panel>
+            </>
+            )}
+
+            {tab === 'payments' && (
+            <>
+              {/* Date range + export */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20 }}>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                  <div>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: 700, marginBottom: 4 }}>From</div>
+                    <input type="date" value={pFrom} onChange={e => setPFrom(e.target.value)} style={dateInp} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: 700, marginBottom: 4 }}>To</div>
+                    <input type="date" value={pTo} onChange={e => setPTo(e.target.value)} style={dateInp} />
+                  </div>
+                  {(pFrom || pTo) && (
+                    <button onClick={() => { setPFrom(''); setPTo('') }} style={{ background: 'none', border: 'none', color: ACC, fontSize: 11, fontWeight: 700, cursor: 'pointer', paddingBottom: 8 }}>Clear dates</button>
+                  )}
+                </div>
+                <button onClick={() => downloadPaymentsCSV(txns)} disabled={txns.length === 0} style={{ background: txns.length ? 'rgba(16,185,129,0.18)' : 'rgba(255,255,255,0.05)', border: `1px solid ${txns.length ? 'rgba(16,185,129,0.5)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 8, color: txns.length ? '#34d399' : 'rgba(255,255,255,0.3)', padding: '8px 14px', fontSize: 11, fontWeight: 700, cursor: txns.length ? 'pointer' : 'not-allowed', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Download size={13} /> Export CSV</button>
+              </div>
+
+              {/* KPIs */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 16, marginBottom: 24 }}>
+                <Kpi icon={Wallet}  accent="#10B981" label="Collected (filtered)" value={pTotalLabel} />
+                <Kpi icon={Receipt} accent="#3498DB" label="Transactions"        value={txns.length.toLocaleString()} />
+                <Kpi icon={Users}   accent="#9B59B6" label="Memberships"         value={pCounts.memberships.toLocaleString()} />
+                <Kpi icon={Ticket}  accent="#F5B800" label="Event tickets"       value={pCounts.tickets.toLocaleString()} />
+              </div>
+
+              {/* Revenue by month */}
+              <Panel title="Revenue by Month" icon={TrendingUp}>
+                {pMonths.length === 0 ? <Empty text="No paid transactions in this range yet." /> : (
+                  <BarChart data={pMonths} labelKey="month" valueKey="revenue" format={monthLabel} color="#10B981" subLabel={(d) => cedis(d.revenue)} />
+                )}
+              </Panel>
+
+              {/* Filters */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+                  {['All', 'Membership', 'Event ticket', 'Course'].map(t => (
+                    <button key={t} onClick={() => setPType(t)} style={{ border: `1.5px solid ${pType === t ? ACC : 'rgba(255,255,255,0.12)'}`, background: pType === t ? `${ACC}1f` : 'transparent', color: pType === t ? '#fff' : 'rgba(255,255,255,0.6)', borderRadius: 20, padding: '6px 13px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{t}</button>
+                  ))}
+                  <button onClick={() => setPPaidOnly(v => !v)} style={{ border: `1.5px solid ${pPaidOnly ? ACC : 'rgba(255,255,255,0.12)'}`, background: pPaidOnly ? `${ACC}1f` : 'transparent', color: pPaidOnly ? '#fff' : 'rgba(255,255,255,0.6)', borderRadius: 20, padding: '6px 13px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{pPaidOnly ? '✓ ' : ''}Paid only</button>
+                </div>
+                <div style={{ position: 'relative', flex: '1 1 200px', maxWidth: 280 }}>
+                  <Search size={14} color="rgba(255,255,255,0.35)" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)' }} />
+                  <input value={pQuery} onChange={e => setPQuery(e.target.value)} placeholder="Search name, email, item, ref…" style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 20, padding: '7px 12px 7px 32px', fontSize: 12, color: 'white', outline: 'none', fontFamily: 'inherit' }} />
+                </div>
+              </div>
+
+              {/* Transactions table */}
+              {txns.length === 0 ? (
+                <Empty text={allTxns.length === 0 ? 'No payments yet.' : 'No payments match your filters.'} />
+              ) : (
+                <div style={{ overflowX: 'auto', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 720 }}>
+                    <thead>
+                      <tr style={{ textAlign: 'left', color: 'rgba(255,255,255,0.35)', fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', background: 'rgba(255,255,255,0.03)' }}>
+                        <th style={th}>Date</th><th style={th}>Customer</th><th style={th}>Type</th><th style={th}>Item</th>
+                        <th style={{ ...th, textAlign: 'right' }}>Amount</th><th style={th}>Status</th><th style={th}>Reference</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {txns.map(t => (
+                        <tr key={t.id} style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                          <td style={{ ...td, whiteSpace: 'nowrap' }}>{formatTxnDate(t.date)}</td>
+                          <td style={td}><div style={{ fontWeight: 700, color: 'white' }}>{t.name}</div><div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{t.email}</div></td>
+                          <td style={td}><span style={{ fontSize: 9, fontWeight: 800, padding: '2px 8px', borderRadius: 10, background: t.type === 'Membership' ? 'rgba(108,63,197,0.2)' : t.type === 'Event ticket' ? 'rgba(245,184,0,0.15)' : 'rgba(52,152,219,0.15)', color: t.type === 'Membership' ? '#b79df0' : t.type === 'Event ticket' ? '#F5B800' : '#74b9e8' }}>{t.type}</span></td>
+                          <td style={{ ...td, maxWidth: 220 }}>{t.item}{t.promo ? <span style={{ fontSize: 10, color: '#F5B800', marginLeft: 6 }}>🏷 {t.promo}</span> : null}</td>
+                          <td style={{ ...td, textAlign: 'right', fontWeight: 800, color: t.amount > 0 ? '#34d399' : 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>{money(t.amount, t.currency)}</td>
+                          <td style={td}><span style={{ fontSize: 9, fontWeight: 800, padding: '2px 8px', borderRadius: 10, background: t.status === 'Paid' ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.06)', color: t.status === 'Paid' ? '#34d399' : 'rgba(255,255,255,0.55)' }}>{t.status}</span></td>
+                          <td style={{ ...td, fontSize: 10, color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace', wordBreak: 'break-all', maxWidth: 140 }}>{t.reference || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <div style={{ marginTop: 12, fontSize: 10, color: 'rgba(255,255,255,0.35)', lineHeight: 1.6 }}>
+                Showing {txns.length} of {allTxns.length} transactions. Membership renewals recorded before the latest update may show their amount as “—”.
+              </div>
+            </>
+            )}
           </div>
         )}
       </div>
     </div>
   )
 }
+
+const dateInp = { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: 'white', fontSize: 12, padding: '7px 10px', fontFamily: 'inherit', colorScheme: 'dark' }
 
 // ── Presentational helpers ──────────────────────────────────────────────────────
 

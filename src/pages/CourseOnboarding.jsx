@@ -5,127 +5,12 @@ import { findPromoCode, priceAfterPromo } from '../utils/access'
 import { useCustomerAuth } from '../contexts/CustomerAuthContext'
 import {
   primaryBtn, inputStyle, NavButtons, findFieldId, splitFormSteps,
-  QuestionScreen, InterstitialScreen, EmailScreen, NameScreen, TermsScreen,
+  QuestionScreen, InterstitialScreen, EmailScreen, NameScreen, TermsScreen, SpinWheel,
 } from '../components/OnboardingScreens'
 
 const BRAND  = '#6c3fc5'
 const BRAND2 = '#9333ea'
 const GOLD   = '#C9A84C'
-
-// ── Spin Wheel ─────────────────────────────────────────────────────────────────
-
-const SEG_COLORS = ['#ede9fe', '#c4b5f8', '#a78bfa', '#6c3fc5', '#7c3aed', '#8b5cf6']
-const WINNER_IDX = 3       // wheel always lands on this segment
-const SEG_COUNT  = 6
-const SEG_ANGLE  = 360 / SEG_COUNT
-
-// When CSS rotation = R (clockwise), pointer (fixed at top) aligns with angle
-// (360 - R%360) degrees CW from top. We want that to equal winner center.
-// winnerCenter = WINNER_IDX * SEG_ANGLE + SEG_ANGLE/2 degrees CW from top (wheel at rest)
-// → R = 360 - winnerCenter + 360*N
-const WINNER_CENTER = WINNER_IDX * SEG_ANGLE + SEG_ANGLE / 2
-const SPIN_TARGET   = 360 - WINNER_CENTER + 360 * 5  // = 1950°
-
-// Build 6 wheel segments where the winning slot (index 3) shows the real
-// discount and the rest are plausible decoys, all sorted to look natural.
-function buildSegments(winPct) {
-  const pool = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70].filter(d => d !== winPct)
-  const decoys = pool.slice(0, SEG_COUNT - 1)
-  const labels = [...decoys]
-  labels.splice(WINNER_IDX, 0, winPct)
-  return labels.map((pct, i) => ({ label: `${pct}% OFF`, color: SEG_COLORS[i] }))
-}
-
-function SpinWheel({ onDone, discountPct = 50 }) {
-  const [rotation, setRotation] = useState(0)
-  const [phase, setPhase] = useState('idle') // idle | spinning | done
-  const segments = useMemo(() => buildSegments(discountPct), [discountPct])
-
-  function spin() {
-    if (phase !== 'idle') return
-    setPhase('spinning')
-    setRotation(SPIN_TARGET)
-    setTimeout(() => setPhase('done'), 3600)
-  }
-
-  const cx = 150, cy = 150, r = 120
-
-  return (
-    <div style={{ textAlign: 'center' }}>
-      <div style={{ position: 'relative', display: 'inline-block', marginBottom: 28 }}>
-        {/* pointer triangle */}
-        <div style={{
-          position: 'absolute', top: -2, left: '50%',
-          transform: 'translateX(-50%)',
-          width: 0, height: 0,
-          borderLeft: '11px solid transparent',
-          borderRight: '11px solid transparent',
-          borderTop: '24px solid #dc2626',
-          zIndex: 10,
-          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
-        }} />
-        <svg width={300} height={300} style={{
-          display: 'block',
-          transform: `rotate(${rotation}deg)`,
-          transition: phase === 'spinning'
-            ? 'transform 3.5s cubic-bezier(0.1, 0.5, 0.1, 1)'
-            : 'none',
-          filter: 'drop-shadow(0 8px 24px rgba(108,63,197,0.25))',
-        }}>
-          {segments.map((seg, i) => {
-            const startRad = (i * SEG_ANGLE - 90) * Math.PI / 180
-            const endRad   = ((i + 1) * SEG_ANGLE - 90) * Math.PI / 180
-            const midRad   = ((i + 0.5) * SEG_ANGLE - 90) * Math.PI / 180
-            const x1 = cx + r * Math.cos(startRad)
-            const y1 = cy + r * Math.sin(startRad)
-            const x2 = cx + r * Math.cos(endRad)
-            const y2 = cy + r * Math.sin(endRad)
-            const tx = cx + r * 0.64 * Math.cos(midRad)
-            const ty = cy + r * 0.64 * Math.sin(midRad)
-            const textRot = (i + 0.5) * SEG_ANGLE - 90
-            return (
-              <g key={i}>
-                <path
-                  d={`M ${cx} ${cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z`}
-                  fill={seg.color} stroke="#fff" strokeWidth={3}
-                />
-                <text
-                  x={tx} y={ty}
-                  textAnchor="middle" dominantBaseline="middle"
-                  fontSize={11} fontWeight="800"
-                  fill={i === WINNER_IDX ? '#fff' : '#4c1d95'}
-                  transform={`rotate(${textRot}, ${tx}, ${ty})`}
-                >{seg.label}</text>
-              </g>
-            )
-          })}
-          <circle cx={cx} cy={cy} r={17} fill="white" stroke={BRAND} strokeWidth={3} />
-          <circle cx={cx} cy={cy} r={8}  fill={BRAND} />
-        </svg>
-      </div>
-
-      {phase === 'done' ? (
-        <div>
-          <div style={{ fontSize: 52, marginBottom: 8 }}>🎉</div>
-          <h3 style={{ fontSize: 26, fontWeight: 900, color: BRAND, margin: '0 0 8px' }}>You Won {discountPct}% OFF!</h3>
-          <p style={{ color: '#6b7280', fontSize: 14, margin: '0 0 28px' }}>
-            Your discount has been applied automatically.
-          </p>
-          <button onClick={onDone} style={primaryBtn()}>Claim My Discount →</button>
-        </div>
-      ) : (
-        <div>
-          <p style={{ color: '#6b7280', fontSize: 15, margin: '0 0 24px' }}>
-            Spin the wheel to reveal your exclusive discount!
-          </p>
-          <button onClick={spin} disabled={phase === 'spinning'} style={primaryBtn(phase === 'spinning')}>
-            {phase === 'spinning' ? '🎰 Spinning…' : '🎰 SPIN THE WHEEL'}
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ── Steps builder ──────────────────────────────────────────────────────────────
 
