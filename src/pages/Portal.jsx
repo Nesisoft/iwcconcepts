@@ -27,8 +27,6 @@ export default function Portal() {
 
   const [enrollments,       setEnrollments]       = useState([])
   const [courses,           setCourses]           = useState({})  // id → course
-  const [freePortalCourses, setFreePortalCourses] = useState([])  // open / legacy-free + portal access
-  const [moreCourses,       setMoreCourses]       = useState([])  // legacy paid, not enrolled
   const [planCourses,       setPlanCourses]       = useState([])  // membership-gated courses
   const [plans,             setPlans]             = useState([])
   const [membership,        setMembership]        = useState(null)
@@ -53,7 +51,7 @@ export default function Portal() {
         if (cached) {
           const c = JSON.parse(cached)
           if (Date.now() < c.exp) {
-            setEnrollments(c.enrollments); setFreePortalCourses(c.free); setMoreCourses(c.more)
+            setEnrollments(c.enrollments)
             setPlanCourses(c.plan); setCourses(c.courses); setPlans(c.plans)
             setMembership(c.membership); setEvents(c.events); setNotifications(c.notifications)
             setLoading(false)
@@ -101,23 +99,15 @@ export default function Portal() {
       const enrolledIds = new Set(dedupedEnrollments.map(e => e.courseId))
       const live = (allProgs || []).filter(p => p.status !== 'draft' && isCourse(p) && !enrolledIds.has(p.id))
 
-      const isOpen   = p => p.accessMode === 'open' || (!p.accessMode && p.type === 'free')
-      // "standalone" is the new first-class name for a one-time paid course;
-      // older records used accessMode 'legacy' (or none) + type 'paid'.
-      const isLegacy = p => p.accessMode === 'standalone' || ((!p.accessMode || p.accessMode === 'legacy') && p.type === 'paid')
-      const isPlan   = p => p.accessMode === 'plan' && p.accessPlanId
-
-      const freeProgs = live.filter(p => isOpen(p) && (p.hasPortalAccess === true || p.hasPortalAccess === 'true'))
-      const moreProgs = live.filter(p => isLegacy(p) && (p.hasPortalAccess === true || p.hasPortalAccess === 'true'))
+      // Courses are membership-only: a course shows in the portal when it is tied
+      // to a plan tier. (The open/standalone course buckets have been retired.)
+      const isPlan = p => p.accessMode === 'plan' && p.accessPlanId
       const planProgs = live.filter(isPlan)
-
-      setFreePortalCourses(freeProgs)
-      setMoreCourses(moreProgs)
       setPlanCourses(planProgs)
 
       try {
         sessionStorage.setItem(CACHE_KEY, JSON.stringify({
-          enrollments: dedupedEnrollments, free: freeProgs, more: moreProgs, plan: planProgs,
+          enrollments: dedupedEnrollments, plan: planProgs,
           courses: map, plans: allPlans || [], membership: myMembership,
           events: myEvents || [], notifications: myNotifications || [],
           exp: Date.now() + CACHE_TTL,
@@ -154,8 +144,9 @@ export default function Portal() {
   const unlockedPlanCourses = planCourses.filter(p => { const r = rankOf(p.accessPlanId); return r !== -1 && myRank >= r })
   const lockedPlanCourses   = planCourses.filter(p => { const r = rankOf(p.accessPlanId); return r === -1 || myRank < r })
 
-  const hasAnyContent = enrollments.length > 0 || freePortalCourses.length > 0 ||
-    planCourses.length > 0 || events.length > 0
+  // Courses are membership-only now, so "content" = plan courses, grandfathered
+  // enrollments, or events (the open/standalone sections have been retired).
+  const hasAnyContent = enrollments.length > 0 || planCourses.length > 0 || events.length > 0
 
   return (
     <div style={{ minHeight: '100vh', background: '#f9fafb', fontFamily: 'Inter, -apple-system, sans-serif' }}>
@@ -189,11 +180,12 @@ export default function Portal() {
         {/* Welcome + membership status */}
         <div style={{ marginBottom: 36, display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 16, justifyContent: 'space-between' }}>
           <div>
+            <div style={{ fontSize: 11, fontWeight: 800, color: BRAND, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>My Account</div>
             <h1 style={{ fontSize: 'clamp(22px, 3vw, 30px)', fontWeight: 900, color: '#111827', margin: '0 0 6px' }}>
               Welcome back{membership?.name ? `, ${membership.name.split(' ')[0]}` : user?.email ? `, ${user.email.split('@')[0]}` : ''}!
             </h1>
             <p style={{ color: '#6b7280', fontSize: 15, margin: 0 }}>
-              Your learning hub — courses, member events, and free resources.
+              Your membership, courses, and events — all in one place.
             </p>
           </div>
 
@@ -243,12 +235,14 @@ export default function Portal() {
         {!loading && !error && !hasAnyContent && (
           <div style={{ textAlign: 'center', padding: '80px 0' }}>
             <BookOpen size={52} color="#c4b5f8" style={{ marginBottom: 16 }} />
-            <h2 style={{ fontSize: 20, fontWeight: 800, color: '#374151', margin: '0 0 8px' }}>No courses yet</h2>
-            <p style={{ color: '#9ca3af', fontSize: 15, maxWidth: 360, margin: '0 auto 28px' }}>
-              Browse available courses and register to get started.
+            <h2 style={{ fontSize: 20, fontWeight: 800, color: '#374151', margin: '0 0 8px' }}>{membership?.active ? 'Nothing here yet' : 'Become a member to get started'}</h2>
+            <p style={{ color: '#9ca3af', fontSize: 15, maxWidth: 380, margin: '0 auto 28px' }}>
+              {membership?.active
+                ? 'Your courses and events will appear here as they’re added to your plan.'
+                : 'Courses are unlocked through membership. Join a package to access everything in your plan.'}
             </p>
-            <button onClick={() => navigate('/courses')} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: BRAND, color: '#fff', border: 'none', borderRadius: 10, padding: '12px 28px', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
-              Browse Courses <ArrowRight size={16} />
+            <button onClick={() => navigate(membership?.active ? '/courses' : '/join')} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: BRAND, color: '#fff', border: 'none', borderRadius: 10, padding: '12px 28px', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+              {membership?.active ? <>Browse Courses <ArrowRight size={16} /></> : <>Become a Member <ArrowRight size={16} /></>}
             </button>
           </div>
         )}
@@ -313,28 +307,6 @@ export default function Portal() {
           </Section>
         )}
 
-        {/* ── Free resources ──────────────────────────────────────────────── */}
-        {!loading && freePortalCourses.length > 0 && (
-          <Section title="Free Learning Resources" subtitle="Open to all members — dive in anytime" horizontal onViewAll={() => navigate('/courses')}>
-            {freePortalCourses.map(prog => (
-              <CourseCard
-                key={prog.id}
-                course={prog}
-                fallbackTitle={prog.title}
-                badge="Free"
-                badgeColor="#0369a1"
-                badgeBg="#e0f2fe"
-                sub="Available to all members"
-                action={{
-                  label: 'Start Learning →',
-                  onClick: () => navigate(`/portal/course/${prog.id}`),
-                  primary: true,
-                }}
-              />
-            ))}
-          </Section>
-        )}
-
         {/* ── Higher-tier courses ─────────────────────────────────────────── */}
         {!loading && lockedPlanCourses.length > 0 && (
           <Section title="Upgrade to Unlock" subtitle="Courses in higher membership tiers" horizontal onViewAll={() => navigate('/courses')}>
@@ -350,8 +322,8 @@ export default function Portal() {
                   badgeBg="#fef3c7"
                   sub={`Requires the ${reqPlan?.name || 'higher'} plan or above`}
                   action={{
-                    label: membership?.active ? 'Upgrade to Unlock →' : 'Join to Unlock →',
-                    onClick: () => navigate(membership?.active ? '/join?upgrade=1' : '/join'),
+                    label: membership?.active ? 'Upgrade to Unlock →' : (membership ? 'Renew to Unlock →' : 'Join to Unlock →'),
+                    onClick: () => navigate(membership?.active ? '/join?upgrade=1' : (membership ? '/join?renew=1' : '/join')),
                     primary: false,
                   }}
                 />
@@ -360,31 +332,10 @@ export default function Portal() {
           </Section>
         )}
 
-        {/* ── Legacy paid courses ─────────────────────────────────────────── */}
-        {!loading && moreCourses.length > 0 && (
-          <Section title="More Courses" subtitle="Enroll to unlock full access" horizontal onViewAll={() => navigate('/courses')}>
-            {moreCourses.map(prog => (
-              <CourseCard
-                key={prog.id}
-                course={prog}
-                fallbackTitle={prog.title}
-                badge="★ Premium"
-                badgeColor="#92400e"
-                badgeBg="#fef3c7"
-                sub="Enroll to unlock"
-                action={{
-                  label: 'Enroll Now →',
-                  onClick: () => navigate(`/onboard?courseId=${prog.id}`),
-                  primary: false,
-                }}
-              />
-            ))}
-          </Section>
-        )}
       </div>
 
       <div style={{ padding: '20px 24px', textAlign: 'center', borderTop: '1px solid #f3f4f6' }}>
-        <button onClick={() => navigate('/')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#9ca3af', fontSize: 13, cursor: 'pointer' }}><ArrowLeft size={14} /> Back to Courses</button>
+        <button onClick={() => navigate('/')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#9ca3af', fontSize: 13, cursor: 'pointer' }}><ArrowLeft size={14} /> Back to Home</button>
       </div>
     </div>
   )

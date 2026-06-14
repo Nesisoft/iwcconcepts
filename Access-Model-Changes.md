@@ -2,6 +2,16 @@
 
 *Decision: **Membership spine** · Scope: **Audit + clean up the model**. No backend or access-control logic changed; existing members and past enrollments keep their access.*
 
+> ## Update — Membership-only courses (committed model)
+>
+> The platform owner has now committed to a **strict membership** model for courses, and a clean three-part mental model:
+>
+> - **Membership = the door.** People buy a *package* (name · price · duration) and fill one registration form at `/join`. Higher tiers include everything below. Membership expires after its duration → access is cut off until they **renew/upgrade**.
+> - **Courses = the library.** Courses are **not** sold or registered individually — each is tied to a plan tier and unlocked by members at that tier or above. No per-course price, form, or "open/free" course. The Courses Manager only offers a membership tier; the public catalogue, homepage, and onboarding always show **"Join to Access" → `/join`**.
+> - **Events = standalone happenings.** Events keep their own registration (Free / Paid ticket / Members-only) because non-members can attend.
+>
+> **Front-end enforced; backend ladder unchanged** so existing members and grandfathered enrollments keep access. Old `open`/`standalone` *courses* still resolve on the server, but the UI now treats every course as membership-gated — re-save legacy courses to a tier in the Courses Manager to finish migrating them (the Access Audit shows which still need it). Events are unaffected.
+
 ---
 
 ## What changed and why

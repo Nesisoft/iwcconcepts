@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getAllCourses, getMembershipPlans } from '../utils/formStorage'
-import { accessModeOf, isOpenAccess, isPlanAccess, isStandaloneAccess, requiredPlan } from '../utils/access'
+import { requiredPlan } from '../utils/access'
 import SiteNav from '../components/SiteNav'
 import SiteFooter from '../components/SiteFooter'
-import { Calendar, MapPin, Star, BookOpen, ArrowRight, Search, Clock, Ticket } from 'lucide-react'
+import { Calendar, MapPin, BookOpen, ArrowRight, Search, Clock, Ticket } from 'lucide-react'
 
 const BRAND = '#6c3fc5'
 const GOLD  = '#C9A84C'
@@ -20,13 +20,6 @@ function formatDate(iso) {
   return new Date(iso).toLocaleDateString('en-GH', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-const FILTERS = [
-  { key: 'all',        label: 'All' },
-  { key: 'open',       label: 'Free' },
-  { key: 'membership', label: 'Membership' },
-  { key: 'onetime',    label: 'One-time' },
-]
-
 // The public catalogue lists COURSES only — events now have their own home (the
 // "Upcoming Events" section on the homepage), keeping the events/courses split
 // consistent everywhere. (This also excludes members-only restricted events.)
@@ -37,7 +30,6 @@ export default function Courses() {
   const [courses, setCourses] = useState([])
   const [plans,   setPlans]   = useState([])
   const [loading,  setLoading]  = useState(true)
-  const [filter,   setFilter]   = useState('all')
   const [query,    setQuery]    = useState('')
 
   useEffect(() => {
@@ -52,24 +44,13 @@ export default function Courses() {
     return courses
       .filter(p => p.status !== 'draft')
       .filter(isCatalogCourse)
-      .filter(p => filter === 'all' ? true : filter === 'open' ? isOpenAccess(p) : filter === 'membership' ? isPlanAccess(p) : isStandaloneAccess(p))
       .filter(p => {
         if (!q) return true
         return [p.title, p.tagline, p.description, ...(p.tags || [])]
           .filter(Boolean).join(' ').toLowerCase().includes(q)
       })
       .sort((a, b) => (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99))
-  }, [courses, filter, query])
-
-  const counts = useMemo(() => {
-    const live = courses.filter(p => p.status !== 'draft').filter(isCatalogCourse)
-    return {
-      all:        live.length,
-      open:       live.filter(isOpenAccess).length,
-      membership: live.filter(isPlanAccess).length,
-      onetime:    live.filter(isStandaloneAccess).length,
-    }
-  }, [courses])
+  }, [courses, query])
 
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', minHeight: '100vh', background: '#fff', display: 'flex', flexDirection: 'column' }}>
@@ -87,7 +68,7 @@ export default function Courses() {
           Explore Every Course
         </h1>
         <p style={{ fontSize: 17, color: 'rgba(255,255,255,0.7)', maxWidth: 540, margin: '0 auto 26px', lineHeight: 1.7 }}>
-          Free and premium faith-based courses to grow your business, leadership, and impact.
+          Faith-based courses to grow your business, leadership, and impact — all unlocked with one membership.
         </p>
         <button onClick={() => navigate('/join')} style={{
           display: 'inline-flex', alignItems: 'center', gap: 8,
@@ -103,24 +84,8 @@ export default function Courses() {
       {/* Controls */}
       <section style={{ maxWidth: 1100, margin: '0 auto', padding: '36px 24px 0', width: '100%', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', justifyContent: 'space-between' }}>
-          {/* Filter pills */}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {FILTERS.map(f => (
-              <button
-                key={f.key}
-                onClick={() => setFilter(f.key)}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 7,
-                  border: filter === f.key ? `2px solid ${BRAND}` : '2px solid #e5e7eb',
-                  background: filter === f.key ? '#f5f0ff' : '#fff',
-                  color: filter === f.key ? BRAND : '#6b7280',
-                  borderRadius: 24, padding: '9px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                }}
-              >
-                {f.label}
-                <span style={{ fontSize: 11, opacity: 0.7, background: filter === f.key ? `${BRAND}22` : '#f3f4f6', borderRadius: 12, padding: '1px 8px' }}>{counts[f.key]}</span>
-              </button>
-            ))}
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#6b7280', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+            <Ticket size={15} color={BRAND} /> Every course is included with membership
           </div>
 
           {/* Search */}
@@ -143,7 +108,7 @@ export default function Courses() {
         ) : visible.length === 0 ? (
           <div style={{ textAlign: 'center', color: '#9ca3af', padding: '60px 0' }}>
             <BookOpen size={48} color="#d1d5db" style={{ marginBottom: 16 }} />
-            <div style={{ fontSize: 16 }}>{query || filter !== 'all' ? 'No courses match your filters.' : 'Courses coming soon — check back shortly.'}</div>
+            <div style={{ fontSize: 16 }}>{query ? 'No courses match your search.' : 'Courses coming soon — check back shortly.'}</div>
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 24 }}>
@@ -158,17 +123,12 @@ export default function Courses() {
 }
 
 function CourseCard({ course, plans = [], navigate }) {
-  const mode        = accessModeOf(course)
-  const isPlanGated = mode === 'plan'
-  const isPaid      = mode === 'standalone'
+  // Courses are membership-only: one CTA everywhere — "Join to Access" → /join.
   const canRegister = course.status === 'open'
   const reqPlan     = requiredPlan(course, plans)
 
   function handleCTA() {
-    if (!canRegister) return
-    if (isPlanGated) { navigate('/join'); return }
-    // Paid items reach checkout even without a registration form (the ticket is the registration).
-    if (isPaid || course.registrationFormId) navigate(`/onboard?courseId=${course.id}`)
+    if (canRegister) navigate('/join')
   }
 
   return (
@@ -187,16 +147,9 @@ function CourseCard({ course, plans = [], navigate }) {
           : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #6c3fc520, #6c3fc540)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BookOpen size={40} color={BRAND} /></div>
         }
         <span style={{ position: 'absolute', top: 12, left: 12, background: statusColor(course.status), color: '#fff', fontSize: 11, fontWeight: 700, borderRadius: 20, padding: '3px 10px', textTransform: 'capitalize' }}>{course.status}</span>
-        {isPlanGated && (
-          <span style={{ position: 'absolute', top: 12, right: 12, background: `linear-gradient(135deg, ${reqPlan?.color || BRAND}, ${reqPlan?.color || BRAND}cc)`, color: '#fff', fontSize: 11, fontWeight: 800, borderRadius: 20, padding: '4px 12px', boxShadow: '0 2px 8px rgba(0,0,0,0.25)', display: 'inline-flex', alignItems: 'center', gap: 5 }} title={`Included from the ${reqPlan?.name || ''} plan and above`}>
-            🎫 {reqPlan?.name || 'Members'}+
-          </span>
-        )}
-        {isPaid && (
-          <span style={{ position: 'absolute', top: 12, right: 12, background: `linear-gradient(135deg, ${GOLD}, #e8c060)`, borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }} title="Premium course">
-            <Star size={15} color="#1A1A2E" fill="#1A1A2E" />
-          </span>
-        )}
+        <span style={{ position: 'absolute', top: 12, right: 12, background: `linear-gradient(135deg, ${reqPlan?.color || BRAND}, ${reqPlan?.color || BRAND}cc)`, color: '#fff', fontSize: 11, fontWeight: 800, borderRadius: 20, padding: '4px 12px', boxShadow: '0 2px 8px rgba(0,0,0,0.25)', display: 'inline-flex', alignItems: 'center', gap: 5 }} title={reqPlan ? `Included from the ${reqPlan.name} plan and above` : 'Included with membership'}>
+          🎫 {reqPlan ? `${reqPlan.name}+` : 'Members'}
+        </span>
       </div>
 
       <div style={{ padding: '18px 20px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -221,13 +174,13 @@ function CourseCard({ course, plans = [], navigate }) {
           style={{
             marginTop: 12, width: '100%', border: 'none', borderRadius: 9, padding: '11px 0',
             fontWeight: 700, fontSize: 13, cursor: canRegister ? 'pointer' : 'not-allowed',
-            background: canRegister ? ((isPaid || isPlanGated) ? BRAND : '#059669') : '#e5e7eb',
+            background: canRegister ? BRAND : '#e5e7eb',
             color: canRegister ? '#fff' : '#9ca3af',
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
           }}
         >
           {canRegister
-            ? <>{isPlanGated ? 'Join to Access' : isPaid ? 'Register' : 'Join Free'} <ArrowRight size={15} /></>
+            ? <>Join to Access <ArrowRight size={15} /></>
             : (course.status === 'upcoming' ? 'Coming Soon' : course.status === 'closed' ? 'Registration Closed' : 'Completed')
           }
         </button>
