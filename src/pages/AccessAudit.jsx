@@ -121,8 +121,8 @@ export default function AccessAudit() {
 
       <div style={{ maxWidth: 1000, margin: '0 auto', padding: '28px 24px 80px' }}>
         <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.7, margin: '0 0 22px', maxWidth: 720 }}>
-          Every course and event shown with the <strong style={{ color: 'white' }}>one</strong> access path it actually uses, plus anything that's ambiguous or double-gated.
-          Nothing here is changed automatically — fix flagged items in the Courses Manager. Existing members and past enrollments keep their access.
+          <strong style={{ color: 'white' }}>Courses are membership-only.</strong> Any course still on the old free / one-time setting is flagged to move onto a membership tier. Events keep their own access (Free · Paid ticket · Members-only).
+          Nothing here changes automatically — fix flagged items in the Courses Manager (or Events Manager). Existing members and past enrollments keep their access.
         </p>
 
         {loading && <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(255,255,255,0.4)' }}>Auditing courses…</div>}
@@ -199,11 +199,10 @@ export default function AccessAudit() {
 
             {/* Legend */}
             <div style={{ marginTop: 30, padding: '16px 18px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, fontSize: 11.5, color: 'rgba(255,255,255,0.6)', lineHeight: 1.9 }}>
-              <div style={{ fontWeight: 800, color: 'white', marginBottom: 6, fontSize: 12 }}>The three access paths</div>
-              <div><Chip c={MODE_CHIP.open.c} bg={MODE_CHIP.open.bg}>🌐 Open</Chip> &nbsp;Free for everyone — a taster or lead magnet.</div>
-              <div><Chip c={MODE_CHIP.plan.c} bg={MODE_CHIP.plan.bg}>🎫 Membership</Chip> &nbsp;Included with a plan and every tier above it.</div>
-              <div><Chip c={MODE_CHIP.standalone.c} bg={MODE_CHIP.standalone.bg}>💳 One-time</Chip> &nbsp;A paid one-off that is not part of membership.</div>
-              <div><Chip c={MODE_CHIP.event.c} bg={MODE_CHIP.event.bg}>🎪 Event</Chip> &nbsp;Gated by audience (public, or chosen plans / invitees).</div>
+              <div style={{ fontWeight: 800, color: 'white', marginBottom: 6, fontSize: 12 }}>How access works now</div>
+              <div><Chip c={MODE_CHIP.plan.c} bg={MODE_CHIP.plan.bg}>🎫 Membership</Chip> &nbsp;The only path for courses — unlocked by a plan tier and every tier above it. All courses should be here.</div>
+              <div><Chip c={MODE_CHIP.open.c} bg={MODE_CHIP.open.bg}>🌐 Open</Chip> / <Chip c={MODE_CHIP.standalone.c} bg={MODE_CHIP.standalone.bg}>💳 One-time</Chip> &nbsp;Legacy course settings — re-save onto a membership tier to migrate.</div>
+              <div><Chip c={MODE_CHIP.event.c} bg={MODE_CHIP.event.bg}>🎪 Event</Chip> &nbsp;Events only — gated by audience (Free, Paid ticket, or chosen plans / invitees). Events keep their own registration.</div>
             </div>
           </>
         )}

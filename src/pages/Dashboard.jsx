@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   MessageSquare, Megaphone, ClipboardList, BarChart3, Database,
   GraduationCap, Star, Globe, Users, Award, LineChart, MessagesSquare, Mail,
-  Ticket, Lock, Calendar,
+  Ticket, Lock, Calendar, Receipt,
 } from 'lucide-react'
 
 const tools = [
@@ -137,6 +137,16 @@ const tools = [
     desc: 'Track revenue, enrollments over time, completion rates, certificates, and per-course performance at a glance.',
     tags: ['Revenue', 'Enrollments', 'Completion', 'Trends'],
     accent: '#9B59B6',
+    available: true,
+  },
+  {
+    id: 'payments-admin',
+    path: '/payments-admin',
+    Icon: Receipt,
+    title: 'Payments',
+    desc: 'See every payment — membership purchases, event tickets and renewals — with who paid, amount, reference and status. Filter, search, and export to CSV.',
+    tags: ['Transactions', 'Memberships', 'Tickets', 'CSV export'],
+    accent: '#10B981',
     available: true,
   },
   {

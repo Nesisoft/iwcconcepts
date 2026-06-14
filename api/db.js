@@ -229,7 +229,7 @@ async function upsertMember(db, incoming, { baseUrl } = {}) {
     source:     incoming.source || 'client',
     history: [
       ...(existing?.history || []),
-      ...(existing ? [{ planId: existing.planId, planName: existing.planName, paymentRef: existing.paymentRef, expiresAt: existing.expiresAt, replacedAt: joinedAt }] : []),
+      ...(existing ? [{ planId: existing.planId, planName: existing.planName, paymentRef: existing.paymentRef, amountPaid: existing.amountPaid ?? null, currency: existing.currency || 'GHS', startedAt: existing.renewedAt || existing.joinedAt || null, expiresAt: existing.expiresAt, replacedAt: joinedAt }] : []),
     ],
   }
 
