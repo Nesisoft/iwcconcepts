@@ -49,17 +49,27 @@ function buildJoinSteps(form, { skipForm, knowEmail, knowName }) {
   return steps
 }
 
-// ── Plan selection (no prices here — by design) ───────────────────────────────
+// ── Plan selection (price + duration shown on each package; details expandable) ──
+
+function humanDuration(days) {
+  const d = Number(days) || 0
+  if (d <= 0) return 'Lifetime access'
+  if (d % 365 === 0) { const y = d / 365; return `${y} year${y > 1 ? 's' : ''}` }
+  if (d % 30 === 0)  { const m = d / 30;  return `${m} month${m > 1 ? 's' : ''}` }
+  if (d % 7 === 0)   { const w = d / 7;   return `${w} week${w > 1 ? 's' : ''}` }
+  return `${d} days`
+}
 
 function PlanScreen({ plans, currentPlanId, value, onChange, onNext, onBack }) {
+  const [openId, setOpenId] = useState(null)
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 24px' }}>
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
         <h2 style={{ fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 900, color: '#111827', margin: '0 0 8px' }}>
-          Choose your plan
+          Choose your package
         </h2>
         <p style={{ color: '#6b7280', fontSize: 14, margin: 0 }}>
-          Every plan unlocks its own set of courses — higher tiers include everything below them.
+          Each membership unlocks its courses for the period shown — higher tiers include everything below them. Renew or upgrade anytime.
         </p>
       </div>
 
@@ -68,8 +78,11 @@ function PlanScreen({ plans, currentPlanId, value, onChange, onNext, onBack }) {
           const selected  = value === p.id
           const isCurrent = currentPlanId === p.id
           const isTop     = i === plans.length - 1
+          const price     = Number(p.price || 0)
+          const open      = openId === p.id
+          const hasDetails = (p.perks || []).length > 0 || !!p.description
           return (
-            <button key={p.id} onClick={() => onChange(p.id)} style={{
+            <div key={p.id} role="button" tabIndex={0} onClick={() => onChange(p.id)} style={{
               textAlign: 'left', padding: 0, borderRadius: 18, overflow: 'hidden',
               border: `2px solid ${selected ? (p.color || BRAND) : '#e5e7eb'}`,
               background: '#fff', cursor: 'pointer',
@@ -79,7 +92,7 @@ function PlanScreen({ plans, currentPlanId, value, onChange, onNext, onBack }) {
             }}>
               <div style={{ height: 7, background: p.color || BRAND }} />
               <div style={{ padding: '18px 18px 20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 17, fontWeight: 900, color: '#111827' }}>{p.name}</span>
                   {isTop && (
                     <span style={{ background: `linear-gradient(135deg, ${GOLD}, #e8c060)`, color: '#1A1A2E', fontSize: 9, fontWeight: 800, borderRadius: 12, padding: '2px 8px', letterSpacing: 0.5 }}>★ PREMIUM</span>
@@ -89,13 +102,39 @@ function PlanScreen({ plans, currentPlanId, value, onChange, onNext, onBack }) {
                   )}
                 </div>
                 {p.tagline && <p style={{ margin: '0 0 12px', fontSize: 12.5, color: '#6b7280', lineHeight: 1.55 }}>{p.tagline}</p>}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 14 }}>
-                  {(p.perks || []).map((perk, j) => (
-                    <div key={j} style={{ display: 'flex', gap: 8, fontSize: 12.5, color: '#374151', lineHeight: 1.5 }}>
-                      <span style={{ color: p.color || BRAND, fontWeight: 900, flexShrink: 0 }}>✓</span>{perk}
-                    </div>
-                  ))}
+
+                {/* Price + duration — shown upfront so people can compare packages */}
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 26, fontWeight: 900, color: '#111827', lineHeight: 1.1 }}>
+                    {price > 0 ? `GHS ${price.toLocaleString()}` : 'Free'}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 600, marginTop: 2 }}>
+                    {price > 0 ? `for ${humanDuration(p.durationDays)}` : humanDuration(p.durationDays)}
+                  </div>
                 </div>
+
+                {/* Expandable details */}
+                {hasDetails && (
+                  <div style={{ marginBottom: 12 }}>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setOpenId(open ? null : p.id) }}
+                      style={{ background: 'none', border: 'none', padding: 0, color: p.color || BRAND, fontSize: 12, fontWeight: 800, cursor: 'pointer' }}
+                    >
+                      {open ? 'Hide details ▴' : 'See what’s included ▾'}
+                    </button>
+                    {open && (
+                      <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 7 }}>
+                        {p.description && <p style={{ margin: 0, fontSize: 12.5, color: '#6b7280', lineHeight: 1.55 }}>{p.description}</p>}
+                        {(p.perks || []).map((perk, j) => (
+                          <div key={j} style={{ display: 'flex', gap: 8, fontSize: 12.5, color: '#374151', lineHeight: 1.5 }}>
+                            <span style={{ color: p.color || BRAND, fontWeight: 900, flexShrink: 0 }}>✓</span>{perk}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div style={{ flex: 1 }} />
                 <div style={{
                   textAlign: 'center', borderRadius: 10, padding: '10px 0',
@@ -106,7 +145,7 @@ function PlanScreen({ plans, currentPlanId, value, onChange, onNext, onBack }) {
                   {selected ? '✓ Selected' : isCurrent ? 'Renew this plan' : 'Select'}
                 </div>
               </div>
-            </button>
+            </div>
           )
         })}
       </div>

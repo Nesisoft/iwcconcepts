@@ -511,9 +511,11 @@ export default function CourseOnboarding() {
     </div>
   )
 
-  // Membership-gated items are not sold per-item — send users to /join.
-  if (course?.accessMode === 'plan' && !confirmed) {
-    const itemIsEvent = (course.courseType || 'course') === 'event'
+  // Courses are membership-only (no per-course registration), so every course
+  // routes to /join. Membership-gated events route here too; free/paid events
+  // fall through to their normal registration/ticket flow below.
+  const itemIsEvent = (course?.courseType || 'course') === 'event'
+  if (course && !confirmed && (!itemIsEvent || course.accessMode === 'plan')) {
     const noun = itemIsEvent ? 'event' : 'course'
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f9fafb', flexDirection: 'column', gap: 16, padding: 24, textAlign: 'center', fontFamily: 'Inter, -apple-system, sans-serif' }}>

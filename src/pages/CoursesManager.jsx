@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { uid, getAllForms, getCoursesOnly, saveCourse, deleteCourse, getMembershipPlans } from '../utils/formStorage'
+import { uid, getCoursesOnly, saveCourse, deleteCourse, getMembershipPlans } from '../utils/formStorage'
 import { accessModeOf } from '../utils/access'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import AdminSelect from '../components/AdminSelect'
@@ -83,8 +83,8 @@ function makeDefault() {
     hasPortalAccess: false,
     awardsCertificate: false,
     duration: '',
-    accessMode: 'open',                                       // 'open' | 'plan' | 'standalone'
-    accessPlanId: '',                                         // when accessMode === 'plan'
+    accessMode: 'plan',                                       // courses are membership-only
+    accessPlanId: '',                                         // the tier (and above) that unlocks it
     audience: { type: 'public', planIds: [], emails: [] },    // events: who can see it
     eventAccess: { mode: 'online', platform: '', link: '', passcode: '', address: '', notes: '' },
     createdAt: new Date().toISOString(),
@@ -94,7 +94,6 @@ function makeDefault() {
 export default function CoursesManager() {
   const navigate = useNavigate()
   const [courses, setCourses] = useState([])
-  const [forms, setForms] = useState([])
   const [plans, setPlans] = useState([])
   const [selected, setSelected] = useState(null)
   const [prog, setProg] = useState(null)
@@ -114,9 +113,8 @@ export default function CoursesManager() {
   const refresh = useCallback(async () => {
     setListLoading(true)
     try {
-      const [ps, fs, pls] = await Promise.all([getCoursesOnly(), getAllForms(), getMembershipPlans().catch(() => [])])
+      const [ps, pls] = await Promise.all([getCoursesOnly(), getMembershipPlans().catch(() => [])])
       setCourses(ps)
-      setForms(fs)
       setPlans(pls)
     } finally {
       setListLoading(false)
@@ -239,19 +237,7 @@ export default function CoursesManager() {
     }
   }
 
-  // Derive wizard steps preview from linked form
-  const linkedForm = forms.find(f => f.id === prog?.registrationFormId)
-  const wizardSteps = linkedForm ? (() => {
-    const steps = []; let cur = { title: 'Step 1', fields: [] }
-    for (const f of (linkedForm.fields || [])) {
-      if (f.type === 'section') { if (cur.fields.length) steps.push(cur); cur = { title: f.label, fields: [] } }
-      else cur.fields.push(f)
-    }
-    if (cur.fields.length || steps.length === 0) steps.push(cur)
-    return steps
-  })() : []
-
-  // Public registration / onboarding link for the selected course or event
+  // Public onboarding link for the selected course (sends visitors to /join)
   const onboardUrl = prog ? `${window.location.href.split('#')[0]}#/onboard?courseId=${prog.id}` : ''
 
   const panelStyle = { background: '#130a24', height: '100%', overflowY: 'auto', padding: 16 }
@@ -359,7 +345,7 @@ export default function CoursesManager() {
 
             {/* Tabs */}
             <div style={{ background: '#160c28', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', padding: '0 20px', flexShrink: 0 }}>
-              {['details', 'registration', 'payment', 'carousel', 'publish'].map(t => (
+              {['details', 'access', 'carousel', 'publish'].map(t => (
                 <button key={t} style={tabBtn(t)} onClick={() => setTab(t)}>{t.charAt(0).toUpperCase() + t.slice(1)}</button>
               ))}
             </div>
@@ -425,137 +411,33 @@ export default function CoursesManager() {
                   </>
                 )}
 
-                {/* REGISTRATION */}
-                {tab === 'registration' && (
+                {/* ACCESS — courses are unlocked by membership only */}
+                {tab === 'access' && (
                   <>
-                    <div style={{ marginBottom: 16 }}>
-                      <Label>Onboarding Mode</Label>
-                      <div style={{ display: 'flex', gap: 10 }}>
-                        {['simple', 'steps'].map(m => (
-                          <div key={m} onClick={() => set('onboardingMode', m)} style={{ flex: 1, border: `2px solid ${prog.onboardingMode === m ? ACC : 'rgba(255,255,255,0.12)'}`, borderRadius: 10, padding: '12px 14px', cursor: 'pointer', background: prog.onboardingMode === m ? `${ACC}15` : 'transparent' }}>
-                            <div style={{ fontWeight: 800, fontSize: 12, color: prog.onboardingMode === m ? ACC2 : 'white', marginBottom: 4 }}>{m === 'simple' ? '📝 Simple Form' : '🧭 Multi-Step Wizard'}</div>
-                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>{m === 'simple' ? 'One page, all fields at once. Best for free courses with short forms.' : 'Form sections become wizard steps. Best for paid courses with deep intake forms.'}</div>
-                          </div>
-                        ))}
+                    <div style={{ marginBottom: 14 }}>
+                      <Label>Membership tier that unlocks this course</Label>
+                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 10, lineHeight: 1.6 }}>
+                        Courses are unlocked by <strong>membership only</strong> — there is no per-course price or sign-up. A member on the chosen plan (and every higher tier) opens it from their portal; everyone else sees a “Join to access” button.
                       </div>
-                    </div>
-                    <Fld label="Linked Registration Form">
                       <AdminSelect
-                        value={prog.registrationFormId}
-                        onChange={e => set('registrationFormId', e.target.value)}
+                        value={prog.accessPlanId || ''}
+                        onChange={e => setProg(p => ({ ...p, accessMode: 'plan', type: 'free', accessPlanId: e.target.value }))}
                         options={[
-                          { value: '', label: '— Select a form —' },
-                          ...forms.map(f => ({ value: f.id, label: f.title || 'Untitled' })),
+                          { value: '', label: '— Select a plan —' },
+                          ...plans.map(pl => ({ value: pl.id, label: pl.name })),
                         ]}
                         style={{ width: '100%' }}
                       />
-                    </Fld>
-                    {prog.onboardingMode === 'steps' && linkedForm && (
-                      <div style={{ marginTop: 16 }}>
-                        <Label>Wizard Steps Preview</Label>
-                        {wizardSteps.length === 0 ? (
-                          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', padding: '10px 0' }}>No section dividers found in the form — all fields will appear on one step.</div>
-                        ) : wizardSteps.map((s, i) => (
-                          <div key={i} style={{ background: 'rgba(228,96,10,0.08)', border: '1px solid rgba(228,96,10,0.2)', borderRadius: 8, padding: '10px 14px', marginBottom: 6 }}>
-                            <div style={{ fontSize: 11, fontWeight: 800, color: ACC2, marginBottom: 3 }}>Step {i + 1}: {s.title}</div>
-                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)' }}>{s.fields.length} field{s.fields.length !== 1 ? 's' : ''}: {s.fields.map(f => f.label).join(', ')}</div>
-                          </div>
-                        ))}
-                        <div style={{ background: 'rgba(245,184,0,0.08)', border: '1px solid rgba(245,184,0,0.2)', borderRadius: 8, padding: '10px 14px', marginTop: 4 }}>
-                          <div style={{ fontSize: 11, fontWeight: 800, color: ACC2 }}>Step {wizardSteps.length + 1}: {prog.type === 'paid' ? '💳 Payment' : '✅ Confirmation'}</div>
-                        </div>
-                      </div>
-                    )}
-                    {!linkedForm && prog.registrationFormId && <div style={{ fontSize: 10, color: '#f87171', marginTop: 8 }}>Form not found — it may have been deleted.</div>}
-                    {!prog.registrationFormId && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 8 }}>Select a form built in the Form Builder to use as the registration form.</div>}
-                  </>
-                )}
-
-                {/* PAYMENT / ACCESS */}
-                {tab === 'payment' && (
-                  <>
-                    <div style={{ marginBottom: 16 }}>
-                      <Label>Who can access this {prog.courseType === 'event' ? 'event' : 'course'}?</Label>
-                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 10, lineHeight: 1.6 }}>
-                        Pick <strong>one</strong> path — an item is never gated two ways at once.
-                      </div>
-                      <div style={{ display: 'flex', gap: 10 }}>
-                        {[
-                          { v: 'open',       icon: '🌐', t: 'Open',       d: 'Free for everyone. No membership needed.' },
-                          { v: 'plan',       icon: '🎫', t: 'Membership', d: 'Included from a chosen plan and above.' },
-                          { v: 'standalone', icon: '💳', t: 'One-time',   d: 'A paid one-off, not part of membership.' },
-                        ].map(o => {
-                          const cur = accessModeOf(prog)
-                          return (
-                            <div key={o.v} onClick={() => setProg(p => ({ ...p, accessMode: o.v, type: o.v === 'standalone' ? 'paid' : 'free' }))} style={{ flex: 1, border: `2px solid ${cur === o.v ? ACC : 'rgba(255,255,255,0.12)'}`, borderRadius: 10, padding: '12px 12px', cursor: 'pointer', background: cur === o.v ? `${ACC}15` : 'transparent', textAlign: 'center' }}>
-                              <div style={{ fontSize: 20, marginBottom: 4 }}>{o.icon}</div>
-                              <div style={{ fontWeight: 800, fontSize: 12, color: cur === o.v ? ACC2 : 'white' }}>{o.t}</div>
-                              <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 4, lineHeight: 1.5 }}>{o.d}</div>
-                            </div>
-                          )
-                        })}
-                      </div>
                     </div>
-
-                    {accessModeOf(prog) === 'plan' && (
-                      <>
-                        <Fld label="Available from this plan and above">
-                          <AdminSelect
-                            value={prog.accessPlanId || ''}
-                            onChange={e => set('accessPlanId', e.target.value)}
-                            options={[
-                              { value: '', label: '— Select a plan —' },
-                              ...plans.map(pl => ({ value: pl.id, label: pl.name })),
-                            ]}
-                            style={{ width: '100%' }}
-                          />
-                        </Fld>
-                        {plans.length === 0 && (
-                          <div style={{ fontSize: 10, color: '#fbbf24', marginBottom: 12 }}>⚠ No plans exist yet — create them in the Membership Plans manager first.</div>
-                        )}
-                        <div style={{ background: 'rgba(108,63,197,0.08)', border: '1px solid rgba(108,63,197,0.25)', borderRadius: 10, padding: 14, fontSize: 11, lineHeight: 1.7, color: 'rgba(255,255,255,0.6)' }}>
-                          <strong style={{ color: '#b79df0' }}>How it works:</strong> members on this plan — or any higher tier — open it directly from their portal.
-                          Everyone else sees it on the courses page with a "Join to access" button that sends them to the membership registration.
-                          No per-course payment is taken.
-                        </div>
-                      </>
+                    {plans.length === 0 && (
+                      <div style={{ fontSize: 10, color: '#fbbf24', marginBottom: 12 }}>⚠ No plans exist yet — create them in the Membership Plans manager first.</div>
                     )}
-
-                    {accessModeOf(prog) === 'open' && (
-                      <div style={{ textAlign: 'center', padding: '24px', color: 'rgba(255,255,255,0.35)', fontSize: 12, lineHeight: 1.8 }}>
-                        <div style={{ fontSize: 36, marginBottom: 8 }}>🌐</div>
-                        Open to everyone, free of charge.<br />
-                        Visitors register with the linked form and get portal access (if enabled in Publish).
-                      </div>
+                    {plans.length > 0 && !prog.accessPlanId && (
+                      <div style={{ fontSize: 10, color: '#fbbf24', marginBottom: 12 }}>⚠ Pick a plan — until you do, no member can unlock this course.</div>
                     )}
-
-                    {accessModeOf(prog) === 'standalone' && (
-                      <>
-                        <Fld label="Price (GHS)"><input type="number" style={inp()} min={0} value={prog.price} onChange={e => set('price', Number(e.target.value))} /></Fld>
-                        <Fld label="Discount (%) — applied at registration via spin wheel">
-                          <input
-                            type="number" style={inp()} min={0} max={100}
-                            value={prog.discount || 0}
-                            onChange={e => set('discount', Math.max(0, Math.min(100, Number(e.target.value))))}
-                            placeholder="0 = no discount (skips the spin wheel)"
-                          />
-                          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 6, lineHeight: 1.6 }}>
-                            Leave at <strong>0</strong> for no discount — the spin wheel is skipped and the
-                            participant pays full price. Any value above 0 shows the spin wheel landing on
-                            that discount{prog.discount > 0 ? ` (pays GHS ${Math.round(Number(prog.price || 0) * (1 - (prog.discount || 0) / 100)).toLocaleString()})` : ''}.
-                          </div>
-                        </Fld>
-                        <div style={divider} />
-                        <div style={{ background: 'rgba(228,96,10,0.08)', border: '1px solid rgba(228,96,10,0.2)', borderRadius: 10, padding: 14, marginBottom: 16, fontSize: 11, lineHeight: 1.7, color: 'rgba(255,255,255,0.6)' }}>
-                          <strong style={{ color: ACC2 }}>Paystack setup:</strong><br />
-                          1. Create a free account at <strong>paystack.com</strong><br />
-                          2. Go to Settings → API Keys &amp; Webhooks<br />
-                          3. Copy your <em>Public Key</em> (starts with pk_live_ or pk_test_)<br />
-                          4. Paste it below
-                        </div>
-                        <Fld label="Paystack Public Key"><input style={inp()} value={prog.paystackPublicKey} onChange={e => set('paystackPublicKey', e.target.value)} placeholder="pk_live_xxxxxxxxxxxxxxxx" /></Fld>
-                      </>
-                    )}
+                    <div style={{ background: 'rgba(108,63,197,0.08)', border: '1px solid rgba(108,63,197,0.25)', borderRadius: 10, padding: 14, fontSize: 11, lineHeight: 1.7, color: 'rgba(255,255,255,0.6)' }}>
+                      <strong style={{ color: '#b79df0' }}>How access works:</strong> people join through a membership <em>package</em> (set price &amp; duration in <strong>Membership Plans</strong>) and the registration form attaches there — not to individual courses. A member on the selected plan, or any higher tier, opens this course directly from their portal. No per-course payment is ever taken.
+                    </div>
                   </>
                 )}
 
@@ -600,7 +482,7 @@ export default function CoursesManager() {
                     </div>
                     <Toggle label="Has a learning portal (lessons inside the app)" checked={prog.hasPortalAccess} onChange={e => set('hasPortalAccess', e.target.checked)} />
                     <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, margin: '-4px 0 10px' }}>
-                      Turn on when this {prog.courseType === 'event' ? 'event' : 'course'} has lessons learners open in the portal. This is separate from the access path above — it decides <em>whether there is content to open</em>, not <em>who</em> can open it. Membership and one-time {prog.courseType === 'event' ? 'events' : 'courses'} usually have this on.
+                      Turn on when this {prog.courseType === 'event' ? 'event' : 'course'} has lessons learners open in the portal. This is separate from the access path above — it decides <em>whether there is content to open</em>, not <em>who</em> can open it. Most membership courses have this on.
                     </div>
                     <Toggle label="Award a certificate on course completion" checked={prog.awardsCertificate} onChange={e => set('awardsCertificate', e.target.checked)} />
                     <div style={divider} />

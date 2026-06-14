@@ -4,7 +4,7 @@ import { getAllCourses, getAllTestimonials } from '../utils/formStorage'
 import { accessModeOf } from '../utils/access'
 import SiteNav from '../components/SiteNav'
 import SiteFooter from '../components/SiteFooter'
-import { Calendar, MapPin, Star, BookOpen, CircleDot, Clock, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Calendar, MapPin, Ticket, BookOpen, CircleDot, Clock, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 
 const BRAND = '#6c3fc5'
 const GOLD  = '#C9A84C'
@@ -121,11 +121,16 @@ function HeroCarousel({ courses }) {
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <button
               onClick={() => {
-                if (accessModeOf(slide) === 'plan') { navigate('/join'); return }
-                if (accessModeOf(slide) === 'standalone' || slide.registrationFormId) navigate(`/onboard?courseId=${slide.id}`)
+                const isEv = (slide.courseType || 'course') === 'event'
+                // Courses are membership-only → /join. Member events too. Free/paid events register.
+                if (!isEv || accessModeOf(slide) === 'plan') { navigate('/join'); return }
+                navigate(`/onboard?courseId=${slide.id}`)
               }}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: GOLD, color: '#1A1A2E', border: 'none', borderRadius: 10, padding: '14px 32px', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}
-            >{accessModeOf(slide) === 'plan' ? 'Join to Access' : accessModeOf(slide) === 'standalone' ? 'Register' : 'Join Free'} <ArrowRight size={17} /></button>
+            >{(slide.courseType || 'course') !== 'event'
+                ? 'Join to Access'
+                : accessModeOf(slide) === 'plan' ? 'Join to Access'
+                : accessModeOf(slide) === 'standalone' ? 'Get Ticket' : 'Register'} <ArrowRight size={17} /></button>
           </div>
         </div>
       </div>
@@ -175,19 +180,44 @@ function arrowBtn(side) {
   }
 }
 
+// ── Membership band (above the courses — "join to unlock everything") ──────────
+
+function MembershipBand() {
+  const navigate = useNavigate()
+  return (
+    <section style={{ background: 'linear-gradient(135deg, #1e0f3a 0%, #0f0a1a 100%)', padding: '66px 24px' }}>
+      <div style={{ maxWidth: 900, margin: '0 auto', textAlign: 'center', color: '#fff' }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: GOLD, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 14 }}>
+          Membership
+        </div>
+        <h2 style={{ fontSize: 'clamp(26px, 4vw, 40px)', fontWeight: 900, margin: '0 0 16px', lineHeight: 1.15 }}>
+          One membership. Every course unlocked.
+        </h2>
+        <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.72)', maxWidth: 620, margin: '0 auto 28px', lineHeight: 1.7 }}>
+          Courses aren’t sold one by one — you join a membership package and unlock everything in your tier (and every tier below) for as long as your plan is active. Renew or upgrade anytime.
+        </p>
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button onClick={() => navigate('/join')} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: `linear-gradient(135deg, ${GOLD}, #e8c060)`, color: '#1A1A2E', border: 'none', borderRadius: 30, padding: '14px 32px', fontWeight: 800, fontSize: 15, cursor: 'pointer', boxShadow: '0 4px 24px rgba(201,168,76,0.35)' }}>
+            <Ticket size={18} /> Become a Member
+          </button>
+          <button onClick={() => navigate('/courses')} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 30, padding: '14px 28px', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+            See what’s included
+          </button>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 // ── Course Card ──────────────────────────────────────────────────────────────
 
 function CourseCard({ course }) {
   const navigate = useNavigate()
-  const mode = accessModeOf(course)
-  const isPlanGated = mode === 'plan'
-  const isPaid = mode === 'standalone'
-  const canRegister = ['open'].includes(course.status)
+  // Courses are membership-only → one CTA everywhere: "Join to Access" → /join.
+  const canRegister = course.status === 'open'
 
   function handleCTA() {
-    if (!canRegister) return
-    if (isPlanGated) { navigate('/join'); return }
-    if (isPaid || course.registrationFormId) navigate(`/onboard?courseId=${course.id}`)
+    if (canRegister) navigate('/join')
   }
 
   return (
@@ -221,17 +251,6 @@ function CourseCard({ course }) {
           borderRadius: 20, padding: '3px 10px',
           textTransform: 'uppercase', letterSpacing: '0.05em',
         }}>{course.courseType === 'event' ? 'Event' : 'Course'}</span>
-        {isPaid && (
-          <span style={{
-            position: 'absolute', top: 12, right: 12,
-            background: `linear-gradient(135deg, ${GOLD}, #e8c060)`,
-            borderRadius: '50%', width: 30, height: 30,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
-          }} title="Premium course">
-            <Star size={15} color="#1A1A2E" fill="#1A1A2E" />
-          </span>
-        )}
       </div>
 
       {/* Body */}
@@ -263,13 +282,13 @@ function CourseCard({ course }) {
           style={{
             marginTop: 12, width: '100%', border: 'none', borderRadius: 9, padding: '11px 0',
             fontWeight: 700, fontSize: 13, cursor: canRegister ? 'pointer' : 'not-allowed',
-            background: canRegister ? ((isPaid || isPlanGated) ? BRAND : '#059669') : '#e5e7eb',
+            background: canRegister ? BRAND : '#e5e7eb',
             color: canRegister ? '#fff' : '#9ca3af',
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
           }}
         >
           {canRegister
-            ? <>{isPlanGated ? 'Join to Access' : isPaid ? 'Register' : 'Join Free'} <ArrowRight size={15} /></>
+            ? <>Join to Access <ArrowRight size={15} /></>
             : (course.status === 'upcoming' ? 'Coming Soon' : course.status === 'closed' ? 'Registration Closed' : 'Completed')
           }
         </button>
@@ -554,6 +573,7 @@ export default function LandingPage() {
         <>
           <HeroCarousel courses={courses} />
           <UpcomingEventsSection events={courses.filter(c => c.courseType === 'event' && (c.audience?.type || 'public') !== 'restricted')} />
+          <MembershipBand />
           <CoursesSection courses={courses.filter(c => (c.courseType || 'course') !== 'event')} />
           <TestimonialsSection testimonials={testimonials} />
           <SiteFooter />
