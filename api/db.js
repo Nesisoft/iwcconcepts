@@ -160,6 +160,37 @@ See you there!
 — IWC Concepts`
 }
 
+// Verify a Paystack transaction reference server-side (the secret key never
+// touches the browser). Returns:
+//   true   → the reference verifies as a successful payment
+//   false  → the reference is definitively NOT a successful payment
+//            (failed / abandoned / reversed / not found / invalid)
+//   null   → we can't tell right now (no key, auth/permission/server error,
+//            network failure, or an unexpected/pending shape)
+// Callers reject on `false`, and allow on `null` so a real payer is never
+// blocked by a transient outage.
+async function verifyPaystackPayment(reference) {
+  if (!reference) return null
+  const key = process.env.PAYSTACK_SECRET_KEY
+  if (!key) return null
+  try {
+    const r = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
+      headers: { Authorization: `Bearer ${key}` },
+    })
+    // Auth / permission / server problems → can't trust a verdict → don't block.
+    if (r.status === 401 || r.status === 403 || r.status >= 500) return null
+    const d  = await r.json().catch(() => null)
+    const st = d?.data?.status
+    if (st === 'success') return true
+    if (st === 'failed' || st === 'abandoned' || st === 'reversed') return false
+    if (r.status === 404 || d?.status === false) return false  // reference not found / invalid
+    return null                                                // pending / unexpected → don't block
+  } catch (err) {
+    console.warn('[verifyPaystack] verify failed:', err.message)
+    return null
+  }
+}
+
 // Upsert a member record keyed by email. Dedupes on paymentRef so the client
 // return path and the Paystack webhook can both call this safely.
 async function upsertMember(db, incoming, { baseUrl } = {}) {
@@ -439,6 +470,32 @@ async function handleAction(db, action, p, user = null) {
     // ── Enrollments ───────────────────────────────────────────────────────────
     case 'addEnrollment': {
       const e = p.enrollment
+
+      // Load the item up-front so we can enforce ticket integrity AND tailor the
+      // confirmation email without a second query.
+      const { rows: cr } = await db.query('SELECT data FROM courses WHERE id = $1', [e.courseId])
+      const course = cr[0]?.data
+
+      // ── Ticket integrity for PAID events ──────────────────────────────────
+      // addEnrollment is a public endpoint, so for a priced standalone event we
+      // require proof of entitlement: a valid promo code, or a Paystack reference
+      // that verifies as successful. We reject only on a definitively bad/absent
+      // reference and allow through a transient verification error, so a genuine
+      // payer is never blocked by an outage. Courses keep their existing behavior.
+      if (course && course.courseType === 'event' && course.accessMode === 'standalone' && Number(course.price) > 0) {
+        const validPromo = !!(e.promoCode && (course.promoCodes || []).some(pc => String(pc.code || '').toUpperCase() === String(e.promoCode).toUpperCase()))
+        if (!validPromo) {
+          const verdict = await verifyPaystackPayment(e.paymentRef)
+          if (verdict === false) {
+            throw new Error('We could not verify a successful payment for this ticket. If you were charged, please contact support with your reference.')
+          }
+          if (verdict === null && !e.paymentRef) {
+            throw new Error('A valid payment or promo code is required to register for this event.')
+          }
+          // verdict === true → verified; verdict === null WITH a reference → allow (best-effort)
+        }
+      }
+
       const result = await db.query(
         `INSERT INTO enrollments (id, course_id, data, created_at)
          VALUES ($1, $2, $3, $4)
@@ -450,8 +507,6 @@ async function handleAction(db, action, p, user = null) {
       if (result.rowCount > 0 && e.participantEmail) {
         try {
           const settings = await loadEmailSettings(db)
-          const { rows: cr } = await db.query('SELECT data FROM courses WHERE id = $1', [e.courseId])
-          const course = cr[0]?.data
           if (course && course.courseType === 'event') {
             // Events send a transactional ticket email with the join details.
             // Sensitive online details are revealed only when the event is free or

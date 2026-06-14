@@ -93,12 +93,15 @@ A paid event reuses the course payment path exactly: `/api/paystack-init` (serve
 | `api/paystack-init.js` | The charge is now **computed server-side** from the authoritative price — course/event `price × (1 − discount) +` validated promo, or the membership plan price — keyed off `metadata` (`courseId` vs `planId`/`type`). A tampered client `amount` no longer changes what's charged. If the item can't be looked up (DB unset/unreachable) it **falls back to the client amount** so checkout still works. Verified to match the client's displayed price exactly (e.g. 200 − 25% → 150, then 10% promo → 135 on both sides) and to leave membership purchases unchanged. |
 | `api/db.js` (`addEnrollment`) | Event registrations now send a **transactional ticket email** with date, venue/online join link, passcode, and notes. The sensitive online link/passcode is included only when the event is **free** or there's **payment/promo evidence** (`paymentRef` or a valid code) — so the public endpoint can't email a paid event's link to someone with no proof of purchase. The whole email step is wrapped so it can never fail the enrollment that was just saved. |
 
-### Residual gap (recommended next: "Phase 4C-3")
+### Phase 4C-3 — forged-ticket gap closed (built)
 
-The independent review confirmed one **pre-existing** weakness this phase narrows but doesn't fully close:
+`addEnrollment` is a public, unauthenticated endpoint. Previously a scripted client could POST a forged enrollment for a paid event and mint a zero-cost ticket. **Now closed:**
 
-- `addEnrollment` is a **public, unauthenticated endpoint with no Paystack verification.** A scripted client could POST a forged enrollment (`paymentRef: null`) for a paid event and mint a **zero-cost ticket**. The 4C email gating withholds the link from the *email*, but once that person signs into the portal, `getMyEvents` still serves the join link — because *enrollment existence* is the only proof of a ticket.
-- **The fix:** before accepting an enrollment for a `standalone` (paid) event, verify server-side that there's either a **valid promo code** or a **Paystack reference that verifies as `success`** (`GET /transaction/verify/:ref`). Designed safely — reject only on a definitive bad/missing reference, and *allow* on a transient verify error so a real payer is never blocked — this closes the forge path without risking legitimate customers. I've left it out of this round only because it changes a live money path and can't be test-charged from here; happy to add it on your go-ahead.
+- `api/db.js` adds `verifyPaystackPayment(reference)` and, before accepting an enrollment for a **priced standalone event**, requires either a **valid promo code** or a **Paystack reference that verifies as `success`** (server-side `GET /transaction/verify/:ref`, secret key never exposed).
+- **Safe-by-design** (verified by independent review): it rejects only a *definitive* bad/missing reference (`failed`/`abandoned`/`reversed`/not-found, or no reference and no promo). On any uncertainty — bad/missing key, 401/403/5xx, network error, or a still-settling `pending`/`ongoing` status — it **allows** the registration, so a genuine payer is never blocked by an outage. Slow-settling mobile-money/bank charges pass through.
+- **Scope:** only priced standalone *events* are gated. Free events, membership events, price-0 events, and all *courses* are untouched and behave exactly as before. The enrollment INSERT still happens only after the gate, and the email step still can't fail a saved enrollment.
+
+> Residual (rare): if `PAYSTACK_SECRET_KEY` is unset in the API environment, references can't be verified, so a *reference-bearing* forge could slip through (a no-reference forge is still rejected). Keep the key set — it's already required for checkout.
 
 ### Still open (smaller)
 
