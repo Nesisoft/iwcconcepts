@@ -143,32 +143,22 @@ export function auditItem(item, plans = []) {
     return { mode: 'event', label: `${eventAccessLabel(item, plans)} · ${audienceSummary(item, plans)}`, explicit: true, issues }
   }
 
+  // ── Courses are membership-only ──────────────────────────────────────────
+  // Every course must sit on a membership tier. Anything still on the old
+  // open / one-time model is flagged for migration (re-save it onto a plan).
   const mode = accessModeOf(item)
   const label = accessLabel(item, plans)
 
-  if (!isExplicit(item)) {
-    add('info', 'Access is implicit (inferred from the old free/paid flag). Open the course and re-save to set it explicitly.')
-  }
-
-  // The classic "two gates on one item" — membership AND a paid flag.
-  if (item.accessMode === ACCESS.PLAN && item.type === 'paid') {
-    add('warn', 'Two gates: membership-gated but still flagged "paid". Set the course type away from paid (or switch to One-time) so members are not asked to pay.')
-  }
-  if (item.accessMode === ACCESS.OPEN && item.type === 'paid') {
-    add('warn', 'Marked Open (free) but still flagged "paid" — conflicting signals.')
-  }
-
   if (mode === ACCESS.PLAN) {
     if (!item.accessPlanId) {
-      add('error', 'Membership-gated but no plan is selected — nobody can unlock it via membership.')
+      add('error', 'Membership course with no plan selected — nobody can unlock it. Pick a tier in the Courses Manager.')
     } else if (!plans.find(p => p.id === item.accessPlanId)) {
-      add('error', 'Required membership plan no longer exists — re-pick a plan.')
+      add('error', 'Required membership plan no longer exists — re-pick a tier in the Courses Manager.')
     }
-  }
-
-  if (mode === ACCESS.STANDALONE) {
-    if (!(Number(item.price) > 0)) add('warn', 'One-time (paid) course has no price set.')
-    if (!item.paystackPublicKey)   add('warn', 'One-time (paid) course has no Paystack public key — payment will fail.')
+  } else if (mode === ACCESS.STANDALONE) {
+    add('warn', 'One-time paid course — courses are now membership-only. Re-save it onto a membership tier (no per-course payment is taken anymore).')
+  } else {
+    add('warn', 'Free / open course — courses are now membership-only. Set a membership tier so members unlock it.')
   }
 
   return { mode, label, explicit: isExplicit(item), issues }

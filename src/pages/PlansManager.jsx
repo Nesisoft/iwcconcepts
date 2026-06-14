@@ -36,6 +36,7 @@ function makePlan(n) {
     price: 0,
     currency: 'GHS',
     durationDays: 365,
+    popular: false,              // highlight as the recommended package
     color: PLAN_COLORS[(n - 1) % PLAN_COLORS.length],
     active: true,
   }
@@ -258,9 +259,18 @@ export default function PlansManager() {
                   </div>
                 </Fld>
                 <div style={divider} />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, color: 'rgba(255,255,255,0.7)', marginBottom: 12 }}>
+                  <span>Mark as <strong style={{ color: '#fff' }}>popular</strong> (shows a “Most Popular” badge)</span>
+                  <label style={{ position: 'relative', width: 36, height: 20, cursor: 'pointer', flexShrink: 0 }}>
+                    <input type="checkbox" checked={!!plan.popular} onChange={e => setPlan('popular', e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
+                    <div style={{ position: 'absolute', inset: 0, background: plan.popular ? '#C9A84C' : 'rgba(255,255,255,0.18)', borderRadius: 20, transition: 'background 0.25s' }}>
+                      <div style={{ position: 'absolute', width: 13, height: 13, left: plan.popular ? 20 : 3, top: 3.5, background: 'white', borderRadius: '50%', transition: 'left 0.25s' }} />
+                    </div>
+                  </label>
+                </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>
                   <span>Visible during registration</span>
-                  <label style={{ position: 'relative', width: 36, height: 20, cursor: 'pointer' }}>
+                  <label style={{ position: 'relative', width: 36, height: 20, cursor: 'pointer', flexShrink: 0 }}>
                     <input type="checkbox" checked={!!plan.active} onChange={e => setPlan('active', e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
                     <div style={{ position: 'absolute', inset: 0, background: plan.active ? ACC : 'rgba(255,255,255,0.18)', borderRadius: 20, transition: 'background 0.25s' }}>
                       <div style={{ position: 'absolute', width: 13, height: 13, left: plan.active ? 20 : 3, top: 3.5, background: 'white', borderRadius: '50%', transition: 'left 0.25s' }} />
@@ -305,11 +315,24 @@ export default function PlansManager() {
               </button>
             </div>
 
+            <div style={card}>
+              <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 4 }}>Membership discount (all packages)</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', lineHeight: 1.7, marginBottom: 12 }}>
+                One discount applied to <strong>every</strong> package. When above 0, users see the original price
+                struck through with the discounted price shown prominently. Leave at 0 for no discount.
+              </div>
+              <Fld label="Discount (%) — 0 = none">
+                <input type="number" min={0} max={90} style={inp({ maxWidth: 160 })} value={config.discount || 0}
+                  onChange={e => persistConfig({ ...config, discount: Math.max(0, Math.min(90, Number(e.target.value))) })} />
+              </Fld>
+            </div>
+
             <div style={{ ...card, background: 'rgba(52,152,219,0.06)', border: '1px solid rgba(52,152,219,0.2)' }}>
               <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', lineHeight: 1.8 }}>
                 <strong style={{ color: '#3498DB' }}>How pricing is shown</strong><br />
-                During registration users see each plan's name, tagline and what's included — <strong style={{ color: 'white' }}>without the price</strong>.
-                The price appears only on the final summary step, right before they choose to pay.
+                During registration users see each package's name, tagline, what's included, and its
+                <strong style={{ color: 'white' }}> price and duration</strong>. Any discount is
+                applied to the displayed price, and the final amount is confirmed on the summary step before payment.
               </div>
             </div>
           </div>

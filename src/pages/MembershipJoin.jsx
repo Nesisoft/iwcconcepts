@@ -23,9 +23,18 @@ import {
 
 const GOLD = '#C9A84C'
 
+// One platform-wide membership discount applies to every package (capped 0–90%).
+function effectiveDiscount(_plan, globalDiscount = 0) {
+  return Math.max(0, Math.min(90, Number(globalDiscount) || 0))
+}
+function discountedPrice(plan, globalDiscount = 0) {
+  const base = Number(plan?.price) || 0
+  return Math.round(base * (1 - effectiveDiscount(plan, globalDiscount) / 100))
+}
+
 // ── Steps builder ──────────────────────────────────────────────────────────────
 
-function buildJoinSteps(form, { skipForm, knowEmail, knowName }) {
+function buildJoinSteps(form, { skipForm, knowEmail, knowName, globalDiscount }) {
   let steps = []
   let hasEmail = false
   let hasName  = false
@@ -60,7 +69,7 @@ function humanDuration(days) {
   return `${d} days`
 }
 
-function PlanScreen({ plans, currentPlanId, value, onChange, onNext, onBack }) {
+function PlanScreen({ plans, currentPlanId, value, onChange, onNext, onBack, globalDiscount = 0 }) {
   const [openId, setOpenId] = useState(null)
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 24px' }}>
@@ -79,17 +88,22 @@ function PlanScreen({ plans, currentPlanId, value, onChange, onNext, onBack }) {
           const isCurrent = currentPlanId === p.id
           const isTop     = i === plans.length - 1
           const price     = Number(p.price || 0)
+          const disc      = effectiveDiscount(p, globalDiscount)
+          const due       = discountedPrice(p, globalDiscount)
           const open      = openId === p.id
           const hasDetails = (p.perks || []).length > 0 || !!p.description
           return (
             <div key={p.id} role="button" tabIndex={0} onClick={() => onChange(p.id)} style={{
               textAlign: 'left', padding: 0, borderRadius: 18, overflow: 'hidden',
-              border: `2px solid ${selected ? (p.color || BRAND) : '#e5e7eb'}`,
+              border: `2px solid ${selected ? (p.color || BRAND) : p.popular ? GOLD : '#e5e7eb'}`,
               background: '#fff', cursor: 'pointer',
-              boxShadow: selected ? `0 8px 28px ${(p.color || BRAND)}33` : '0 2px 10px rgba(0,0,0,0.05)',
+              boxShadow: selected ? `0 8px 28px ${(p.color || BRAND)}33` : p.popular ? `0 6px 22px ${GOLD}33` : '0 2px 10px rgba(0,0,0,0.05)',
               transition: 'all 0.18s', position: 'relative',
               display: 'flex', flexDirection: 'column',
             }}>
+              {p.popular && (
+                <div style={{ background: `linear-gradient(135deg, ${GOLD}, #e8c060)`, color: '#1A1A2E', fontSize: 10, fontWeight: 900, letterSpacing: 0.8, textAlign: 'center', padding: '4px 0', textTransform: 'uppercase' }}>★ Most Popular</div>
+              )}
               <div style={{ height: 7, background: p.color || BRAND }} />
               <div style={{ padding: '18px 18px 20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
@@ -105,8 +119,16 @@ function PlanScreen({ plans, currentPlanId, value, onChange, onNext, onBack }) {
 
                 {/* Price + duration — shown upfront so people can compare packages */}
                 <div style={{ marginBottom: 12 }}>
-                  <div style={{ fontSize: 26, fontWeight: 900, color: '#111827', lineHeight: 1.1 }}>
-                    {price > 0 ? `GHS ${price.toLocaleString()}` : 'Free'}
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                    <div style={{ fontSize: 26, fontWeight: 900, color: '#111827', lineHeight: 1.1 }}>
+                      {price > 0 ? `GHS ${due.toLocaleString()}` : 'Free'}
+                    </div>
+                    {disc > 0 && price > 0 && (
+                      <>
+                        <span style={{ fontSize: 15, color: '#9ca3af', textDecoration: 'line-through' }}>GHS {price.toLocaleString()}</span>
+                        <span style={{ fontSize: 10, fontWeight: 800, color: '#16a34a', background: '#dcfce7', borderRadius: 20, padding: '2px 8px' }}>{disc}% OFF</span>
+                      </>
+                    )}
                   </div>
                   <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 600, marginTop: 2 }}>
                     {price > 0 ? `for ${humanDuration(p.durationDays)}` : humanDuration(p.durationDays)}
@@ -159,8 +181,10 @@ function PlanScreen({ plans, currentPlanId, value, onChange, onNext, onBack }) {
 
 // ── Summary + payment (price revealed here) ───────────────────────────────────
 
-function SummaryScreen({ plan, email, name, onBack, onPay, onFree, paying, error }) {
+function SummaryScreen({ plan, email, name, onBack, onPay, onFree, paying, error, globalDiscount = 0 }) {
   const price = Number(plan?.price || 0)
+  const disc  = effectiveDiscount(plan, globalDiscount)
+  const due   = discountedPrice(plan, globalDiscount)
   const validity = Number(plan?.durationDays) > 0
     ? `Valid for ${plan.durationDays} days from today`
     : 'Lifetime access'
@@ -193,8 +217,14 @@ function SummaryScreen({ plan, email, name, onBack, onPay, onFree, paying, error
         ))}
         <div style={{ borderTop: '1px solid #ddd6fe', margin: '14px 0 12px' }} />
         <div style={{ textAlign: 'center' }}>
+          {disc > 0 && price > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 4 }}>
+              <span style={{ fontSize: 16, color: '#9ca3af', textDecoration: 'line-through' }}>GHS {price.toLocaleString()}</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: '#16a34a', background: '#dcfce7', borderRadius: 20, padding: '2px 9px' }}>{disc}% OFF</span>
+            </div>
+          )}
           <div style={{ fontSize: 36, fontWeight: 900, color: BRAND, lineHeight: 1.1 }}>
-            {price > 0 ? `GHS ${price.toLocaleString()}` : 'Free'}
+            {price > 0 ? `GHS ${due.toLocaleString()}` : 'Free'}
           </div>
           <div style={{ fontSize: 12, color: '#6b7280', marginTop: 5 }}>{validity}</div>
           <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 3 }}>{email}</div>
@@ -307,6 +337,7 @@ export default function MembershipJoin() {
 
   const [plans,   setPlans]   = useState([])
   const [form,    setForm]    = useState(null)
+  const [config,  setConfig]  = useState({})
   const [member,  setMember]  = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -327,6 +358,7 @@ export default function MembershipJoin() {
       const [allPlans, config] = await Promise.all([getMembershipPlans(), getMembershipConfig()])
       const activePlans = (allPlans || []).filter(p => p.active !== false)
       setPlans(activePlans)
+      setConfig(config || {})
 
       let loadedForm = null
       if (config?.registrationFormId) {
@@ -372,7 +404,7 @@ export default function MembershipJoin() {
             await addMember({
               email: payEmail, name: payName, planId: payPlanId,
               paymentRef: ret.reference,
-              amountPaid: Number(plan?.price || 0),
+              amountPaid: discountedPrice(plan, Number(config?.discount) || 0),
               currency: plan?.currency || 'GHS',
               ...(loadedForm && ctx?.formId ? { formSubmissionId: submissionId } : {}),
             })
@@ -415,7 +447,8 @@ export default function MembershipJoin() {
   const knowEmail = !!email
   const knowName  = !!name
 
-  const steps        = buildJoinSteps(form, { skipForm, knowEmail, knowName })
+  const globalDiscount = Number(config?.discount) || 0
+  const steps        = buildJoinSteps(form, { skipForm, knowEmail, knowName, globalDiscount })
   const currentStep  = steps[step]
   const progress     = Math.round(((step + 1) / steps.length) * 100)
   const questionSteps = steps.filter(s => s.type === 'question')
@@ -450,7 +483,7 @@ export default function MembershipJoin() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: resolvedEmail || 'customer@example.com',
-          amount: Number(chosenPlan.price || 0),
+          amount: discountedPrice(chosenPlan, globalDiscount),
           currency: chosenPlan.currency || 'GHS',
           channels: [channel],
           callback_url: callbackUrl,
@@ -546,6 +579,7 @@ export default function MembershipJoin() {
             currentPlanId={member?.active ? member.planId : null}
             value={planId} onChange={setPlanId}
             onNext={goNext} onBack={step > 0 ? goBack : null}
+            globalDiscount={globalDiscount}
           />
         )
       case 'terms':
@@ -562,7 +596,7 @@ export default function MembershipJoin() {
           <SummaryScreen
             plan={chosenPlan} email={resolvedEmail} name={resolvedName}
             onBack={goBack} onPay={pay} onFree={completeFree}
-            paying={paying} error={error}
+            paying={paying} error={error} globalDiscount={globalDiscount}
           />
         )
       default:

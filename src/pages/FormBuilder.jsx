@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import AdminSelect from '../components/AdminSelect'
 import RichTextEditor from '../components/RichTextEditor'
 import Loader from '../components/Loader'
+import { uploadToCloudinary } from '../utils/cloudinary'
 
 // ── Save-status pill (shared look for the Save button area) ──────────────────
 function SaveStatus({ state }) {
@@ -285,6 +286,8 @@ export default function FormBuilder() {
   const [listLoading, setListLoading] = useState(true)
   const [formLoading, setFormLoading] = useState(false)
   const [saveState, setSaveState] = useState('saved')   // 'saving' | 'saved' | 'error'
+  const [speakerUploading, setSpeakerUploading] = useState(null)  // index being uploaded
+  const [eventImageUploading, setEventImageUploading] = useState(false)
 
   // Refs that back the reliable-autosave logic
   const saveTimerRef   = useRef(null)
@@ -468,13 +471,40 @@ export default function FormBuilder() {
     }
   }
 
-  function handleEventImageUpload(e) {
+  async function handleEventImageUpload(e) {
     const file = e.target.files[0]
     if (!file) return
-    if (file.size > 2 * 1024 * 1024) { alert('Image too large. Please use an image under 2MB.'); return }
-    const reader = new FileReader()
-    reader.onload = ev => setF('eventImage', ev.target.result)
-    reader.readAsDataURL(file)
+    setEventImageUploading(true)
+    try {
+      const url = await uploadToCloudinary(file, { maxPx: 1400, quality: 0.82 })
+      setF('eventImage', url)
+    } catch (err) {
+      alert('Could not upload the image. Please try again.')
+      console.error('[event image]', err)
+    } finally {
+      setEventImageUploading(false)
+      if (e?.target) e.target.value = ''
+    }
+  }
+
+  // Speaker photos go to Cloudinary (only the hosted URL is stored on the form).
+  async function uploadSpeakerImage(i, file, e) {
+    if (!file) return
+    setSpeakerUploading(i)
+    try {
+      const url = await uploadToCloudinary(file, { maxPx: 600, quality: 0.82 })
+      setForm(p => {
+        const s = [...(p.speakers || [])]
+        s[i] = { ...s[i], image: url }
+        return { ...p, speakers: s }
+      })
+    } catch (err) {
+      alert('Could not upload the photo. Please try again.')
+      console.error('[speaker upload]', err)
+    } finally {
+      setSpeakerUploading(null)
+      if (e?.target) e.target.value = ''   // allow re-selecting the same file
+    }
   }
 
   function copyUrl(type) {
@@ -682,28 +712,37 @@ export default function FormBuilder() {
                         <button onClick={() => setF('eventImage', null)} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(0,0,0,0.7)', border: 'none', borderRadius: '50%', color: 'white', cursor: 'pointer', width: 22, height: 22, fontSize: 12, lineHeight: '22px', textAlign: 'center' }}>✕</button>
                       </div>
                     ) : (
-                      <label style={{ display: 'block', border: `2px dashed rgba(139,92,246,0.4)`, borderRadius: 10, padding: '20px', textAlign: 'center', cursor: 'pointer', background: 'rgba(139,92,246,0.05)' }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = ACC; e.currentTarget.style.background = 'rgba(139,92,246,0.12)' }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)'; e.currentTarget.style.background = 'rgba(139,92,246,0.05)' }}
-                      >
-                        <input type="file" accept="image/*" onChange={handleEventImageUpload} style={{ display: 'none' }} />
-                        <div style={{ fontSize: 28, marginBottom: 6 }}>🖼️</div>
-                        <div style={{ fontSize: 11, color: ACC2, fontWeight: 700 }}>Click to upload event image</div>
-                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 3 }}>JPG, PNG, WebP · Max 2MB</div>
+                      <label style={{ display: 'block', border: `2px dashed rgba(139,92,246,0.4)`, borderRadius: 10, padding: '20px', textAlign: 'center', cursor: eventImageUploading ? 'wait' : 'pointer', background: 'rgba(139,92,246,0.05)', opacity: eventImageUploading ? 0.6 : 1 }}>
+                        <input type="file" accept="image/*" disabled={eventImageUploading} onChange={handleEventImageUpload} style={{ display: 'none' }} />
+                        <div style={{ fontSize: 28, marginBottom: 6 }}>{eventImageUploading ? '⏳' : '🖼️'}</div>
+                        <div style={{ fontSize: 11, color: ACC2, fontWeight: 700 }}>{eventImageUploading ? 'Uploading…' : 'Click to upload event image'}</div>
+                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 3 }}>JPG, PNG, WebP</div>
                       </label>
                     )}
-                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>Image is loaded from your database — not embedded in the share link.</div>
+                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>Uploaded to Cloudinary — only the image URL is stored on the form.</div>
                   </Field>
                   <div style={divider} />
-                  <Field label="Speaker / Guest Lineup (names & titles)">
+                  <Field label="Speaker / Guest Lineup (name, title & photo)">
                     {form.speakers.map((sp, i) => (
-                      <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-                        <input style={inp({ flex: 1 })} placeholder="Name" value={sp.name || ''} onChange={e => { const s = [...form.speakers]; s[i] = { ...s[i], name: e.target.value }; setF('speakers', s) }} />
-                        <input style={inp({ flex: 1 })} placeholder="Title / Role" value={sp.title || ''} onChange={e => { const s = [...form.speakers]; s[i] = { ...s[i], title: e.target.value }; setF('speakers', s) }} />
-                        <button onClick={() => setF('speakers', form.speakers.filter((_, j) => j !== i))} style={{ background: 'rgba(239,68,68,0.2)', border: 'none', borderRadius: 6, color: '#f87171', padding: '0 10px', cursor: 'pointer' }}>✕</button>
+                      <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
+                        <label title="Upload photo" style={{ flexShrink: 0, width: 46, height: 46, borderRadius: '50%', overflow: 'hidden', cursor: speakerUploading === i ? 'wait' : 'pointer', border: '1px solid rgba(255,255,255,0.18)', background: sp.image ? 'transparent' : 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                          {sp.image
+                            ? <img src={sp.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            : <span style={{ fontSize: 16, opacity: 0.6 }}>{speakerUploading === i ? '⏳' : '📷'}</span>}
+                          <input type="file" accept="image/*" disabled={speakerUploading !== null} onChange={e => uploadSpeakerImage(i, e.target.files[0], e)} style={{ display: 'none' }} />
+                        </label>
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <input style={inp()} placeholder="Name" value={sp.name || ''} onChange={e => { const s = [...form.speakers]; s[i] = { ...s[i], name: e.target.value }; setF('speakers', s) }} />
+                          <input style={inp()} placeholder="Title / Role" value={sp.title || ''} onChange={e => { const s = [...form.speakers]; s[i] = { ...s[i], title: e.target.value }; setF('speakers', s) }} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+                          {sp.image && <button onClick={() => { const s = [...form.speakers]; s[i] = { ...s[i], image: null }; setF('speakers', s) }} title="Remove photo" style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 6, color: 'rgba(255,255,255,0.6)', padding: '4px 8px', cursor: 'pointer', fontSize: 10 }}>No photo</button>}
+                          <button onClick={() => setF('speakers', form.speakers.filter((_, j) => j !== i))} style={{ background: 'rgba(239,68,68,0.2)', border: 'none', borderRadius: 6, color: '#f87171', padding: '6px 10px', cursor: 'pointer' }}>✕</button>
+                        </div>
                       </div>
                     ))}
-                    <button onClick={() => setF('speakers', [...form.speakers, { name: '', title: '' }])} style={{ background: 'rgba(139,92,246,0.15)', border: '1px dashed rgba(139,92,246,0.4)', borderRadius: 7, color: ACC2, fontSize: 11, fontWeight: 700, padding: '8px 14px', cursor: 'pointer', width: '100%', marginTop: 4 }}>+ Add Speaker</button>
+                    <button onClick={() => setF('speakers', [...form.speakers, { name: '', title: '', image: null }])} style={{ background: 'rgba(139,92,246,0.15)', border: '1px dashed rgba(139,92,246,0.4)', borderRadius: 7, color: ACC2, fontSize: 11, fontWeight: 700, padding: '8px 14px', cursor: 'pointer', width: '100%', marginTop: 4 }}>+ Add Speaker</button>
+                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginTop: 6 }}>Photos are uploaded to Cloudinary and shown on the registration page.</div>
                   </Field>
                 </div>
               )}
@@ -785,32 +824,24 @@ export default function FormBuilder() {
               {/* EMAIL TAB */}
               {tab === 'email' && (
                 <div style={{ maxWidth: 560 }}>
-                  <Toggle label="Enable automatic email notifications" checked={form.emailConfig?.enabled} onChange={e => setEmail('enabled', e.target.checked)} />
+                  <Toggle label="Send emails when this form is submitted" checked={form.emailConfig?.enabled} onChange={e => setEmail('enabled', e.target.checked)} />
 
-                  <div style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: 10, padding: 14, marginBottom: 16, fontSize: 11, lineHeight: 1.7, color: 'rgba(255,255,255,0.6)' }}>
-                    <strong style={{ color: ACC2 }}>How to set up email notifications:</strong><br />
-                    1. Create a free account at <strong>emailjs.com</strong><br />
-                    2. Add an Email Service (connect Gmail, Outlook, etc.)<br />
-                    3. Create two Email Templates — one for <em>participant confirmation</em>, one for <em>admin notification</em><br />
-                    4. Use template variables: <code style={{ color: '#93c5fd' }}>{'{{to_name}}'}</code>, <code style={{ color: '#93c5fd' }}>{'{{to_email}}'}</code>, <code style={{ color: '#93c5fd' }}>{'{{event_title}}'}</code>, <code style={{ color: '#93c5fd' }}>{'{{event_date}}'}</code>, <code style={{ color: '#93c5fd' }}>{'{{submission_data}}'}</code><br />
-                    5. Paste your IDs below
+                  <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 10, padding: 14, marginBottom: 16, fontSize: 11, lineHeight: 1.7, color: 'rgba(255,255,255,0.6)' }}>
+                    <strong style={{ color: '#34d399' }}>Emails are sent for you via Resend</strong> — the same provider your courses, events and membership use. No EmailJS account or keys needed. Set the sender address once in the <strong>Email Center</strong>; here you just choose who gets notified and what the confirmation says.
                   </div>
 
-                  {[
-                    ['Your Admin Email (notification recipient)', 'adminEmail', 'admin@example.com'],
-                    ['EmailJS Service ID', 'serviceId', 'service_xxxxxxx'],
-                    ['Confirmation Template ID (for participant)', 'confirmTemplateId', 'template_xxxxxxx'],
-                    ['Notification Template ID (for admin)', 'notifyTemplateId', 'template_xxxxxxx'],
-                    ['EmailJS Public Key', 'publicKey', 'xxxxxxxxxxxxxxxxxxxx'],
-                  ].map(([lbl, key, ph]) => (
-                    <Field key={key} label={lbl}>
-                      <input style={inp()} type={key === 'publicKey' ? 'password' : 'text'} value={form.emailConfig?.[key] || ''} placeholder={ph} onChange={e => setEmail(key, e.target.value)} />
-                    </Field>
-                  ))}
-
-                  <Field label="Confirmation Message (shown to participant after registering)">
-                    <textarea style={inp({ resize: 'vertical' })} rows={3} value={form.emailConfig?.confirmationMessage || ''} onChange={e => setEmail('confirmationMessage', e.target.value)} />
+                  <Field label="Notify admin at (email address that receives each new submission)">
+                    <input style={inp()} type="email" value={form.emailConfig?.adminEmail || ''} placeholder="admin@iwcconcepts.com" onChange={e => setEmail('adminEmail', e.target.value)} />
                   </Field>
+                  <Field label="Confirmation subject (emailed to the registrant)">
+                    <input style={inp()} value={form.emailConfig?.confirmSubject || ''} placeholder="✅ Registration received" onChange={e => setEmail('confirmSubject', e.target.value)} />
+                  </Field>
+                  <Field label="Confirmation message (emailed to the registrant)">
+                    <textarea style={inp({ resize: 'vertical' })} rows={3} value={form.emailConfig?.confirmationMessage || ''} placeholder="Thanks for registering — we've received your details and will be in touch." onChange={e => setEmail('confirmationMessage', e.target.value)} />
+                  </Field>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', lineHeight: 1.6 }}>
+                    The registrant gets the confirmation above at the email address they enter on the form; the admin address gets a copy of every answer.
+                  </div>
                 </div>
               )}
 
