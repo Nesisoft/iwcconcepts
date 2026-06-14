@@ -506,6 +506,30 @@ async function handleAction(db, action, p, user = null) {
         }
       }
 
+      // ── Access integrity for MEMBERSHIP events ────────────────────────────
+      // A membership event's join link/passcode is entitlement-gated, but
+      // addEnrollment is public — so without this an arbitrary email could register
+      // and be emailed the private join details. Require an active member at the
+      // event's required tier (or above), or an explicitly invited email. The normal
+      // UI never reaches here for a membership event (onboarding sends those to
+      // /join), so in practice this only rejects forged registrations.
+      if (course && course.courseType === 'event' && course.accessMode === 'plan') {
+        const email = String(e.participantEmail || '').trim().toLowerCase()
+        const invites = (course.audience?.emails || []).map(s => String(s).trim().toLowerCase()).filter(Boolean)
+        const invited = !!email && invites.includes(email)
+        let memberOk = false
+        if (!invited && email) {
+          const plans   = await loadPlans(db)
+          const reqRank = planRankOf(plans, course.accessPlanId)
+          const member  = await getMemberByEmail(db, email)
+          const memRank = isMemberActive(member) ? planRankOf(plans, member.planId) : null
+          memberOk = reqRank !== null && memRank !== null && memRank >= reqRank
+        }
+        if (!invited && !memberOk) {
+          throw new Error('This event is part of a membership. Join the required plan — or use your invitation — to register.')
+        }
+      }
+
       const result = await db.query(
         `INSERT INTO enrollments (id, course_id, data, created_at)
          VALUES ($1, $2, $3, $4)
