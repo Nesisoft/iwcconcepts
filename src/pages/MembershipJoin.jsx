@@ -18,15 +18,14 @@ import { useCustomerAuth } from '../contexts/CustomerAuthContext'
 import {
   BRAND, BRAND2, primaryBtn, NavButtons, findFieldId, splitFormSteps,
   QuestionScreen, InterstitialScreen, EmailScreen, NameScreen, TermsScreen,
-  SingleFormScreen, SpinWheel,
+  SingleFormScreen,
 } from '../components/OnboardingScreens'
 
 const GOLD = '#C9A84C'
 
-// Effective discount for a package = the bigger of the platform-wide discount
-// (the spin-wheel one) and the package's own standing discount, capped at 90%.
-function effectiveDiscount(plan, globalDiscount = 0) {
-  return Math.max(0, Math.min(90, Math.max(Number(globalDiscount) || 0, Number(plan?.discount) || 0)))
+// One platform-wide membership discount applies to every package (capped 0–90%).
+function effectiveDiscount(_plan, globalDiscount = 0) {
+  return Math.max(0, Math.min(90, Number(globalDiscount) || 0))
 }
 function discountedPrice(plan, globalDiscount = 0) {
   const base = Number(plan?.price) || 0
@@ -53,7 +52,6 @@ function buildJoinSteps(form, { skipForm, knowEmail, knowName, globalDiscount })
 
   if (!hasEmail && !knowEmail) steps.push({ type: 'email' })
   if (!hasName  && !knowName)  steps.push({ type: 'name' })
-  if (Number(globalDiscount) > 0) steps.push({ type: 'wheel' })   // discount reveal before picking a package
   steps.push({ type: 'plans' })
   steps.push({ type: 'terms' })
   steps.push({ type: 'summary' })
@@ -97,12 +95,15 @@ function PlanScreen({ plans, currentPlanId, value, onChange, onNext, onBack, glo
           return (
             <div key={p.id} role="button" tabIndex={0} onClick={() => onChange(p.id)} style={{
               textAlign: 'left', padding: 0, borderRadius: 18, overflow: 'hidden',
-              border: `2px solid ${selected ? (p.color || BRAND) : '#e5e7eb'}`,
+              border: `2px solid ${selected ? (p.color || BRAND) : p.popular ? GOLD : '#e5e7eb'}`,
               background: '#fff', cursor: 'pointer',
-              boxShadow: selected ? `0 8px 28px ${(p.color || BRAND)}33` : '0 2px 10px rgba(0,0,0,0.05)',
+              boxShadow: selected ? `0 8px 28px ${(p.color || BRAND)}33` : p.popular ? `0 6px 22px ${GOLD}33` : '0 2px 10px rgba(0,0,0,0.05)',
               transition: 'all 0.18s', position: 'relative',
               display: 'flex', flexDirection: 'column',
             }}>
+              {p.popular && (
+                <div style={{ background: `linear-gradient(135deg, ${GOLD}, #e8c060)`, color: '#1A1A2E', fontSize: 10, fontWeight: 900, letterSpacing: 0.8, textAlign: 'center', padding: '4px 0', textTransform: 'uppercase' }}>★ Most Popular</div>
+              )}
               <div style={{ height: 7, background: p.color || BRAND }} />
               <div style={{ padding: '18px 18px 20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
@@ -566,16 +567,6 @@ export default function MembershipJoin() {
         )
       case 'interstitial':
         return <InterstitialScreen step={currentStep} onNext={goNext} onBack={step > 0 ? goBack : null} />
-      case 'wheel':
-        return (
-          <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 24px' }}>
-            <div style={{ textAlign: 'center', marginBottom: 24 }}>
-              <h2 style={{ fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 900, color: '#111827', margin: '0 0 8px' }}>You've unlocked a members' discount!</h2>
-              <p style={{ color: '#6b7280', fontSize: 14, margin: 0 }}>Spin to reveal the discount applied to every package.</p>
-            </div>
-            <SpinWheel discountPct={globalDiscount} onDone={goNext} doneLabel="See Packages →" />
-          </div>
-        )
       case 'email':
         return <EmailScreen value={email} onChange={setEmail} onNext={goNext} onBack={step > 0 ? goBack : null}
           subtitle="We'll send your membership confirmation and portal access here." />

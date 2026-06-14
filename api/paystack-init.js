@@ -56,8 +56,8 @@ async function queryRows(sql, params) {
 async function authoritativeAmount({ metadata, promoCode }) {
   try {
     const meta = metadata || {}
-    // Membership purchase → plan price, less the effective discount (the bigger
-    // of the platform-wide membership discount and the package's own discount).
+    // Membership purchase → plan price, less the one platform-wide discount that
+    // applies to every package.
     if (meta.type === 'membership' || meta.planId) {
       const [planRows, cfgRows] = await Promise.all([
         queryRows(`SELECT data FROM settings WHERE key = 'membershipPlans'`, []),
@@ -67,8 +67,7 @@ async function authoritativeAmount({ metadata, promoCode }) {
       const plans = planRows[0]?.data?.plans || []
       const plan  = plans.find(p => p.id === meta.planId)
       if (!plan) return null
-      const globalDisc = Number(cfgRows?.[0]?.data?.discount) || 0
-      const disc = Math.max(0, Math.min(90, Math.max(globalDisc, Number(plan.discount) || 0)))
+      const disc = Math.max(0, Math.min(90, Number(cfgRows?.[0]?.data?.discount) || 0))
       return Math.round((Number(plan.price) || 0) * (1 - disc / 100))
     }
     // Course / event → price × discount, then a validated promo code

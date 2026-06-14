@@ -287,6 +287,7 @@ export default function FormBuilder() {
   const [formLoading, setFormLoading] = useState(false)
   const [saveState, setSaveState] = useState('saved')   // 'saving' | 'saved' | 'error'
   const [speakerUploading, setSpeakerUploading] = useState(null)  // index being uploaded
+  const [eventImageUploading, setEventImageUploading] = useState(false)
 
   // Refs that back the reliable-autosave logic
   const saveTimerRef   = useRef(null)
@@ -470,13 +471,20 @@ export default function FormBuilder() {
     }
   }
 
-  function handleEventImageUpload(e) {
+  async function handleEventImageUpload(e) {
     const file = e.target.files[0]
     if (!file) return
-    if (file.size > 2 * 1024 * 1024) { alert('Image too large. Please use an image under 2MB.'); return }
-    const reader = new FileReader()
-    reader.onload = ev => setF('eventImage', ev.target.result)
-    reader.readAsDataURL(file)
+    setEventImageUploading(true)
+    try {
+      const url = await uploadToCloudinary(file, { maxPx: 1400, quality: 0.82 })
+      setF('eventImage', url)
+    } catch (err) {
+      alert('Could not upload the image. Please try again.')
+      console.error('[event image]', err)
+    } finally {
+      setEventImageUploading(false)
+      if (e?.target) e.target.value = ''
+    }
   }
 
   // Speaker photos go to Cloudinary (only the hosted URL is stored on the form).
@@ -704,17 +712,14 @@ export default function FormBuilder() {
                         <button onClick={() => setF('eventImage', null)} style={{ position: 'absolute', top: 6, right: 6, background: 'rgba(0,0,0,0.7)', border: 'none', borderRadius: '50%', color: 'white', cursor: 'pointer', width: 22, height: 22, fontSize: 12, lineHeight: '22px', textAlign: 'center' }}>✕</button>
                       </div>
                     ) : (
-                      <label style={{ display: 'block', border: `2px dashed rgba(139,92,246,0.4)`, borderRadius: 10, padding: '20px', textAlign: 'center', cursor: 'pointer', background: 'rgba(139,92,246,0.05)' }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = ACC; e.currentTarget.style.background = 'rgba(139,92,246,0.12)' }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)'; e.currentTarget.style.background = 'rgba(139,92,246,0.05)' }}
-                      >
-                        <input type="file" accept="image/*" onChange={handleEventImageUpload} style={{ display: 'none' }} />
-                        <div style={{ fontSize: 28, marginBottom: 6 }}>🖼️</div>
-                        <div style={{ fontSize: 11, color: ACC2, fontWeight: 700 }}>Click to upload event image</div>
-                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 3 }}>JPG, PNG, WebP · Max 2MB</div>
+                      <label style={{ display: 'block', border: `2px dashed rgba(139,92,246,0.4)`, borderRadius: 10, padding: '20px', textAlign: 'center', cursor: eventImageUploading ? 'wait' : 'pointer', background: 'rgba(139,92,246,0.05)', opacity: eventImageUploading ? 0.6 : 1 }}>
+                        <input type="file" accept="image/*" disabled={eventImageUploading} onChange={handleEventImageUpload} style={{ display: 'none' }} />
+                        <div style={{ fontSize: 28, marginBottom: 6 }}>{eventImageUploading ? '⏳' : '🖼️'}</div>
+                        <div style={{ fontSize: 11, color: ACC2, fontWeight: 700 }}>{eventImageUploading ? 'Uploading…' : 'Click to upload event image'}</div>
+                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 3 }}>JPG, PNG, WebP</div>
                       </label>
                     )}
-                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>Image is loaded from your database — not embedded in the share link.</div>
+                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>Uploaded to Cloudinary — only the image URL is stored on the form.</div>
                   </Field>
                   <div style={divider} />
                   <Field label="Speaker / Guest Lineup (name, title & photo)">
