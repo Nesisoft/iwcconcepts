@@ -3,6 +3,7 @@ import { HashRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { CustomerAuthProvider } from './contexts/CustomerAuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
+import AdminGate from './components/AdminGate'
 import CustomerRoute from './components/CustomerRoute'
 import PortalRedirectHandler from './components/PortalRedirectHandler'
 import Login from './pages/Login'
@@ -51,7 +52,7 @@ const PUBLIC_ROUTES = (
 
 // Admin page wrapper
 function AdminRoute({ element }) {
-  return <ProtectedRoute>{element}</ProtectedRoute>
+  return <ProtectedRoute><AdminGate>{element}</AdminGate></ProtectedRoute>
 }
 
 // Customer portal page wrapper

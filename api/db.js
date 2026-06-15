@@ -66,7 +66,7 @@ const ADMIN_ACTIONS = new Set([
   'getMembers', 'saveMember', 'deleteMember',
   'notifyEventAudience',
   'getContactMessages', 'deleteContactMessage',
-  'getAdminUsers', 'inviteAdmin',
+  'getAdminUsers', 'inviteAdmin', 'claimAdmin',
 ])
 
 // Contact-form messages are stored in the submissions table under this form id.
@@ -103,7 +103,37 @@ const CUSTOMER_ACTIONS = new Set([
   'getMyEvents',
   'getMyNotifications',
   'markNotificationsRead',
+  'amIAdmin',
 ])
+
+// ── Admin allowlist (DB-backed, with safe bootstrap) ────────────────────────────
+// Admins are: any email in ADMIN_EMAILS (env) PLUS any entry in the DB list
+// (settings.adminUsers). Enforcement only turns on once an *active* admin exists
+// in the DB — i.e. the owner has explicitly claimed ownership (or invited someone)
+// from the Admins screen. Until then it's "bootstrap" mode: any signed-in user is
+// allowed, exactly like before, so nobody can be locked out by this change.
+function envAdminList() {
+  return (process.env.ADMIN_EMAILS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+}
+async function loadDbAdmins(db) {
+  const { rows } = await db.query(`SELECT data FROM settings WHERE key = 'adminUsers'`)
+  return rows[0]?.data?.admins || []
+}
+async function saveAdminList(db, list) {
+  await db.query(
+    `INSERT INTO settings (key, data, updated_at) VALUES ('adminUsers', $1, NOW())
+     ON CONFLICT (key) DO UPDATE SET data = $1, updated_at = NOW()`,
+    [{ admins: list }]
+  )
+}
+// Returns { configured, isAdmin, bootstrap } for an email.
+async function adminGate(db, email) {
+  const dbAdmins = await loadDbAdmins(db)
+  const configured = dbAdmins.some(a => a.status === 'active')   // env alone never auto-locks
+  const allowed = new Set([...envAdminList(), ...dbAdmins.map(a => String(a.email || '').toLowerCase())])
+  const e = String(email || '').toLowerCase()
+  return { configured, bootstrap: !configured, isAdmin: configured ? allowed.has(e) : true }
+}
 
 // ── Membership helpers ─────────────────────────────────────────────────────────
 // Plans live in settings.membershipPlans = { plans: [...] }. Rank = array index
@@ -337,6 +367,12 @@ export default async function handler(req, res) {
 
 // ── Action handler ────────────────────────────────────────────────────────────
 async function handleAction(db, action, p, user = null) {
+  // Enforce admin-only actions against the allowlist (no-op in bootstrap mode).
+  if (ADMIN_ACTIONS.has(action)) {
+    const gate = await adminGate(db, user?.email)
+    if (!gate.isAdmin) throw new Error('Not authorized — this area is restricted to administrators.')
+  }
+
   switch (action) {
 
     // ── Forms ─────────────────────────────────────────────────────────────────
@@ -503,21 +539,47 @@ async function handleAction(db, action, p, user = null) {
       const email = String(p.email || '').trim()
       const name  = String(p.name || '').trim()
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('A valid email address is required.')
-      const { rows } = await db.query(`SELECT data FROM settings WHERE key = 'adminUsers'`)
-      const list = rows[0]?.data?.admins || []
-      const exists = list.find(a => a.email.toLowerCase() === email.toLowerCase())
-      if (exists) {
-        exists.name = name || exists.name
-        exists.invitedAt = new Date().toISOString()
-      } else {
+      const list = await loadDbAdmins(db)
+      // Self-activate the inviting admin so turning on enforcement can never lock them out.
+      if (user?.email) {
+        const me = list.find(a => a.email.toLowerCase() === user.email.toLowerCase())
+        if (me) me.status = 'active'
+        else list.push({ email: user.email, name: '', status: 'active', activatedAt: new Date().toISOString() })
+      }
+      // Add / refresh the invitee (unless they're the same as the inviter).
+      const isSelf = user?.email && email.toLowerCase() === user.email.toLowerCase()
+      const existing = list.find(a => a.email.toLowerCase() === email.toLowerCase())
+      if (existing && !isSelf) {
+        existing.name = name || existing.name
+        existing.invitedAt = new Date().toISOString()
+      } else if (!isSelf) {
         list.push({ email, name, status: 'invited', invitedAt: new Date().toISOString(), invitedBy: user?.email || null })
       }
-      await db.query(
-        `INSERT INTO settings (key, data, updated_at) VALUES ('adminUsers', $1, NOW())
-         ON CONFLICT (key) DO UPDATE SET data = $1, updated_at = NOW()`,
-        [{ admins: list }]
-      )
+      await saveAdminList(db, list)
       return { ok: true, admins: list }
+    }
+
+    case 'claimAdmin': {
+      // The signed-in user claims admin access — this also flips on enforcement
+      // (an active admin now exists), with them guaranteed to be allowed.
+      if (!user?.email) throw new Error('You must be signed in.')
+      const list = await loadDbAdmins(db)
+      const me = list.find(a => a.email.toLowerCase() === user.email.toLowerCase())
+      if (me) { me.status = 'active'; me.activatedAt = me.activatedAt || new Date().toISOString() }
+      else list.push({ email: user.email, name: String(p.name || '').trim(), status: 'active', activatedAt: new Date().toISOString() })
+      await saveAdminList(db, list)
+      return { ok: true, admins: list }
+    }
+
+    case 'amIAdmin': {
+      const gate = await adminGate(db, user?.email)
+      // Promote an invited admin to active on first authenticated check-in.
+      if (gate.configured && user?.email) {
+        const list = await loadDbAdmins(db)
+        const me = list.find(a => a.email.toLowerCase() === user.email.toLowerCase() && a.status === 'invited')
+        if (me) { me.status = 'active'; me.activatedAt = new Date().toISOString(); await saveAdminList(db, list) }
+      }
+      return gate
     }
 
     // ── Speakers ──────────────────────────────────────────────────────────────

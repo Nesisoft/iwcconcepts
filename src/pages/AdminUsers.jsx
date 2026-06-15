@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getAdminUsers, inviteAdmin } from '../utils/formStorage'
+import { getAdminUsers, inviteAdmin, amIAdmin, claimAdmin } from '../utils/formStorage'
 import { getSupabase } from '../utils/supabase'
-import { ArrowLeft, ShieldCheck, UserPlus, Mail, Clock } from 'lucide-react'
+import { ArrowLeft, ShieldCheck, UserPlus, Mail, Clock, Lock, Unlock } from 'lucide-react'
 
 const ACC  = '#8B5CF6'
 const DARK = '#0e0a1e'
@@ -24,19 +24,36 @@ export default function AdminUsers() {
   const [name,  setName]  = useState('')
   const [busy,  setBusy]  = useState(false)
   const [msg,   setMsg]   = useState(null)   // { ok, text }
+  const [gate,  setGate]  = useState(null)   // { configured, bootstrap }
+  const [claiming, setClaiming] = useState(false)
 
   useEffect(() => { load() }, [])
 
   async function load() {
     setLoading(true)
     try {
-      const r = await getAdminUsers()
+      const [r, g] = await Promise.all([getAdminUsers(), amIAdmin().catch(() => null)])
       setAdmins(r?.admins || [])
       setEnvAdmins(r?.envAdmins || [])
+      setGate(g)
     } catch (e) {
       setMsg({ ok: false, text: e.message })
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function lockDown() {
+    if (!confirm('Lock down the admin area to listed admins only? You will be added as an owner so you keep access.')) return
+    setClaiming(true); setMsg(null)
+    try {
+      await claimAdmin()
+      setMsg({ ok: true, text: '🔒 Admin access is now restricted to the admins listed here.' })
+      await load()
+    } catch (e) {
+      setMsg({ ok: false, text: e.message })
+    } finally {
+      setClaiming(false)
     }
   }
 
@@ -91,6 +108,27 @@ export default function AdminUsers() {
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
         <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+          {/* Enforcement status */}
+          {gate && gate.bootstrap && (
+            <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 12, padding: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <Unlock size={16} color="#fbbf24" />
+                <div style={{ fontSize: 13, fontWeight: 800, color: '#fbbf24' }}>Admin access is currently open</div>
+              </div>
+              <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.6)', lineHeight: 1.7, marginBottom: 12 }}>
+                Until you lock it down, anyone who can sign in could reach the admin area. Lock it down to restrict access to the admins listed below — you'll be added as an owner so you never lose access.
+              </div>
+              <button onClick={lockDown} disabled={claiming} style={{ background: claiming ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg,#f59e0b,#d97706)', border: 'none', borderRadius: 8, color: '#1A1A2E', padding: '9px 16px', fontSize: 12, fontWeight: 800, cursor: claiming ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                <Lock size={14} /> {claiming ? 'Locking down…' : 'Lock down admin access'}
+              </button>
+            </div>
+          )}
+          {gate && gate.configured && (
+            <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#34d399', fontWeight: 600 }}>
+              <Lock size={15} /> Admin access is restricted to the admins listed below.
+            </div>
+          )}
 
           {/* Invite */}
           <form onSubmit={invite} style={card}>

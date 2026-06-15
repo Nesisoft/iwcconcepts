@@ -505,6 +505,14 @@ export const getAdminUsers = () =>
 export const inviteAdmin = (email, name) =>
   adminToken().then(t => api('inviteAdmin', { email, name }, t))
 
+// Is the signed-in admin allowed in? → { configured, isAdmin, bootstrap }
+export const amIAdmin = () =>
+  adminToken().then(t => api('amIAdmin', {}, t))
+
+// Claim admin access (locks down /admin to the allowlist, with you included).
+export const claimAdmin = (name) =>
+  adminToken().then(t => api('claimAdmin', { name }, t))
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Utility helpers (unchanged — no DB calls)
 // ═══════════════════════════════════════════════════════════════════════════════
