@@ -65,7 +65,20 @@ const ADMIN_ACTIONS = new Set([
   'sendTestEmail',
   'getMembers', 'saveMember', 'deleteMember',
   'notifyEventAudience',
+  'getContactMessages', 'deleteContactMessage',
+  'getAdminUsers', 'inviteAdmin', 'claimAdmin',
 ])
+
+// Contact-form messages are stored in the submissions table under this form id.
+const CONTACT_FORM_ID = '__contact__'
+
+// Where admin notifications go: the configured ADMIN_EMAILS, else the email
+// settings' reply-to / from address. Returns a de-duplicated list.
+function adminNotifyRecipients(settings) {
+  const env = (process.env.ADMIN_EMAILS || '').split(',').map(s => s.trim()).filter(Boolean)
+  const fallback = [settings?.replyTo, settings?.fromEmail].filter(Boolean)
+  return [...new Set((env.length ? env : fallback).map(s => s.toLowerCase()))]
+}
 
 // Optional: comma-separated admin emails. When set, only these accounts can post
 // with the "Instructor" badge. When unset, the client-provided flag is trusted
@@ -90,7 +103,37 @@ const CUSTOMER_ACTIONS = new Set([
   'getMyEvents',
   'getMyNotifications',
   'markNotificationsRead',
+  'amIAdmin',
 ])
+
+// ── Admin allowlist (DB-backed, with safe bootstrap) ────────────────────────────
+// Admins are: any email in ADMIN_EMAILS (env) PLUS any entry in the DB list
+// (settings.adminUsers). Enforcement only turns on once an *active* admin exists
+// in the DB — i.e. the owner has explicitly claimed ownership (or invited someone)
+// from the Admins screen. Until then it's "bootstrap" mode: any signed-in user is
+// allowed, exactly like before, so nobody can be locked out by this change.
+function envAdminList() {
+  return (process.env.ADMIN_EMAILS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+}
+async function loadDbAdmins(db) {
+  const { rows } = await db.query(`SELECT data FROM settings WHERE key = 'adminUsers'`)
+  return rows[0]?.data?.admins || []
+}
+async function saveAdminList(db, list) {
+  await db.query(
+    `INSERT INTO settings (key, data, updated_at) VALUES ('adminUsers', $1, NOW())
+     ON CONFLICT (key) DO UPDATE SET data = $1, updated_at = NOW()`,
+    [{ admins: list }]
+  )
+}
+// Returns { configured, isAdmin, bootstrap } for an email.
+async function adminGate(db, email) {
+  const dbAdmins = await loadDbAdmins(db)
+  const configured = dbAdmins.some(a => a.status === 'active')   // env alone never auto-locks
+  const allowed = new Set([...envAdminList(), ...dbAdmins.map(a => String(a.email || '').toLowerCase())])
+  const e = String(email || '').toLowerCase()
+  return { configured, bootstrap: !configured, isAdmin: configured ? allowed.has(e) : true }
+}
 
 // ── Membership helpers ─────────────────────────────────────────────────────────
 // Plans live in settings.membershipPlans = { plans: [...] }. Rank = array index
@@ -324,6 +367,12 @@ export default async function handler(req, res) {
 
 // ── Action handler ────────────────────────────────────────────────────────────
 async function handleAction(db, action, p, user = null) {
+  // Enforce admin-only actions against the allowlist (no-op in bootstrap mode).
+  if (ADMIN_ACTIONS.has(action)) {
+    const gate = await adminGate(db, user?.email)
+    if (!gate.isAdmin) throw new Error('Not authorized — this area is restricted to administrators.')
+  }
+
   switch (action) {
 
     // ── Forms ─────────────────────────────────────────────────────────────────
@@ -427,6 +476,110 @@ async function handleAction(db, action, p, user = null) {
     case 'deleteSubmission': {
       await db.query('DELETE FROM submissions WHERE id = $1', [p.id])
       return { ok: true }
+    }
+
+    // ── Contact-us messages ───────────────────────────────────────────────────
+    case 'addContactMessage': {
+      // Public endpoint — anyone can send the platform a message.
+      const m = p.message || {}
+      const name    = String(m.name || '').trim().slice(0, 200)
+      const email   = String(m.email || '').trim().slice(0, 200)
+      const message = String(m.message || '').trim().slice(0, 5000)
+      if (!email || !message) throw new Error('Email and message are required.')
+      const rec = {
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+        name, email,
+        subject: String(m.subject || '').trim().slice(0, 300),
+        message,
+        timestamp: new Date().toISOString(),
+      }
+      await db.query(
+        `INSERT INTO submissions (id, form_id, data, submitted_at) VALUES ($1, $2, $3, $4)`,
+        [rec.id, CONTACT_FORM_ID, rec, rec.timestamp]
+      )
+      // Notify the admins via Resend. Best-effort — never fails the save.
+      try {
+        const settings = await loadEmailSettings(db)
+        const recipients = adminNotifyRecipients(settings)
+        const text = `New contact message from ${rec.name || 'someone'} <${rec.email}>:\n\n` +
+          (rec.subject ? `Subject: ${rec.subject}\n\n` : '') +
+          `${rec.message}\n\nReceived: ${new Date(rec.timestamp).toLocaleString('en-GB')}`
+        for (const to of recipients) {
+          await trySend(db, { to, subject: `📨 New contact message${rec.subject ? `: ${rec.subject}` : ''}`, text, settings })
+        }
+      } catch (mailErr) {
+        console.warn('[addContactMessage] notify skipped:', mailErr.message)
+      }
+      return { ok: true }
+    }
+
+    case 'getContactMessages': {
+      const { rows } = await db.query(
+        `SELECT data FROM submissions WHERE form_id = $1 ORDER BY submitted_at DESC`,
+        [CONTACT_FORM_ID]
+      )
+      return rows.map(r => r.data)
+    }
+
+    case 'deleteContactMessage': {
+      await db.query('DELETE FROM submissions WHERE id = $1 AND form_id = $2', [p.id, CONTACT_FORM_ID])
+      return { ok: true }
+    }
+
+    // ── Admin users (invites) ─────────────────────────────────────────────────
+    case 'getAdminUsers': {
+      const { rows } = await db.query(`SELECT data FROM settings WHERE key = 'adminUsers'`)
+      const list = rows[0]?.data?.admins || []
+      const envAdmins = (process.env.ADMIN_EMAILS || '').split(',').map(s => s.trim()).filter(Boolean)
+        .map(email => ({ email, name: '', status: 'env', source: 'env' }))
+      return { admins: list, envAdmins }
+    }
+
+    case 'inviteAdmin': {
+      const email = String(p.email || '').trim()
+      const name  = String(p.name || '').trim()
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('A valid email address is required.')
+      const list = await loadDbAdmins(db)
+      // Self-activate the inviting admin so turning on enforcement can never lock them out.
+      if (user?.email) {
+        const me = list.find(a => a.email.toLowerCase() === user.email.toLowerCase())
+        if (me) me.status = 'active'
+        else list.push({ email: user.email, name: '', status: 'active', activatedAt: new Date().toISOString() })
+      }
+      // Add / refresh the invitee (unless they're the same as the inviter).
+      const isSelf = user?.email && email.toLowerCase() === user.email.toLowerCase()
+      const existing = list.find(a => a.email.toLowerCase() === email.toLowerCase())
+      if (existing && !isSelf) {
+        existing.name = name || existing.name
+        existing.invitedAt = new Date().toISOString()
+      } else if (!isSelf) {
+        list.push({ email, name, status: 'invited', invitedAt: new Date().toISOString(), invitedBy: user?.email || null })
+      }
+      await saveAdminList(db, list)
+      return { ok: true, admins: list }
+    }
+
+    case 'claimAdmin': {
+      // The signed-in user claims admin access — this also flips on enforcement
+      // (an active admin now exists), with them guaranteed to be allowed.
+      if (!user?.email) throw new Error('You must be signed in.')
+      const list = await loadDbAdmins(db)
+      const me = list.find(a => a.email.toLowerCase() === user.email.toLowerCase())
+      if (me) { me.status = 'active'; me.activatedAt = me.activatedAt || new Date().toISOString() }
+      else list.push({ email: user.email, name: String(p.name || '').trim(), status: 'active', activatedAt: new Date().toISOString() })
+      await saveAdminList(db, list)
+      return { ok: true, admins: list }
+    }
+
+    case 'amIAdmin': {
+      const gate = await adminGate(db, user?.email)
+      // Promote an invited admin to active on first authenticated check-in.
+      if (gate.configured && user?.email) {
+        const list = await loadDbAdmins(db)
+        const me = list.find(a => a.email.toLowerCase() === user.email.toLowerCase() && a.status === 'invited')
+        if (me) { me.status = 'active'; me.activatedAt = new Date().toISOString(); await saveAdminList(db, list) }
+      }
+      return gate
     }
 
     // ── Speakers ──────────────────────────────────────────────────────────────

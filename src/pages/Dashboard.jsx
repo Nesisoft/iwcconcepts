@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   MessageSquare, Megaphone, ClipboardList, BarChart3, Database,
   GraduationCap, Star, Globe, Users, Award, LineChart, MessagesSquare, Mail,
-  Ticket, Lock, Calendar,
+  Ticket, Lock, Calendar, Inbox, ShieldCheck,
 } from 'lucide-react'
 
 const tools = [
@@ -157,6 +157,26 @@ const tools = [
     desc: 'Configure the sender, edit welcome / completion / reminder email templates, toggle each on or off, and send a test.',
     tags: ['Welcome', 'Completion', 'Reminders', 'Templates'],
     accent: '#2ECC71',
+    available: true,
+  },
+  {
+    id: 'contact-admin',
+    path: '/contact-admin',
+    Icon: Inbox,
+    title: 'Contact Messages',
+    desc: 'Read messages sent through the public Contact form. The team is emailed on each new submission; reply or delete from here.',
+    tags: ['Contact form', 'Inbox', 'Replies'],
+    accent: '#2ECC71',
+    available: true,
+  },
+  {
+    id: 'admins',
+    path: '/admins',
+    Icon: ShieldCheck,
+    title: 'Admins',
+    desc: 'Invite new administrators by name and email. They receive a secure link to verify their email and set a password, then can sign in.',
+    tags: ['Invite', 'Access', 'Team'],
+    accent: '#8B5CF6',
     available: true,
   },
   {

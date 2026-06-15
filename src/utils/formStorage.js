@@ -484,6 +484,36 @@ export const notifyEventAudience = (eventId, kind = 'created') =>
   }, t))
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Contact-us messages  (public insert, admin read)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const addContactMessage = (message) => api('addContactMessage', { message })
+
+export const getContactMessages = () =>
+  adminToken().then(t => api('getContactMessages', {}, t))
+
+export const deleteContactMessage = (id) =>
+  adminToken().then(t => api('deleteContactMessage', { id }, t))
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Admin users / invites  (admin only)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const getAdminUsers = () =>
+  adminToken().then(t => api('getAdminUsers', {}, t))
+
+export const inviteAdmin = (email, name) =>
+  adminToken().then(t => api('inviteAdmin', { email, name }, t))
+
+// Is the signed-in admin allowed in? → { configured, isAdmin, bootstrap }
+export const amIAdmin = () =>
+  adminToken().then(t => api('amIAdmin', {}, t))
+
+// Claim admin access (locks down /admin to the allowlist, with you included).
+export const claimAdmin = (name) =>
+  adminToken().then(t => api('claimAdmin', { name }, t))
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Utility helpers (unchanged — no DB calls)
 // ═══════════════════════════════════════════════════════════════════════════════
 

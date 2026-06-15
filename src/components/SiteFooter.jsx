@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Mail, Phone } from 'lucide-react'
+import { Mail, Phone, MessageCircle } from 'lucide-react'
 
 const GOLD = '#C9A84C'
 
@@ -80,7 +80,8 @@ export default function SiteFooter() {
         <div>
           <div style={{ color: 'white', fontWeight: 700, fontSize: 13, marginBottom: 14, letterSpacing: 1, textTransform: 'uppercase' }}>Get in touch</div>
           <a href="mailto:info@iwcconcepts.com" style={contactRow}><Mail size={15} /> info@iwcconcepts.com</a>
-          <a href="tel:+233000000000" style={contactRow}><Phone size={15} /> +233 000 000 000</a>
+          <a href="tel:+233249929567" style={contactRow}><Phone size={15} /> +233 24 992 9567</a>
+          <a href="https://wa.me/233249929567" target="_blank" rel="noreferrer" style={contactRow}><MessageCircle size={15} /> WhatsApp us</a>
           <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
             {SOCIALS.map(({ icon: Icon, href, label }) => (
               <a key={label} href={href} target="_blank" rel="noopener noreferrer" aria-label={label} style={socialBtn}>

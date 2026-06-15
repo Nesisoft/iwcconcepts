@@ -43,10 +43,19 @@ export default function SetPassword() {
     return () => { cancelled = true }
   }, []) // eslint-disable-line
 
+  // Recommended password rules — shown as a live checklist below the field.
+  const pwRules = [
+    { ok: password.length >= 8, label: 'At least 8 characters' },
+    { ok: /[a-z]/.test(password), label: 'A lowercase letter' },
+    { ok: /[A-Z]/.test(password), label: 'An uppercase letter' },
+    { ok: /\d/.test(password),    label: 'A number' },
+  ]
+  const pwValid = pwRules.every(r => r.ok)
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    if (password.length < 6) { setError('Password must be at least 6 characters.'); return }
+    if (!pwValid) { setError('Please meet all the password requirements below.'); return }
     if (password !== confirm) { setError('Passwords do not match.'); return }
 
     setSaving(true)
@@ -119,9 +128,18 @@ export default function SetPassword() {
                   <label style={lbl}>New password</label>
                   <input
                     type="password" required value={password} onChange={e => setPassword(e.target.value)}
-                    placeholder="At least 6 characters" autoFocus autoComplete="new-password"
+                    placeholder="Choose a strong password" autoFocus autoComplete="new-password"
                     style={inp()}
                   />
+                  {password.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', marginTop: 8 }}>
+                      {pwRules.map(r => (
+                        <span key={r.label} style={{ fontSize: 11, fontWeight: 600, color: r.ok ? '#34d399' : 'rgba(255,255,255,0.4)' }}>
+                          {r.ok ? '✓' : '○'} {r.label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label style={lbl}>Confirm password</label>

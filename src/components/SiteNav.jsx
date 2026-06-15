@@ -68,7 +68,7 @@ export default function SiteNav({ solid = false }) {
           <button key={l.label} onClick={l.onClick} style={textLink}>{l.label}</button>
         ))}
         <button onClick={() => navigate('/portal/login')} style={primaryBtn}>
-          <GraduationCap size={15} strokeWidth={2.4} /> My Courses
+          <GraduationCap size={15} strokeWidth={2.4} /> My Account
         </button>
       </div>
 
@@ -93,7 +93,7 @@ export default function SiteNav({ solid = false }) {
           <button onClick={goToCourses} style={mobileLink}><GraduationCap size={16} /> Courses</button>
           <button onClick={() => { navigate('/about'); setMenuOpen(false) }} style={mobileLink}><Info size={16} /> About</button>
           <button onClick={() => { navigate('/contact'); setMenuOpen(false) }} style={mobileLink}><Mail size={16} /> Contact</button>
-          <button onClick={() => { navigate('/portal/login'); setMenuOpen(false) }} style={{ ...mobileLink, color: GOLD }}><GraduationCap size={16} /> My Courses</button>
+          <button onClick={() => { navigate('/portal/login'); setMenuOpen(false) }} style={{ ...mobileLink, color: GOLD }}><GraduationCap size={16} /> My Account</button>
         </div>
       )}
 
