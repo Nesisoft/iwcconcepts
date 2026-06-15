@@ -484,6 +484,28 @@ export const notifyEventAudience = (eventId, kind = 'created') =>
   }, t))
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Contact-us messages  (public insert, admin read)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const addContactMessage = (message) => api('addContactMessage', { message })
+
+export const getContactMessages = () =>
+  adminToken().then(t => api('getContactMessages', {}, t))
+
+export const deleteContactMessage = (id) =>
+  adminToken().then(t => api('deleteContactMessage', { id }, t))
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Admin users / invites  (admin only)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const getAdminUsers = () =>
+  adminToken().then(t => api('getAdminUsers', {}, t))
+
+export const inviteAdmin = (email, name) =>
+  adminToken().then(t => api('inviteAdmin', { email, name }, t))
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Utility helpers (unchanged — no DB calls)
 // ═══════════════════════════════════════════════════════════════════════════════
 

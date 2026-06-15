@@ -65,7 +65,20 @@ const ADMIN_ACTIONS = new Set([
   'sendTestEmail',
   'getMembers', 'saveMember', 'deleteMember',
   'notifyEventAudience',
+  'getContactMessages', 'deleteContactMessage',
+  'getAdminUsers', 'inviteAdmin',
 ])
+
+// Contact-form messages are stored in the submissions table under this form id.
+const CONTACT_FORM_ID = '__contact__'
+
+// Where admin notifications go: the configured ADMIN_EMAILS, else the email
+// settings' reply-to / from address. Returns a de-duplicated list.
+function adminNotifyRecipients(settings) {
+  const env = (process.env.ADMIN_EMAILS || '').split(',').map(s => s.trim()).filter(Boolean)
+  const fallback = [settings?.replyTo, settings?.fromEmail].filter(Boolean)
+  return [...new Set((env.length ? env : fallback).map(s => s.toLowerCase()))]
+}
 
 // Optional: comma-separated admin emails. When set, only these accounts can post
 // with the "Instructor" badge. When unset, the client-provided flag is trusted
@@ -427,6 +440,84 @@ async function handleAction(db, action, p, user = null) {
     case 'deleteSubmission': {
       await db.query('DELETE FROM submissions WHERE id = $1', [p.id])
       return { ok: true }
+    }
+
+    // ── Contact-us messages ───────────────────────────────────────────────────
+    case 'addContactMessage': {
+      // Public endpoint — anyone can send the platform a message.
+      const m = p.message || {}
+      const name    = String(m.name || '').trim().slice(0, 200)
+      const email   = String(m.email || '').trim().slice(0, 200)
+      const message = String(m.message || '').trim().slice(0, 5000)
+      if (!email || !message) throw new Error('Email and message are required.')
+      const rec = {
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+        name, email,
+        subject: String(m.subject || '').trim().slice(0, 300),
+        message,
+        timestamp: new Date().toISOString(),
+      }
+      await db.query(
+        `INSERT INTO submissions (id, form_id, data, submitted_at) VALUES ($1, $2, $3, $4)`,
+        [rec.id, CONTACT_FORM_ID, rec, rec.timestamp]
+      )
+      // Notify the admins via Resend. Best-effort — never fails the save.
+      try {
+        const settings = await loadEmailSettings(db)
+        const recipients = adminNotifyRecipients(settings)
+        const text = `New contact message from ${rec.name || 'someone'} <${rec.email}>:\n\n` +
+          (rec.subject ? `Subject: ${rec.subject}\n\n` : '') +
+          `${rec.message}\n\nReceived: ${new Date(rec.timestamp).toLocaleString('en-GB')}`
+        for (const to of recipients) {
+          await trySend(db, { to, subject: `📨 New contact message${rec.subject ? `: ${rec.subject}` : ''}`, text, settings })
+        }
+      } catch (mailErr) {
+        console.warn('[addContactMessage] notify skipped:', mailErr.message)
+      }
+      return { ok: true }
+    }
+
+    case 'getContactMessages': {
+      const { rows } = await db.query(
+        `SELECT data FROM submissions WHERE form_id = $1 ORDER BY submitted_at DESC`,
+        [CONTACT_FORM_ID]
+      )
+      return rows.map(r => r.data)
+    }
+
+    case 'deleteContactMessage': {
+      await db.query('DELETE FROM submissions WHERE id = $1 AND form_id = $2', [p.id, CONTACT_FORM_ID])
+      return { ok: true }
+    }
+
+    // ── Admin users (invites) ─────────────────────────────────────────────────
+    case 'getAdminUsers': {
+      const { rows } = await db.query(`SELECT data FROM settings WHERE key = 'adminUsers'`)
+      const list = rows[0]?.data?.admins || []
+      const envAdmins = (process.env.ADMIN_EMAILS || '').split(',').map(s => s.trim()).filter(Boolean)
+        .map(email => ({ email, name: '', status: 'env', source: 'env' }))
+      return { admins: list, envAdmins }
+    }
+
+    case 'inviteAdmin': {
+      const email = String(p.email || '').trim()
+      const name  = String(p.name || '').trim()
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('A valid email address is required.')
+      const { rows } = await db.query(`SELECT data FROM settings WHERE key = 'adminUsers'`)
+      const list = rows[0]?.data?.admins || []
+      const exists = list.find(a => a.email.toLowerCase() === email.toLowerCase())
+      if (exists) {
+        exists.name = name || exists.name
+        exists.invitedAt = new Date().toISOString()
+      } else {
+        list.push({ email, name, status: 'invited', invitedAt: new Date().toISOString(), invitedBy: user?.email || null })
+      }
+      await db.query(
+        `INSERT INTO settings (key, data, updated_at) VALUES ('adminUsers', $1, NOW())
+         ON CONFLICT (key) DO UPDATE SET data = $1, updated_at = NOW()`,
+        [{ admins: list }]
+      )
+      return { ok: true, admins: list }
     }
 
     // ── Speakers ──────────────────────────────────────────────────────────────

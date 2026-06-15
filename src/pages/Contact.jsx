@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import SiteNav from '../components/SiteNav'
 import SiteFooter from '../components/SiteFooter'
+import { addContactMessage } from '../utils/formStorage'
 import { Mail, Phone, MapPin, MessageCircle, Send, CheckCircle2 } from 'lucide-react'
 
 const BRAND  = '#6c3fc5'
@@ -9,8 +10,8 @@ const GOLD   = '#C9A84C'
 
 // Edit these to your real details.
 const CONTACT_EMAIL = 'info@iwcconcepts.com'
-const CONTACT_PHONE = '+233 000 000 000'
-const WHATSAPP_NUMBER = '233000000000' // digits only, with country code
+const CONTACT_PHONE = '+233 24 992 9567'
+const WHATSAPP_NUMBER = '233249929567' // digits only, with country code
 const LOCATION = 'Accra, Ghana'
 
 const INFO = [
@@ -23,20 +24,28 @@ const INFO = [
 export default function Contact() {
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
   const [sent, setSent] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
 
   const valid = form.name.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email) && form.message.trim()
 
   function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
-    if (!valid) return
-    const subject = encodeURIComponent(form.subject || `Message from ${form.name}`)
-    const body = encodeURIComponent(
-      `Name: ${form.name}\nEmail: ${form.email}\n\n${form.message}`
-    )
-    window.location.href = `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${body}`
-    setSent(true)
+    if (!valid || sending) return
+    setSending(true)
+    setError('')
+    try {
+      // Saved to the admin dashboard and emailed to the team (server-side via Resend).
+      await addContactMessage({ name: form.name, email: form.email, subject: form.subject, message: form.message })
+      setSent(true)
+    } catch (err) {
+      console.error('[contact]', err)
+      setError('Sorry — your message could not be sent. Please try again or email us directly.')
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -117,17 +126,18 @@ export default function Contact() {
               <Field label="Message *">
                 <textarea style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6 }} rows={5} value={form.message} onChange={e => set('message', e.target.value)} placeholder="Write your message here…" />
               </Field>
-              <button type="submit" disabled={!valid} style={{
+              <button type="submit" disabled={!valid || sending} style={{
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                 border: 'none', borderRadius: 10, padding: '14px 0', fontWeight: 800, fontSize: 15,
-                cursor: valid ? 'pointer' : 'not-allowed',
-                background: valid ? `linear-gradient(135deg, ${BRAND}, ${BRAND2})` : '#e5e7eb',
-                color: valid ? '#fff' : '#9ca3af',
-                boxShadow: valid ? '0 4px 20px rgba(108,63,197,0.35)' : 'none',
+                cursor: (valid && !sending) ? 'pointer' : 'not-allowed',
+                background: (valid && !sending) ? `linear-gradient(135deg, ${BRAND}, ${BRAND2})` : '#e5e7eb',
+                color: (valid && !sending) ? '#fff' : '#9ca3af',
+                boxShadow: (valid && !sending) ? '0 4px 20px rgba(108,63,197,0.35)' : 'none',
                 marginTop: 4,
               }}>
-                <Send size={17} /> Send Message
+                <Send size={17} /> {sending ? 'Sending…' : 'Send Message'}
               </button>
+              {error && <div style={{ color: '#dc2626', fontSize: 13, fontWeight: 600, marginTop: 4 }}>{error}</div>}
             </form>
           )}
         </div>

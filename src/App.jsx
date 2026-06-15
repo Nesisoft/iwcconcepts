@@ -36,6 +36,8 @@ import PlansManager from './pages/PlansManager'
 import MembershipJoin from './pages/MembershipJoin'
 import AccessAudit from './pages/AccessAudit'
 import EventsManager from './pages/EventsManager'
+import ContactMessages from './pages/ContactMessages'
+import AdminUsers from './pages/AdminUsers'
 
 // Pages that are publicly accessible (no login required)
 const PUBLIC_ROUTES = (
@@ -97,6 +99,8 @@ export default function App() {
             <Route path="/email-admin"         element={<AdminRoute element={<EmailAdmin />} />} />
             <Route path="/plans-admin"         element={<AdminRoute element={<PlansManager />} />} />
             <Route path="/access-audit"        element={<AdminRoute element={<AccessAudit />} />} />
+            <Route path="/contact-admin"       element={<AdminRoute element={<ContactMessages />} />} />
+            <Route path="/admins"              element={<AdminRoute element={<AdminUsers />} />} />
           </Routes>
         </CustomerAuthProvider>
       </AuthProvider>
