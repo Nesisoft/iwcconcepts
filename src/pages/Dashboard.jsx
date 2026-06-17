@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   MessageSquare, Megaphone, ClipboardList, BarChart3, Database,
   GraduationCap, Star, Globe, Users, Award, LineChart, MessagesSquare, Mail,
-  Ticket, Lock, Calendar, Inbox, ShieldCheck,
+  Ticket, Lock, Calendar, Inbox, ShieldCheck, Image,
 } from 'lucide-react'
 
 const tools = [
@@ -167,6 +167,16 @@ const tools = [
     desc: 'Read messages sent through the public Contact form. The team is emailed on each new submission; reply or delete from here.',
     tags: ['Contact form', 'Inbox', 'Replies'],
     accent: '#2ECC71',
+    available: true,
+  },
+  {
+    id: 'branding',
+    path: '/branding',
+    Icon: Image,
+    title: 'Branding',
+    desc: 'Upload your logo — it appears across the site header and footer automatically. Change it anytime; falls back to the default wordmark when empty.',
+    tags: ['Logo', 'Identity', 'Upload'],
+    accent: '#C9A84C',
     available: true,
   },
   {

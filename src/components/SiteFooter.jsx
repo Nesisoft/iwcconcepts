@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { Mail, Phone, MessageCircle } from 'lucide-react'
+import { useBranding } from '../utils/branding'
 
 const GOLD = '#C9A84C'
 
@@ -29,6 +30,7 @@ const SOCIALS = [
 
 export default function SiteFooter() {
   const navigate = useNavigate()
+  const { logoUrl } = useBranding()
 
   const quickLinks = [
     { label: 'Home',     onClick: () => navigate('/') },
@@ -46,17 +48,23 @@ export default function SiteFooter() {
         {/* Brand */}
         <div style={{ maxWidth: 300 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-            <div style={{
-              width: 40, height: 40, borderRadius: 10,
-              background: `linear-gradient(135deg, ${GOLD}, #e8c060)`,
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              fontWeight: 900, fontSize: 14, color: '#1A1A2E',
-              fontFamily: "'Playfair Display', serif",
-            }}>IW</div>
-            <div>
-              <div style={{ fontWeight: 700, color: 'white', fontSize: 15 }}>IWC Concepts</div>
-              <div style={{ fontSize: 11, color: GOLD, letterSpacing: 2, textTransform: 'uppercase' }}>Faith · Business · Impact</div>
-            </div>
+            {logoUrl ? (
+              <img src={logoUrl} alt="IWC Concepts" style={{ height: 48, maxWidth: 220, objectFit: 'contain', display: 'block' }} />
+            ) : (
+              <>
+                <div style={{
+                  width: 40, height: 40, borderRadius: 10,
+                  background: `linear-gradient(135deg, ${GOLD}, #e8c060)`,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  fontWeight: 900, fontSize: 14, color: '#1A1A2E',
+                  fontFamily: "'Playfair Display', serif",
+                }}>IW</div>
+                <div>
+                  <div style={{ fontWeight: 700, color: 'white', fontSize: 15 }}>IWC Concepts</div>
+                  <div style={{ fontSize: 11, color: GOLD, letterSpacing: 2, textTransform: 'uppercase' }}>Faith · Business · Impact</div>
+                </div>
+              </>
+            )}
           </div>
           <p style={{ fontSize: 13, lineHeight: 1.7, margin: 0 }}>
             Empowering entrepreneurs and leaders to grow with purpose through faith-based

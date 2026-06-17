@@ -408,6 +408,11 @@ export const getSetting = (key) => api('getSetting', { key })
 export const saveSetting = (key, value) =>
   adminToken().then(t => api('saveSetting', { key, value }, t))
 
+// Branding (site logo). Public read; admin write.
+export const getBranding  = () => api('getSetting', { key: 'branding' }).then(d => d || {})
+export const saveBranding = (branding) =>
+  adminToken().then(t => api('saveSetting', { key: 'branding', value: branding }, t))
+
 // Email — admin send-test (server holds the provider key; never exposed here)
 export const sendTestEmail = (to, baseUrl) =>
   adminToken().then(t => api('sendTestEmail', { to, baseUrl }, t))
