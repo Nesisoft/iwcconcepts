@@ -208,14 +208,17 @@ function PaymentScreen({ course, discountedPrice, discountPct, email, name, form
 
 function Confirmation({ course, paymentRef, name, email, accountSetup }) {
   const navigate = useNavigate()
+  const isEvent = (course?.courseType || 'course') === 'event'
   return (
     <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 24px', textAlign: 'center' }}>
-      <div style={{ fontSize: 72, marginBottom: 16 }}>🎉</div>
+      <div style={{ fontSize: 72, marginBottom: 16 }}>{isEvent ? '🎟️' : '🎉'}</div>
       <h2 style={{ fontSize: 28, fontWeight: 900, color: '#111827', margin: '0 0 8px' }}>
-        You're In{name ? `, ${name.split(' ')[0]}` : ''}!
+        {isEvent ? "You're Registered" : "You're In"}{name ? `, ${name.split(' ')[0]}` : ''}!
       </h2>
       <p style={{ color: '#6b7280', fontSize: 16, margin: '0 0 8px' }}>
-        You've successfully enrolled in <strong>{course.title}</strong>.
+        {isEvent
+          ? <>You've successfully registered for <strong>{course.title}</strong>.</>
+          : <>You've successfully enrolled in <strong>{course.title}</strong>.</>}
       </p>
       {paymentRef && (
         <p style={{ fontSize: 13, color: '#9ca3af', margin: '0 0 24px' }}>
@@ -230,12 +233,12 @@ function Confirmation({ course, paymentRef, name, email, accountSetup }) {
           padding: '20px 24px', margin: '0 auto 28px', maxWidth: 420, textAlign: 'left',
         }}>
           <div style={{ fontWeight: 800, color: BRAND, fontSize: 15, marginBottom: 6 }}>
-            📧 Set up your learning portal account
+            📧 {isEvent ? 'Set up your account for your event details' : 'Set up your learning portal account'}
           </div>
           <p style={{ color: '#6b7280', fontSize: 13, margin: 0, lineHeight: 1.7 }}>
             We've sent a verification link to{' '}
             <strong style={{ color: '#374151' }}>{email}</strong>. Click it to confirm your
-            email and create a password — then you can sign in to access your course content.
+            email and create a password — then sign in to {isEvent ? 'see your event join details in your portal' : 'access your course content'}.
           </p>
         </div>
       )}
@@ -245,22 +248,25 @@ function Confirmation({ course, paymentRef, name, email, accountSetup }) {
           padding: '16px 20px', margin: '0 auto 28px', maxWidth: 420, textAlign: 'left',
         }}>
           <p style={{ color: '#92400e', fontSize: 13, margin: 0, lineHeight: 1.7 }}>
-            Your enrollment is confirmed, but we couldn't send your portal setup email just now.
-            Please contact support to get access to your learning content.
+            {isEvent
+              ? "Your registration is confirmed, but we couldn't send your account setup email just now. Check your inbox for your ticket and join details, or contact support."
+              : "Your enrollment is confirmed, but we couldn't send your portal setup email just now. Please contact support to get access to your learning content."}
           </p>
         </div>
       )}
       {accountSetup === 'pending' && (
-        <p style={{ color: '#9ca3af', fontSize: 13, margin: '0 0 28px' }}>Setting up your portal account…</p>
+        <p style={{ color: '#9ca3af', fontSize: 13, margin: '0 0 28px' }}>Setting up your account…</p>
       )}
 
       {!accountSetup && (
         <p style={{ color: '#6b7280', fontSize: 14, maxWidth: 380, margin: '0 auto 36px', lineHeight: 1.75 }}>
-          Check your email for confirmation and course access details. We look forward to seeing you!
+          {isEvent
+            ? "Check your email — we've sent your ticket with the date, venue and join details. See you there!"
+            : 'Check your email for confirmation and course access details. We look forward to seeing you!'}
         </p>
       )}
 
-      <button onClick={() => navigate('/')} style={primaryBtn()}>← Back to Courses</button>
+      <button onClick={() => navigate('/')} style={primaryBtn()}>{isEvent ? '← Back to Home' : '← Back to Courses'}</button>
     </div>
   )
 }
@@ -268,6 +274,7 @@ function Confirmation({ course, paymentRef, name, email, accountSetup }) {
 // ── Header ─────────────────────────────────────────────────────────────────────
 
 function Header({ course, navigate }) {
+  const isEvent = (course?.courseType || 'course') === 'event'
   return (
     <div style={{
       background: 'linear-gradient(135deg, #0f0a1a 0%, #1e0f3a 100%)',
@@ -278,7 +285,7 @@ function Header({ course, navigate }) {
         background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)',
         borderRadius: 8, padding: '6px 14px', color: 'rgba(255,255,255,0.8)',
         fontSize: 13, fontWeight: 600, cursor: 'pointer',
-      }}>← Courses</button>
+      }}>{isEvent ? '← Home' : '← Courses'}</button>
       <div style={{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: 0.4 }}>
         {course?.title || ''}
       </div>
