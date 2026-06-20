@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   MessageSquare, Megaphone, ClipboardList, BarChart3, Database,
   GraduationCap, Star, Globe, Users, Award, LineChart, MessagesSquare, Mail,
-  Ticket, Lock, Calendar, Inbox, ShieldCheck,
+  Ticket, Lock, Calendar, Inbox, ShieldCheck, Building2,
 } from 'lucide-react'
 
 const tools = [
@@ -167,6 +167,16 @@ const tools = [
     desc: 'Read messages sent through the public Contact form. The team is emailed on each new submission; reply or delete from here.',
     tags: ['Contact form', 'Inbox', 'Replies'],
     accent: '#2ECC71',
+    available: true,
+  },
+  {
+    id: 'group-admin',
+    path: '/group-admin',
+    Icon: Building2,
+    title: 'Group Training',
+    desc: 'Review organization training requests, set a plan + seats + duration + amount, then activate to generate a staff join link. Staff access expires automatically when the period ends.',
+    tags: ['Organizations', 'Cohorts', 'Seats', 'Join link'],
+    accent: '#0891b2',
     available: true,
   },
   {

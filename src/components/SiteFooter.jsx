@@ -34,7 +34,8 @@ export default function SiteFooter() {
     { label: 'Home',     onClick: () => navigate('/') },
     { label: 'About',    onClick: () => navigate('/about') },
     { label: 'Contact',  onClick: () => navigate('/contact') },
-    { label: 'My Courses', onClick: () => navigate('/portal/login') },
+    { label: 'Train Your Team', onClick: () => navigate('/group-training') },
+    { label: 'My Account', onClick: () => navigate('/portal/login') },
   ]
 
   return (
