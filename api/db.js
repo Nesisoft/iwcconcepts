@@ -67,6 +67,7 @@ const ADMIN_ACTIONS = new Set([
   'notifyEventAudience',
   'getContactMessages', 'deleteContactMessage',
   'getAdminUsers', 'inviteAdmin', 'claimAdmin',
+  'getGroupTrainings', 'saveGroupTraining', 'deleteGroupTraining',
 ])
 
 // Contact-form messages are stored in the submissions table under this form id.
@@ -125,6 +126,39 @@ async function saveAdminList(db, list) {
      ON CONFLICT (key) DO UPDATE SET data = $1, updated_at = NOW()`,
     [{ admins: list }]
   )
+}
+
+// ── Group / organization training ───────────────────────────────────────────────
+// Stored in settings.groupTrainings = { groups: [...] }. A group is a corporate
+// cohort: an org requests training, admin finalizes (plan + seats + duration +
+// amount) and activates → an access code is generated. Staff register with the
+// code and become members on the chosen plan, all expiring on the same end date,
+// so access is denied automatically when the training period ends.
+async function loadGroups(db) {
+  const { rows } = await db.query(`SELECT data FROM settings WHERE key = 'groupTrainings'`)
+  return rows[0]?.data?.groups || []
+}
+async function saveGroups(db, groups) {
+  await db.query(
+    `INSERT INTO settings (key, data, updated_at) VALUES ('groupTrainings', $1, NOW())
+     ON CONFLICT (key) DO UPDATE SET data = $1, updated_at = NOW()`,
+    [{ groups }]
+  )
+}
+function newGroupCode() {
+  const r = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, '')
+  return `GRP-${r.slice(0, 6)}`
+}
+// Public-safe view of a group for the staff join page.
+function publicGroup(g, plans) {
+  const plan = plans.find(p => p.id === g.planId)
+  const seatsLeft = Math.max(0, Number(g.seats || 0) - (g.registeredEmails || []).length)
+  const expired = g.expiresAt ? new Date(g.expiresAt) < new Date() : false
+  return {
+    orgName: g.orgName, planName: plan?.name || null,
+    seats: Number(g.seats || 0), seatsLeft, expiresAt: g.expiresAt || null,
+    status: g.status, expired,
+  }
 }
 // Returns { configured, isAdmin, bootstrap } for an email.
 async function adminGate(db, email) {
@@ -580,6 +614,145 @@ async function handleAction(db, action, p, user = null) {
         if (me) { me.status = 'active'; me.activatedAt = new Date().toISOString(); await saveAdminList(db, list) }
       }
       return gate
+    }
+
+    // ── Group / organization training ──────────────────────────────────────────
+    case 'addGroupRequest': {
+      // Public — an organization requests training for their staff.
+      const r = p.request || {}
+      const orgName = String(r.orgName || '').trim().slice(0, 200)
+      const email   = String(r.email || '').trim().slice(0, 200)
+      if (!orgName || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Organization name and a valid email are required.')
+      const group = {
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+        orgName,
+        contactName: String(r.contactName || '').trim().slice(0, 200),
+        email,
+        phone: String(r.phone || '').trim().slice(0, 60),
+        staffCount: Math.max(0, Number(r.staffCount) || 0),
+        areas: Array.isArray(r.areas) ? r.areas.map(a => String(a).slice(0, 120)).slice(0, 40) : [],
+        customAreas: String(r.customAreas || '').trim().slice(0, 1000),
+        message: String(r.message || '').trim().slice(0, 2000),
+        status: 'requested',
+        registeredEmails: [],
+        createdAt: new Date().toISOString(),
+      }
+      const groups = await loadGroups(db)
+      groups.unshift(group)
+      await saveGroups(db, groups)
+      // Notify admins (best-effort, Resend).
+      try {
+        const settings = await loadEmailSettings(db)
+        const text = `New group / organization training request:\n\n` +
+          `Organization: ${group.orgName}\nContact: ${group.contactName || '—'} <${group.email}>\nPhone: ${group.phone || '—'}\n` +
+          `Staff to train: ${group.staffCount || '—'}\nAreas: ${[...(group.areas || []), group.customAreas].filter(Boolean).join(', ') || '—'}\n\n` +
+          `${group.message || ''}\n\nManage it in the admin dashboard → Group Training.`
+        for (const to of adminNotifyRecipients(settings)) {
+          await trySend(db, { to, subject: `🏢 Group training request: ${group.orgName}`, text, settings })
+        }
+      } catch (e) { console.warn('[addGroupRequest] notify skipped:', e.message) }
+      return { ok: true }
+    }
+
+    case 'getGroupTrainings': {
+      const [groups, plans] = await Promise.all([loadGroups(db), loadPlans(db)])
+      return groups.map(g => ({
+        ...g,
+        planName: plans.find(p => p.id === g.planId)?.name || null,
+        registered: (g.registeredEmails || []).length,
+        seatsLeft: Math.max(0, Number(g.seats || 0) - (g.registeredEmails || []).length),
+      }))
+    }
+
+    case 'saveGroupTraining': {
+      const incoming = p.group || {}
+      if (!incoming.id) throw new Error('Group id is required.')
+      const groups = await loadGroups(db)
+      const idx = groups.findIndex(g => g.id === incoming.id)
+      if (idx === -1) throw new Error('Group not found.')
+      const cur = groups[idx]
+      // Merge admin-editable fields.
+      const next = {
+        ...cur,
+        planId:       incoming.planId ?? cur.planId,
+        packageLabel: incoming.packageLabel ?? cur.packageLabel,
+        amount:       incoming.amount != null ? Number(incoming.amount) : cur.amount,
+        currency:     incoming.currency ?? cur.currency ?? 'GHS',
+        seats:        incoming.seats != null ? Math.max(0, Number(incoming.seats)) : cur.seats,
+        durationDays: incoming.durationDays != null ? Math.max(0, Number(incoming.durationDays)) : cur.durationDays,
+        status:       incoming.status ?? cur.status,
+        adminNotes:   incoming.adminNotes ?? cur.adminNotes,
+      }
+      // Activating → generate a code + compute the shared training window.
+      if (next.status === 'active') {
+        if (!next.planId) throw new Error('Pick a membership plan before activating (it decides which courses staff get).')
+        if (!(Number(next.seats) > 0)) throw new Error('Set the number of seats before activating.')
+        if (!next.accessCode) next.accessCode = newGroupCode()
+        if (!next.activatedAt) {
+          next.activatedAt = new Date().toISOString()
+          next.startsAt = next.activatedAt
+          next.expiresAt = Number(next.durationDays) > 0
+            ? new Date(Date.now() + Number(next.durationDays) * 86400000).toISOString()
+            : null
+        }
+      }
+      groups[idx] = next
+      await saveGroups(db, groups)
+      return next
+    }
+
+    case 'deleteGroupTraining': {
+      const groups = (await loadGroups(db)).filter(g => g.id !== p.id)
+      await saveGroups(db, groups)
+      return { ok: true }
+    }
+
+    case 'getGroupByCode': {
+      // Public — the staff join page looks up a group by its access code.
+      const code = String(p.code || '').trim().toUpperCase()
+      const [groups, plans] = await Promise.all([loadGroups(db), loadPlans(db)])
+      const g = groups.find(x => (x.accessCode || '').toUpperCase() === code && x.status === 'active')
+      if (!g) throw new Error('This training link is invalid or no longer active.')
+      return publicGroup(g, plans)
+    }
+
+    case 'registerGroupMember': {
+      // Public — a staff member registers with the group's access code.
+      const code  = String(p.code || '').trim().toUpperCase()
+      const email = String(p.email || '').trim().toLowerCase()
+      const name  = String(p.name || '').trim().slice(0, 200)
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('A valid email is required.')
+      const groups = await loadGroups(db)
+      const idx = groups.findIndex(x => (x.accessCode || '').toUpperCase() === code && x.status === 'active')
+      if (idx === -1) throw new Error('This training link is invalid or no longer active.')
+      const g = groups[idx]
+      if (g.expiresAt && new Date(g.expiresAt) < new Date()) throw new Error('This training period has ended.')
+      const already = (g.registeredEmails || []).map(e => e.toLowerCase())
+      if (!already.includes(email)) {
+        if (already.length >= Number(g.seats || 0)) throw new Error('All seats for this training have been filled. Please contact your organizer.')
+        g.registeredEmails = [...(g.registeredEmails || []), email]
+        groups[idx] = g
+        await saveGroups(db, groups)
+      }
+      // Grant access: a member on the group's plan, expiring at the training end.
+      const plans = await loadPlans(db)
+      const plan  = plans.find(pl => pl.id === g.planId)
+      const member = {
+        id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+        email, name,
+        planId: g.planId, planName: plan?.name || 'Group training',
+        planRank: planRankOf(plans, g.planId),
+        status: 'active', amountPaid: 0, currency: g.currency || 'GHS',
+        joinedAt: new Date().toISOString(),
+        expiresAt: g.expiresAt || null,
+        source: `group:${g.id}`, groupId: g.id,
+      }
+      await db.query(
+        `INSERT INTO members (id, email, data, created_at) VALUES ($1, $2, $3, $4)
+         ON CONFLICT (email) DO UPDATE SET data = $3`,
+        [member.id, email, member, member.joinedAt]
+      )
+      return { ok: true, orgName: g.orgName }
     }
 
     // ── Speakers ──────────────────────────────────────────────────────────────

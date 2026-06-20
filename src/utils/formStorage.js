@@ -494,6 +494,7 @@ export const notifyEventAudience = (eventId, kind = 'created') =>
 
 export const addContactMessage = (message) => api('addContactMessage', { message })
 
+
 export const getContactMessages = () =>
   adminToken().then(t => api('getContactMessages', {}, t))
 
@@ -517,6 +518,21 @@ export const amIAdmin = () =>
 // Claim admin access (locks down /admin to the allowlist, with you included).
 export const claimAdmin = (name) =>
   adminToken().then(t => api('claimAdmin', { name }, t))
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Group / organization training  (public request + staff join; admin manages)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const addGroupRequest = (request) => api('addGroupRequest', { request })
+export const getGroupByCode  = (code) => api('getGroupByCode', { code })
+export const registerGroupMember = (code, name, email) => api('registerGroupMember', { code, name, email })
+
+export const getGroupTrainings = () =>
+  adminToken().then(t => api('getGroupTrainings', {}, t))
+export const saveGroupTraining = (group) =>
+  adminToken().then(t => api('saveGroupTraining', { group }, t))
+export const deleteGroupTraining = (id) =>
+  adminToken().then(t => api('deleteGroupTraining', { id }, t))
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Utility helpers (unchanged — no DB calls)

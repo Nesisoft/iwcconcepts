@@ -39,6 +39,9 @@ import AccessAudit from './pages/AccessAudit'
 import EventsManager from './pages/EventsManager'
 import ContactMessages from './pages/ContactMessages'
 import AdminUsers from './pages/AdminUsers'
+import GroupTraining from './pages/GroupTraining'
+import GroupJoin from './pages/GroupJoin'
+import GroupTrainingAdmin from './pages/GroupTrainingAdmin'
 import BrandingAdmin from './pages/BrandingAdmin'
 
 // Pages that are publicly accessible (no login required)
@@ -48,6 +51,8 @@ const PUBLIC_ROUTES = (
     <Route path="/feedback"  element={<EventFeedback />} />
     <Route path="/onboard"   element={<CourseOnboarding />} />
     <Route path="/join"      element={<MembershipJoin />} />
+    <Route path="/group-training" element={<GroupTraining />} />
+    <Route path="/group-join"     element={<GroupJoin />} />
   </>
 )
 
@@ -103,6 +108,7 @@ export default function App() {
             <Route path="/access-audit"        element={<AdminRoute element={<AccessAudit />} />} />
             <Route path="/contact-admin"       element={<AdminRoute element={<ContactMessages />} />} />
             <Route path="/admins"              element={<AdminRoute element={<AdminUsers />} />} />
+            <Route path="/group-admin"         element={<AdminRoute element={<GroupTrainingAdmin />} />} />
             <Route path="/branding"            element={<AdminRoute element={<BrandingAdmin />} />} />
           </Routes>
         </CustomerAuthProvider>
