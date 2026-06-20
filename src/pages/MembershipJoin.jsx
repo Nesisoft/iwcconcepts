@@ -321,7 +321,7 @@ function Confirmation({ plan, paymentRef, name, email, accountSetup, isLoggedIn 
       )}
 
       <button onClick={() => navigate(isLoggedIn ? '/portal' : '/portal/login')} style={primaryBtn()}>
-        Go to My Portal →
+        Go to My Account →
       </button>
     </div>
   )

@@ -42,6 +42,7 @@ import AdminUsers from './pages/AdminUsers'
 import GroupTraining from './pages/GroupTraining'
 import GroupJoin from './pages/GroupJoin'
 import GroupTrainingAdmin from './pages/GroupTrainingAdmin'
+import BrandingAdmin from './pages/BrandingAdmin'
 
 // Pages that are publicly accessible (no login required)
 const PUBLIC_ROUTES = (
@@ -108,6 +109,7 @@ export default function App() {
             <Route path="/contact-admin"       element={<AdminRoute element={<ContactMessages />} />} />
             <Route path="/admins"              element={<AdminRoute element={<AdminUsers />} />} />
             <Route path="/group-admin"         element={<AdminRoute element={<GroupTrainingAdmin />} />} />
+            <Route path="/branding"            element={<AdminRoute element={<BrandingAdmin />} />} />
           </Routes>
         </CustomerAuthProvider>
       </AuthProvider>

@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   MessageSquare, Megaphone, ClipboardList, BarChart3, Database,
   GraduationCap, Star, Globe, Users, Award, LineChart, MessagesSquare, Mail,
-  Ticket, Lock, Calendar, Inbox, ShieldCheck, Building2,
+  Ticket, Lock, Calendar, Inbox, ShieldCheck, Building2, Image,
 } from 'lucide-react'
 
 const tools = [
@@ -177,6 +177,16 @@ const tools = [
     desc: 'Review organization training requests, set a plan + seats + duration + amount, then activate to generate a staff join link. Staff access expires automatically when the period ends.',
     tags: ['Organizations', 'Cohorts', 'Seats', 'Join link'],
     accent: '#0891b2',
+    available: true,
+  },
+  {
+    id: 'branding',
+    path: '/branding',
+    Icon: Image,
+    title: 'Branding',
+    desc: 'Upload your logo — it appears across the site header and footer automatically. Change it anytime; falls back to the default wordmark when empty.',
+    tags: ['Logo', 'Identity', 'Upload'],
+    accent: '#C9A84C',
     available: true,
   },
   {

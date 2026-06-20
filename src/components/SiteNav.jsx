@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { GraduationCap, Info, Mail, Menu, X } from 'lucide-react'
+import { useBranding } from '../utils/branding'
 
 const GOLD = '#C9A84C'
 
@@ -14,6 +15,7 @@ const GOLD = '#C9A84C'
  */
 export default function SiteNav({ solid = false }) {
   const navigate = useNavigate()
+  const { logoUrl } = useBranding()
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -52,14 +54,20 @@ export default function SiteNav({ solid = false }) {
         onClick={() => navigate('/')}
         style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 12, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
       >
-        <div style={{
-          width: 36, height: 36, borderRadius: 9,
-          background: `linear-gradient(135deg, ${GOLD}, #e8c060)`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontWeight: 900, fontSize: 14, color: '#1A1A2E',
-          fontFamily: "'Playfair Display', serif",
-        }}>IW</div>
-        <span style={{ color: 'white', fontWeight: 800, fontSize: 15, letterSpacing: 0.5 }}>IWC CONCEPTS</span>
+        {logoUrl ? (
+          <img src={logoUrl} alt="IWC Concepts" style={{ height: 40, maxWidth: 200, objectFit: 'contain', display: 'block' }} />
+        ) : (
+          <>
+            <div style={{
+              width: 36, height: 36, borderRadius: 9,
+              background: `linear-gradient(135deg, ${GOLD}, #e8c060)`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: 900, fontSize: 14, color: '#1A1A2E',
+              fontFamily: "'Playfair Display', serif",
+            }}>IW</div>
+            <span style={{ color: 'white', fontWeight: 800, fontSize: 15, letterSpacing: 0.5 }}>IWC CONCEPTS</span>
+          </>
+        )}
       </button>
 
       {/* Desktop links */}
