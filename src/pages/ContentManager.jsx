@@ -160,6 +160,38 @@ export default function ContentManager() {
     finally { setDeleting(null) }
   }
 
+  // ── Ordering ───────────────────────────────────────────────────────────────
+  // Sort by the explicit `order`, falling back to creation time. New lessons /
+  // modules append at the END (next order) instead of defaulting to 0 — which is
+  // what made later items jump above "lesson 1". Up/down buttons re-normalize the
+  // affected group's order to 0..n-1 so existing jumbled content can be fixed too.
+  const byOrder = (a, b) => ((Number(a.order) || 0) - (Number(b.order) || 0)) || String(a.createdAt || '').localeCompare(String(b.createdAt || ''))
+  const nextSectionOrder = () => (sections.length ? Math.max(...sections.map(s => Number(s.order) || 0)) + 1 : 0)
+  const nextItemOrder = (sectionId) => {
+    const g = items.filter(i => (i.sectionId || null) === (sectionId || null))
+    return g.length ? Math.max(...g.map(i => Number(i.order) || 0)) + 1 : 0
+  }
+
+  async function moveSection(sec, dir) {
+    const scope = sections.slice().sort(byOrder)
+    const idx = scope.findIndex(s => s.id === sec.id)
+    if (idx < 0 || idx + dir < 0 || idx + dir >= scope.length) return
+    ;[scope[idx], scope[idx + dir]] = [scope[idx + dir], scope[idx]]
+    const updated = scope.map((s, i) => ({ ...s, order: i }))
+    setSections(prev => prev.map(s => updated.find(u => u.id === s.id) || s))
+    try { await Promise.all(updated.map(saveContentSection)) } catch (e) { alert('Reorder failed: ' + e.message) }
+  }
+
+  async function moveItem(item, dir) {
+    const scope = items.filter(i => (i.sectionId || null) === (item.sectionId || null)).sort(byOrder)
+    const idx = scope.findIndex(i => i.id === item.id)
+    if (idx < 0 || idx + dir < 0 || idx + dir >= scope.length) return
+    ;[scope[idx], scope[idx + dir]] = [scope[idx + dir], scope[idx]]
+    const updated = scope.map((it, i) => ({ ...it, order: i }))
+    setItems(prev => prev.map(i => updated.find(u => u.id === i.id) || i))
+    try { await Promise.all(updated.map(saveContentItem)) } catch (e) { alert('Reorder failed: ' + e.message) }
+  }
+
   if (loading) return (
     <div style={{ minHeight: '100vh', background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.4)' }}>
       Loading…
@@ -183,10 +215,10 @@ export default function ContentManager() {
           <div style={{ fontSize: 11, color: ACC, marginTop: 1 }}>{course.title}</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => setEditSection(BLANK_SECTION(courseId))} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: 'white', padding: '7px 14px', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+          <button onClick={() => setEditSection({ ...BLANK_SECTION(courseId), order: nextSectionOrder() })} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: 'white', padding: '7px 14px', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
             + Module
           </button>
-          <button onClick={() => setEditItem(BLANK_ITEM(courseId, sections[0]?.id || null))} style={{ background: ACC, border: 'none', borderRadius: 8, color: '#1A1A2E', padding: '7px 14px', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+          <button onClick={() => { const sid = sections[0]?.id || null; setEditItem({ ...BLANK_ITEM(courseId, sid), order: nextItemOrder(sid) }) }} style={{ background: ACC, border: 'none', borderRadius: 8, color: '#1A1A2E', padding: '7px 14px', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
             + Lesson
           </button>
         </div>
@@ -203,30 +235,43 @@ export default function ContentManager() {
           ) : null}
 
           {/* Items not in any section */}
-          {items.filter(i => !i.sectionId).map(item => (
-            <ItemRow key={item.id} item={item} onEdit={openLesson} onDelete={handleDeleteItem} deleting={deleting} />
-          ))}
+          {(() => {
+            const top = items.filter(i => !i.sectionId).sort(byOrder)
+            return top.map((item, i) => (
+              <ItemRow key={item.id} item={item} onEdit={openLesson} onDelete={handleDeleteItem} deleting={deleting}
+                onMove={dir => moveItem(item, dir)} isFirst={i === 0} isLast={i === top.length - 1} />
+            ))
+          })()}
 
           {/* Sections with their items */}
-          {sections.map(sec => (
+          {(() => {
+            const secs = sections.slice().sort(byOrder)
+            return secs.map((sec, si) => {
+              const lessons = items.filter(i => i.sectionId === sec.id).sort(byOrder)
+              return (
             <div key={sec.id} style={{ marginBottom: 16 }}>
               <div style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 6 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <div style={{ fontSize: 14 }}>📂</div>
-                  <div style={{ flex: 1, fontSize: 12, fontWeight: 700, color: ACC }}>{sec.title || 'Untitled Module'}</div>
+                  <div style={{ flex: 1, fontSize: 12, fontWeight: 700, color: ACC, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sec.title || 'Untitled Module'}</div>
+                  <button onClick={() => moveSection(sec, -1)} disabled={si === 0} title="Move up" style={arrowBtn(si === 0)}>▲</button>
+                  <button onClick={() => moveSection(sec, 1)} disabled={si === secs.length - 1} title="Move down" style={arrowBtn(si === secs.length - 1)}>▼</button>
                   <button onClick={() => setEditSection({ ...sec })} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 12, padding: '2px 6px' }}>✏</button>
                   <button onClick={() => handleDeleteSection(sec.id)} disabled={deleting === sec.id} style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: 12, padding: '2px 6px' }}>✕</button>
                 </div>
                 {sec.description && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>{sec.description}</div>}
               </div>
-              {items.filter(i => i.sectionId === sec.id).map(item => (
-                <ItemRow key={item.id} item={item} onEdit={openLesson} onDelete={handleDeleteItem} deleting={deleting} indent />
+              {lessons.map((item, i) => (
+                <ItemRow key={item.id} item={item} onEdit={openLesson} onDelete={handleDeleteItem} deleting={deleting} indent
+                  onMove={dir => moveItem(item, dir)} isFirst={i === 0} isLast={i === lessons.length - 1} />
               ))}
-              <button onClick={() => setEditItem(BLANK_ITEM(courseId, sec.id))} style={{ width: '100%', background: 'none', border: '1px dashed rgba(255,255,255,0.12)', borderRadius: 8, color: 'rgba(255,255,255,0.35)', fontSize: 11, padding: '6px', cursor: 'pointer', marginTop: 4 }}>
+              <button onClick={() => setEditItem({ ...BLANK_ITEM(courseId, sec.id), order: nextItemOrder(sec.id) })} style={{ width: '100%', background: 'none', border: '1px dashed rgba(255,255,255,0.12)', borderRadius: 8, color: 'rgba(255,255,255,0.35)', fontSize: 11, padding: '6px', cursor: 'pointer', marginTop: 4 }}>
                 + Add lesson to this module
               </button>
             </div>
-          ))}
+              )
+            })
+          })()}
         </div>
 
         {/* Right: editor panel */}
@@ -260,9 +305,17 @@ export default function ContentManager() {
   )
 }
 
-function ItemRow({ item, onEdit, onDelete, deleting, indent = false }) {
+const arrowBtn = (disabled) => ({ background: 'none', border: 'none', color: disabled ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.5)', cursor: disabled ? 'default' : 'pointer', fontSize: 9, padding: '1px 4px', lineHeight: 1, flexShrink: 0 })
+
+function ItemRow({ item, onEdit, onDelete, deleting, indent = false, onMove, isFirst, isLast }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', marginBottom: 4, marginLeft: indent ? 12 : 0, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', marginBottom: 4, marginLeft: indent ? 12 : 0, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+      {onMove && (
+        <div style={{ display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+          <button onClick={() => onMove(-1)} disabled={isFirst} title="Move up" style={arrowBtn(isFirst)}>▲</button>
+          <button onClick={() => onMove(1)} disabled={isLast} title="Move down" style={arrowBtn(isLast)}>▼</button>
+        </div>
+      )}
       <span style={{ fontSize: 12, opacity: 0.6 }}>{lessonIcon(item)}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 12, fontWeight: 600, color: item.isPublished ? 'white' : 'rgba(255,255,255,0.45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
