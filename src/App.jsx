@@ -9,7 +9,6 @@ import PortalRedirectHandler from './components/PortalRedirectHandler'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import QuoteCardStudio from './pages/QuoteCardStudio'
-import EventFlyerStudio from './pages/EventFlyerStudio'
 import FormBuilder from './pages/FormBuilder'
 import EventRegistration from './pages/EventRegistration'
 import EventFeedback from './pages/EventFeedback'
@@ -91,7 +90,6 @@ export default function App() {
             {/* Protected admin pages */}
             <Route path="/admin"               element={<AdminRoute element={<Dashboard />} />} />
             <Route path="/quote-studio"        element={<AdminRoute element={<QuoteCardStudio />} />} />
-            <Route path="/flyer-studio"        element={<AdminRoute element={<EventFlyerStudio />} />} />
             <Route path="/form-builder"        element={<AdminRoute element={<FormBuilder />} />} />
             <Route path="/event-dashboard"     element={<AdminRoute element={<EventDashboard />} />} />
             <Route path="/db-setup"            element={<AdminRoute element={<DatabaseSetup />} />} />

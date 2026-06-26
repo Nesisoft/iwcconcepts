@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { isConfigured } from '../utils/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import {
-  MessageSquare, Megaphone, ClipboardList, BarChart3, Database,
+  MessageSquare, ClipboardList, BarChart3, Database,
   GraduationCap, Star, Globe, Users, Award, LineChart, MessagesSquare, Mail,
   Ticket, Lock, Calendar, Inbox, ShieldCheck, Building2, Image,
 } from 'lucide-react'
@@ -17,16 +17,6 @@ const tools = [
     desc: 'Design branded quote cards for social media with custom templates, typography, profile photos, and platform icons.',
     tags: ['Templates', 'Photo', 'Typography', 'Export'],
     accent: '#C9A84C',
-    available: true,
-  },
-  {
-    id: 'flyer-studio',
-    path: '/flyer-studio',
-    Icon: Megaphone,
-    title: 'Event Flyer Studio',
-    desc: 'Generate professional event flyers for day-by-day courses, speaker grids, and announcement graphics.',
-    tags: ['Events', 'Speakers', 'Day Cards', 'Export'],
-    accent: '#E4600A',
     available: true,
   },
   {
