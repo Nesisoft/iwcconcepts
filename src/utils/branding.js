@@ -36,3 +36,19 @@ export function clearBrandingCache() {
   inflight = null
   try { sessionStorage.removeItem('iwc_branding') } catch {}
 }
+
+// Mount once (in App). If an admin has uploaded a custom favicon, swap it in at
+// runtime over the static one in index.html. Renders nothing.
+export function BrandingHead() {
+  const { faviconUrl } = useBranding()
+  useEffect(() => {
+    if (!faviconUrl || typeof document === 'undefined') return
+    const head = document.head
+    head.querySelectorAll("link[rel~='icon'], link[rel='apple-touch-icon']").forEach(l => l.remove())
+    const link = document.createElement('link')
+    link.rel = 'icon'
+    link.href = faviconUrl
+    head.appendChild(link)
+  }, [faviconUrl])
+  return null
+}
