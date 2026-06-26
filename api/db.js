@@ -36,6 +36,22 @@ async function trySend(db, { to, subject, text, settings }) {
   }
 }
 
+// Like trySend, but reports the outcome back to the caller so the UI can tell the
+// admin whether the email actually went out. Never throws.
+//   → { emailed: true }                  email delivered to Resend
+//   → { emailed: false, reason, detail } not sent (config missing or provider error)
+async function sendAndReport(db, { to, subject, text, settings }) {
+  try {
+    const s = settings || await loadEmailSettings(db)
+    const result = await sendMail({ to, subject, text, settings: s })
+    if (result?.skipped) return { emailed: false, reason: result.reason || 'skipped' }
+    return { emailed: true }
+  } catch (e) {
+    console.warn('[email] send failed:', e.message)
+    return { emailed: false, reason: 'error', detail: e.message }
+  }
+}
+
 // ── Auth ──────────────────────────────────────────────────────────────────────
 // Verifies the caller's Supabase session token by asking Supabase Auth.
 // Requires SUPABASE_URL and SUPABASE_ANON_KEY — the same values as
@@ -67,7 +83,7 @@ const ADMIN_ACTIONS = new Set([
   'notifyEventAudience',
   'getContactMessages', 'deleteContactMessage',
   'getAdminUsers', 'inviteAdmin', 'claimAdmin',
-  'getGroupTrainings', 'saveGroupTraining', 'deleteGroupTraining',
+  'getGroupTrainings', 'createGroupTraining', 'saveGroupTraining', 'deleteGroupTraining', 'sendGroupTraining',
   'getInvoices', 'saveInvoice', 'deleteInvoice', 'sendInvoice',
 ])
 
@@ -160,6 +176,20 @@ function publicGroup(g, plans) {
     seats: Number(g.seats || 0), seatsLeft, expiresAt: g.expiresAt || null,
     status: g.status, expired,
   }
+}
+// Email sent to the organization with their staff join link + training details.
+function groupEmailText(g, plan, link) {
+  const ends = g.expiresAt ? new Date(g.expiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : null
+  return `Hi ${g.contactName || g.orgName || 'there'},\n\n` +
+    `Your team training with IWC Concepts is ready for ${g.orgName}.\n\n` +
+    `Share this link with your staff so they can register and start learning:\n${link}\n\n` +
+    `Details:\n` +
+    `${plan?.name ? `  • Programme: ${plan.name}\n` : ''}` +
+    `  • Seats: ${Number(g.seats || 0)}\n` +
+    `${ends ? `  • Access until: ${ends}\n` : ''}` +
+    `\nEach staff member registers once with their own email using the link above. ` +
+    `Access for everyone ends on the same date.\n\n` +
+    `If you have any questions, just reply to this email.\n\n— IWC Concepts`
 }
 // ── Invoices (admin services billing) ───────────────────────────────────────────
 // Stored in settings.invoices = { invoices: [...], seq: n }. Admin creates an
@@ -710,6 +740,35 @@ async function handleAction(db, action, p, user = null) {
       }))
     }
 
+    case 'createGroupTraining': {
+      // Admin creates a training request directly (e.g. captured by phone/in person),
+      // in addition to requests that arrive from the public "Train Your Team" page.
+      const r = p.group || {}
+      const orgName = String(r.orgName || '').trim().slice(0, 200)
+      const email   = String(r.email || '').trim().slice(0, 200)
+      if (!orgName) throw new Error('Organization name is required.')
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('A valid organization email is required.')
+      const group = {
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+        orgName,
+        contactName: String(r.contactName || '').trim().slice(0, 200),
+        email,
+        phone: String(r.phone || '').trim().slice(0, 60),
+        staffCount: Math.max(0, Number(r.staffCount) || 0),
+        areas: Array.isArray(r.areas) ? r.areas.map(a => String(a).slice(0, 120)).slice(0, 40) : [],
+        customAreas: String(r.customAreas || '').trim().slice(0, 1000),
+        message: String(r.message || '').trim().slice(0, 2000),
+        status: 'requested',
+        registeredEmails: [],
+        createdAt: new Date().toISOString(),
+        createdByAdmin: true,
+      }
+      const groups = await loadGroups(db)
+      groups.unshift(group)
+      await saveGroups(db, groups)
+      return { ...group, registered: 0, seatsLeft: 0 }
+    }
+
     case 'saveGroupTraining': {
       const incoming = p.group || {}
       if (!incoming.id) throw new Error('Group id is required.')
@@ -745,6 +804,25 @@ async function handleAction(db, action, p, user = null) {
       groups[idx] = next
       await saveGroups(db, groups)
       return next
+    }
+
+    case 'sendGroupTraining': {
+      // Email the organization their staff join link + training details.
+      const groups = await loadGroups(db)
+      const g = groups.find(x => x.id === p.id)
+      if (!g) throw new Error('Group not found.')
+      if (!g.email) throw new Error('This request has no organization email.')
+      if (g.status !== 'active' || !g.accessCode) throw new Error('Activate the training first — that generates the staff join link.')
+      const plans = await loadPlans(db)
+      const plan = plans.find(pl => pl.id === g.planId)
+      const link = `${p.baseUrl || ''}/#/group-join?code=${g.accessCode}`
+      const settings = await loadEmailSettings(db)
+      const report = await sendAndReport(db, { to: g.email, subject: `Your IWC Concepts team training is ready — ${g.orgName}`, text: groupEmailText(g, plan, link), settings })
+      if (report.emailed) {
+        g.linkSentAt = new Date().toISOString()
+        await saveGroups(db, groups)
+      }
+      return { ok: true, ...report }
     }
 
     case 'deleteGroupTraining': {
@@ -858,11 +936,9 @@ async function handleAction(db, action, p, user = null) {
       inv.sentAt = new Date().toISOString()
       await saveInvoiceStore(db, { ...store, invoices: list })
       const link = `${p.baseUrl || ''}/#/invoice?id=${inv.id}`
-      try {
-        const settings = await loadEmailSettings(db)
-        await trySend(db, { to: inv.email, subject: `Invoice ${inv.number} from IWC Concepts`, text: invoiceEmailText(inv, link), settings })
-      } catch (e) { console.warn('[sendInvoice] email skipped:', e.message) }
-      return { ok: true }
+      const settings = await loadEmailSettings(db)
+      const report = await sendAndReport(db, { to: inv.email, subject: `Invoice ${inv.number} from IWC Concepts`, text: invoiceEmailText(inv, link), settings })
+      return { ok: true, ...report }
     }
 
     case 'getInvoicePublic': {

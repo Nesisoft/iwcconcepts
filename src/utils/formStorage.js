@@ -529,10 +529,14 @@ export const registerGroupMember = (code, name, email) => api('registerGroupMemb
 
 export const getGroupTrainings = () =>
   adminToken().then(t => api('getGroupTrainings', {}, t))
+export const createGroupTraining = (group) =>
+  adminToken().then(t => api('createGroupTraining', { group }, t))
 export const saveGroupTraining = (group) =>
   adminToken().then(t => api('saveGroupTraining', { group }, t))
 export const deleteGroupTraining = (id) =>
   adminToken().then(t => api('deleteGroupTraining', { id }, t))
+export const sendGroupTraining = (id) =>
+  adminToken().then(t => api('sendGroupTraining', { id, baseUrl: typeof window !== 'undefined' ? window.location.origin : '' }, t))
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Invoices  (admin creates/sends; public views + records payment)
