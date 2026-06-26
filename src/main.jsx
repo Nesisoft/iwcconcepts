@@ -16,17 +16,23 @@ import './styles/global.css'
   if (search.get('paystack_return') === '1') {
     const courseId     = search.get('courseId')
     const planId       = search.get('planId')
+    const invoiceId    = search.get('invoice')
     const isMembership = search.get('membership') === '1'
     const reference    = search.get('reference') || search.get('trxref')
 
-    if (isMembership && reference) {
+    if (invoiceId && reference) {
+      // Invoice payment → InvoicePay records + receipts
+      sessionStorage.setItem('iwc_paystack_return_invoice', JSON.stringify({ invoiceId, reference }))
+    } else if (isMembership && reference) {
       // Membership purchase → MembershipJoin completes the activation
       sessionStorage.setItem('iwc_paystack_return_membership', JSON.stringify({ planId, reference }))
     } else if (courseId && reference) {
       sessionStorage.setItem('iwc_paystack_return', JSON.stringify({ courseId, reference }))
     }
     // Route into HashRouter → the right page picks up the stashed ref
-    const target = isMembership ? '/#/join' : (courseId ? `/#/onboard?courseId=${courseId}` : '/')
+    const target = invoiceId ? `/#/invoice?id=${invoiceId}`
+      : isMembership ? '/#/join'
+      : (courseId ? `/#/onboard?courseId=${courseId}` : '/')
     window.location.replace(window.location.origin + target)
     return // stop — page is reloading
   }

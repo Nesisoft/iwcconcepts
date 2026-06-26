@@ -70,6 +70,14 @@ async function authoritativeAmount({ metadata, promoCode }) {
       const disc = Math.max(0, Math.min(90, Number(cfgRows?.[0]?.data?.discount) || 0))
       return Math.round((Number(plan.price) || 0) * (1 - disc / 100))
     }
+    // Invoice → the sum of its line items (server-side authoritative total)
+    if (meta.type === 'invoice' || meta.invoiceId) {
+      const rows = await queryRows(`SELECT data FROM settings WHERE key = 'invoices'`, [])
+      if (!rows) return null
+      const inv = (rows[0]?.data?.invoices || []).find(i => i.id === meta.invoiceId)
+      if (!inv) return null
+      return Math.round((inv.items || []).reduce((s, it) => s + (Number(it.amount) || 0), 0))
+    }
     // Course / event → price × discount, then a validated promo code
     if (meta.courseId) {
       const rows   = await queryRows('SELECT data FROM courses WHERE id = $1', [meta.courseId])

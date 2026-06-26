@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import {
   MessageSquare, Megaphone, ClipboardList, BarChart3, Database,
   GraduationCap, Star, Globe, Users, Award, LineChart, MessagesSquare, Mail,
-  Ticket, Lock, Calendar, Inbox, ShieldCheck, Building2, Image,
+  Ticket, Lock, Calendar, Inbox, ShieldCheck, Building2, Image, FileText,
 } from 'lucide-react'
 
 const tools = [
@@ -167,6 +167,16 @@ const tools = [
     desc: 'Read messages sent through the public Contact form. The team is emailed on each new submission; reply or delete from here.',
     tags: ['Contact form', 'Inbox', 'Replies'],
     accent: '#2ECC71',
+    available: true,
+  },
+  {
+    id: 'invoices-admin',
+    path: '/invoices-admin',
+    Icon: FileText,
+    title: 'Invoices',
+    desc: 'Bill clients for services (marketing, social media, video, photography, ads, platform builds). Create an invoice, email it with a pay link, and the customer pays via Paystack — a receipt is sent automatically.',
+    tags: ['Billing', 'Services', 'Paystack', 'Receipts'],
+    accent: '#0d9488',
     available: true,
   },
   {

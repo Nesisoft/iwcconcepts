@@ -43,6 +43,8 @@ import GroupTraining from './pages/GroupTraining'
 import GroupJoin from './pages/GroupJoin'
 import GroupTrainingAdmin from './pages/GroupTrainingAdmin'
 import BrandingAdmin from './pages/BrandingAdmin'
+import InvoicesAdmin from './pages/InvoicesAdmin'
+import InvoicePay from './pages/InvoicePay'
 
 // Pages that are publicly accessible (no login required)
 const PUBLIC_ROUTES = (
@@ -53,6 +55,7 @@ const PUBLIC_ROUTES = (
     <Route path="/join"      element={<MembershipJoin />} />
     <Route path="/group-training" element={<GroupTraining />} />
     <Route path="/group-join"     element={<GroupJoin />} />
+    <Route path="/invoice"        element={<InvoicePay />} />
   </>
 )
 
@@ -110,6 +113,7 @@ export default function App() {
             <Route path="/admins"              element={<AdminRoute element={<AdminUsers />} />} />
             <Route path="/group-admin"         element={<AdminRoute element={<GroupTrainingAdmin />} />} />
             <Route path="/branding"            element={<AdminRoute element={<BrandingAdmin />} />} />
+            <Route path="/invoices-admin"      element={<AdminRoute element={<InvoicesAdmin />} />} />
           </Routes>
         </CustomerAuthProvider>
       </AuthProvider>
