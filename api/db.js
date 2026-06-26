@@ -68,6 +68,7 @@ const ADMIN_ACTIONS = new Set([
   'getContactMessages', 'deleteContactMessage',
   'getAdminUsers', 'inviteAdmin', 'claimAdmin',
   'getGroupTrainings', 'saveGroupTraining', 'deleteGroupTraining',
+  'getInvoices', 'saveInvoice', 'deleteInvoice', 'sendInvoice',
 ])
 
 // Contact-form messages are stored in the submissions table under this form id.
@@ -160,6 +161,51 @@ function publicGroup(g, plans) {
     status: g.status, expired,
   }
 }
+// ── Invoices (admin services billing) ───────────────────────────────────────────
+// Stored in settings.invoices = { invoices: [...], seq: n }. Admin creates an
+// invoice, sends it by email with a pay link; the customer pays via Paystack and
+// a receipt is emailed. Total is always derived from the line items.
+async function loadInvoiceStore(db) {
+  const { rows } = await db.query(`SELECT data FROM settings WHERE key = 'invoices'`)
+  return rows[0]?.data || { invoices: [], seq: 0 }
+}
+async function saveInvoiceStore(db, store) {
+  await db.query(
+    `INSERT INTO settings (key, data, updated_at) VALUES ('invoices', $1, NOW())
+     ON CONFLICT (key) DO UPDATE SET data = $1, updated_at = NOW()`,
+    [store]
+  )
+}
+function invoiceTotal(inv) {
+  return (inv?.items || []).reduce((s, it) => s + (Number(it.amount) || 0), 0)
+}
+function invoiceEmailText(inv, link) {
+  const lines = (inv.items || []).map(it => `  • ${it.description || 'Item'} — ${inv.currency || 'GHS'} ${(Number(it.amount) || 0).toLocaleString()}`).join('\n')
+  return `Hi ${inv.customerName || 'there'},\n\n` +
+    `Please find your invoice ${inv.number} from IWC Concepts:\n\n${lines}\n\n` +
+    `Total: ${inv.currency || 'GHS'} ${invoiceTotal(inv).toLocaleString()}` +
+    `${inv.dueDate ? `\nDue: ${new Date(inv.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}` +
+    `${inv.notes ? `\n\n${inv.notes}` : ''}\n\n` +
+    `Pay securely online here:\n${link}\n\n— IWC Concepts`
+}
+function receiptEmailText(inv) {
+  return `Hi ${inv.customerName || 'there'},\n\n` +
+    `Thank you — we've received your payment for invoice ${inv.number}.\n\n` +
+    `Amount paid: ${inv.currency || 'GHS'} ${invoiceTotal(inv).toLocaleString()}\n` +
+    `${inv.paymentRef ? `Reference: ${inv.paymentRef}\n` : ''}` +
+    `Date: ${new Date(inv.paidAt || Date.now()).toLocaleString('en-GB')}\n\n` +
+    `This email is your receipt. We appreciate your business.\n\n— IWC Concepts`
+}
+// Public-safe view of an invoice for the pay page.
+function publicInvoice(inv) {
+  return {
+    id: inv.id, number: inv.number, customerName: inv.customerName, email: inv.email,
+    items: inv.items || [], currency: inv.currency || 'GHS', total: invoiceTotal(inv),
+    notes: inv.notes || '', dueDate: inv.dueDate || null, status: inv.status,
+    paidAt: inv.paidAt || null, paymentRef: inv.paymentRef || null,
+  }
+}
+
 // Returns { configured, isAdmin, bootstrap } for an email.
 async function adminGate(db, email) {
   const dbAdmins = await loadDbAdmins(db)
@@ -753,6 +799,99 @@ async function handleAction(db, action, p, user = null) {
         [member.id, email, member, member.joinedAt]
       )
       return { ok: true, orgName: g.orgName }
+    }
+
+    // ── Invoices ────────────────────────────────────────────────────────────────
+    case 'getInvoices': {
+      const store = await loadInvoiceStore(db)
+      return (store.invoices || []).map(inv => ({ ...inv, total: invoiceTotal(inv) }))
+    }
+
+    case 'saveInvoice': {
+      const incoming = p.invoice || {}
+      const store = await loadInvoiceStore(db)
+      const list = store.invoices || []
+      const idx = incoming.id ? list.findIndex(i => i.id === incoming.id) : -1
+      const clean = {
+        customerName: String(incoming.customerName || '').trim().slice(0, 200),
+        email: String(incoming.email || '').trim().slice(0, 200),
+        items: (Array.isArray(incoming.items) ? incoming.items : []).map(it => ({
+          description: String(it.description || '').slice(0, 300),
+          amount: Math.max(0, Number(it.amount) || 0),
+        })).filter(it => it.description || it.amount),
+        currency: incoming.currency || 'GHS',
+        notes: String(incoming.notes || '').slice(0, 2000),
+        dueDate: incoming.dueDate || null,
+      }
+      if (idx >= 0) {
+        // Don't let edits silently overwrite a paid invoice's status.
+        list[idx] = { ...list[idx], ...clean }
+        await saveInvoiceStore(db, { ...store, invoices: list })
+        return { ...list[idx], total: invoiceTotal(list[idx]) }
+      }
+      const seq = (Number(store.seq) || 0) + 1
+      const inv = {
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+        number: `INV-${String(seq).padStart(4, '0')}`,
+        ...clean,
+        status: 'draft',
+        createdAt: new Date().toISOString(),
+      }
+      list.unshift(inv)
+      await saveInvoiceStore(db, { invoices: list, seq })
+      return { ...inv, total: invoiceTotal(inv) }
+    }
+
+    case 'deleteInvoice': {
+      const store = await loadInvoiceStore(db)
+      await saveInvoiceStore(db, { ...store, invoices: (store.invoices || []).filter(i => i.id !== p.id) })
+      return { ok: true }
+    }
+
+    case 'sendInvoice': {
+      const store = await loadInvoiceStore(db)
+      const list = store.invoices || []
+      const inv = list.find(i => i.id === p.id)
+      if (!inv) throw new Error('Invoice not found.')
+      if (!inv.email) throw new Error('This invoice has no customer email.')
+      if (inv.status !== 'paid') inv.status = 'sent'
+      inv.sentAt = new Date().toISOString()
+      await saveInvoiceStore(db, { ...store, invoices: list })
+      const link = `${p.baseUrl || ''}/#/invoice?id=${inv.id}`
+      try {
+        const settings = await loadEmailSettings(db)
+        await trySend(db, { to: inv.email, subject: `Invoice ${inv.number} from IWC Concepts`, text: invoiceEmailText(inv, link), settings })
+      } catch (e) { console.warn('[sendInvoice] email skipped:', e.message) }
+      return { ok: true }
+    }
+
+    case 'getInvoicePublic': {
+      const store = await loadInvoiceStore(db)
+      const inv = (store.invoices || []).find(i => i.id === p.id)
+      if (!inv) throw new Error('Invoice not found.')
+      return publicInvoice(inv)
+    }
+
+    case 'payInvoiceRecord': {
+      // Public — called when the customer returns from Paystack. The amount was
+      // computed server-side in paystack-init, and we verify the reference here
+      // before marking paid (rejecting only a definitively bad reference).
+      const store = await loadInvoiceStore(db)
+      const list = store.invoices || []
+      const inv = list.find(i => i.id === p.id)
+      if (!inv) throw new Error('Invoice not found.')
+      if (inv.status === 'paid') return publicInvoice(inv)
+      const verdict = await verifyPaystackPayment(p.reference)
+      if (verdict === false) throw new Error('We could not verify this payment. If you were charged, please contact us with your reference.')
+      inv.status = 'paid'
+      inv.paidAt = new Date().toISOString()
+      inv.paymentRef = p.reference || null
+      await saveInvoiceStore(db, { ...store, invoices: list })
+      try {
+        const settings = await loadEmailSettings(db)
+        if (inv.email) await trySend(db, { to: inv.email, subject: `Receipt — Invoice ${inv.number} paid`, text: receiptEmailText(inv), settings })
+      } catch (e) { console.warn('[payInvoiceRecord] receipt skipped:', e.message) }
+      return publicInvoice(inv)
     }
 
     // ── Speakers ──────────────────────────────────────────────────────────────

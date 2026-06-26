@@ -535,6 +535,22 @@ export const deleteGroupTraining = (id) =>
   adminToken().then(t => api('deleteGroupTraining', { id }, t))
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Invoices  (admin creates/sends; public views + records payment)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const getInvoices = () =>
+  adminToken().then(t => api('getInvoices', {}, t))
+export const saveInvoice = (invoice) =>
+  adminToken().then(t => api('saveInvoice', { invoice }, t))
+export const deleteInvoice = (id) =>
+  adminToken().then(t => api('deleteInvoice', { id }, t))
+export const sendInvoice = (id) =>
+  adminToken().then(t => api('sendInvoice', { id, baseUrl: typeof window !== 'undefined' ? window.location.origin : '' }, t))
+
+export const getInvoicePublic = (id) => api('getInvoicePublic', { id })
+export const payInvoiceRecord = (id, reference) => api('payInvoiceRecord', { id, reference })
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Utility helpers (unchanged — no DB calls)
 // ═══════════════════════════════════════════════════════════════════════════════
 
