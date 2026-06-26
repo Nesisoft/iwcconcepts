@@ -30,7 +30,8 @@ const SOCIALS = [
 
 export default function SiteFooter() {
   const navigate = useNavigate()
-  const { logoUrl } = useBranding()
+  const { logoUrl, logoHeight } = useBranding()
+  const logoH = Math.max(28, Math.min(110, Number(logoHeight) || 64))
 
   const quickLinks = [
     { label: 'Home',     onClick: () => navigate('/') },
@@ -50,7 +51,7 @@ export default function SiteFooter() {
         <div style={{ maxWidth: 300 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
             {logoUrl ? (
-              <img src={logoUrl} alt="IWC Concepts" style={{ height: 48, maxWidth: 220, objectFit: 'contain', display: 'block' }} />
+              <img src={logoUrl} alt="IWC Concepts" style={{ height: logoH, maxWidth: 240, objectFit: 'contain', display: 'block' }} />
             ) : (
               <>
                 <div style={{

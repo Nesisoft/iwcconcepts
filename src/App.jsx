@@ -6,6 +6,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import AdminGate from './components/AdminGate'
 import CustomerRoute from './components/CustomerRoute'
 import PortalRedirectHandler from './components/PortalRedirectHandler'
+import { BrandingHead } from './utils/branding'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import QuoteCardStudio from './pages/QuoteCardStudio'
@@ -72,6 +73,7 @@ export default function App() {
       <AuthProvider>
         <CustomerAuthProvider>
           <PortalRedirectHandler />
+          <BrandingHead />
           <Routes>
             {/* Public */}
             <Route path="/"       element={<LandingPage />} />
