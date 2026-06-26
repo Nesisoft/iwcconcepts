@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   uid, getAllForms, getMembershipPlans, saveMembershipPlans,
   getMembershipConfig, saveMembershipConfig,
-  getMembers, saveMemberAdmin, deleteMemberAdmin,
+  getMembers, saveMemberAdmin, deleteMemberAdmin, getGroupTrainings,
 } from '../utils/formStorage'
 import AdminSelect from '../components/AdminSelect'
 
@@ -49,17 +49,20 @@ export default function PlansManager() {
   const [config, setConfig]   = useState({})
   const [forms, setForms]     = useState([])
   const [members, setMembers] = useState([])
+  const [groups, setGroups]   = useState([])
   const [selected, setSelected] = useState(null)
   const [perkInput, setPerkInput] = useState('')
   const [memberQuery, setMemberQuery] = useState('')
+  const [planFilter, setPlanFilter] = useState('all')   // 'all' | planId
+  const [joinFilter, setJoinFilter] = useState('all')   // 'all' | 'individual' | 'group'
   const [loaded, setLoaded]   = useState(false)
   const [copied, setCopied]   = useState(false)
   const saveTimer = useRef(null)
 
   useEffect(() => {
-    Promise.all([getMembershipPlans(), getMembershipConfig(), getAllForms(), getMembers().catch(() => [])])
-      .then(([ps, cfg, fs, ms]) => {
-        setPlans(ps); setConfig(cfg || {}); setForms(fs || []); setMembers(ms || [])
+    Promise.all([getMembershipPlans(), getMembershipConfig(), getAllForms(), getMembers().catch(() => []), getGroupTrainings().catch(() => [])])
+      .then(([ps, cfg, fs, ms, gs]) => {
+        setPlans(ps); setConfig(cfg || {}); setForms(fs || []); setMembers(ms || []); setGroups(gs || [])
         if (ps.length) setSelected(ps[0].id)
         setLoaded(true)
       })
@@ -132,10 +135,21 @@ export default function PlansManager() {
     setMembers(ms => ms.filter(x => x.email !== m.email))
   }
 
+  // A member joined "as a group" when their record carries a group source.
+  const groupOf = (m) => {
+    const gid = m.groupId || (typeof m.source === 'string' && m.source.startsWith('group:') ? m.source.slice(6) : null)
+    if (!gid) return null
+    return groups.find(g => g.id === gid) || { id: gid, orgName: 'Unknown group' }
+  }
+
   const visibleMembers = members.filter(m => {
     const q = memberQuery.trim().toLowerCase()
+    const grp = groupOf(m)
+    if (planFilter !== 'all' && m.planId !== planFilter) return false
+    if (joinFilter === 'group' && !grp) return false
+    if (joinFilter === 'individual' && grp) return false
     if (!q) return true
-    return [m.email, m.name, m.planName].filter(Boolean).join(' ').toLowerCase().includes(q)
+    return [m.email, m.name, m.planName, grp?.orgName].filter(Boolean).join(' ').toLowerCase().includes(q)
   })
 
   const divider = { height: 1, background: 'rgba(255,255,255,0.08)', margin: '14px 0' }
@@ -340,29 +354,44 @@ export default function PlansManager() {
         ) : (
 
           /* ── MEMBERS ───────────────────────────────────────────────────── */
-          <div style={{ maxWidth: 860 }}>
-            <input
-              style={inp({ maxWidth: 320, marginBottom: 14 })}
-              placeholder="Search members…"
-              value={memberQuery}
-              onChange={e => setMemberQuery(e.target.value)}
-            />
+          <div style={{ maxWidth: 920 }}>
+            {/* Filters */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 14 }}>
+              <input
+                style={inp({ maxWidth: 240, marginBottom: 0 })}
+                placeholder="Search name, email, group…"
+                value={memberQuery}
+                onChange={e => setMemberQuery(e.target.value)}
+              />
+              <AdminSelect value={planFilter} onChange={e => setPlanFilter(e.target.value)} options={[{ value: 'all', label: 'All plans' }, ...plans.map(p => ({ value: p.id, label: p.name }))]} style={{ minWidth: 150 }} />
+              {[{ k: 'all', t: 'Everyone' }, { k: 'individual', t: 'Individuals' }, { k: 'group', t: 'Groups' }].map(o => (
+                <button key={o.k} onClick={() => setJoinFilter(o.k)} style={{ border: `1.5px solid ${joinFilter === o.k ? ACC : 'rgba(255,255,255,0.15)'}`, background: joinFilter === o.k ? `${ACC}22` : 'transparent', color: joinFilter === o.k ? '#fff' : 'rgba(255,255,255,0.6)', borderRadius: 20, padding: '7px 13px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{o.t}</button>
+              ))}
+              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginLeft: 'auto' }}>{visibleMembers.length} shown</span>
+            </div>
             {visibleMembers.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>
-                <div style={{ fontSize: 32, marginBottom: 8 }}>👥</div>No members{memberQuery ? ' match your search' : ' yet'}
+                <div style={{ fontSize: 32, marginBottom: 8 }}>👥</div>No members{(memberQuery || planFilter !== 'all' || joinFilter !== 'all') ? ' match your filters' : ' yet'}
               </div>
             ) : (
               <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, overflow: 'hidden' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1fr 1.2fr 150px', gap: 0, background: 'rgba(255,255,255,0.05)', padding: '8px 14px', fontSize: 9, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)' }}>
-                  <span>Member</span><span>Plan</span><span>Status</span><span>Expires</span><span />
+                <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr 1.3fr 0.9fr 1.1fr 140px', gap: 0, background: 'rgba(255,255,255,0.05)', padding: '8px 14px', fontSize: 9, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)' }}>
+                  <span>Member</span><span>Plan</span><span>Joined as</span><span>Status</span><span>Expires</span><span />
                 </div>
-                {visibleMembers.map(m => (
-                  <div key={m.email} style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1fr 1.2fr 150px', alignItems: 'center', padding: '10px 14px', borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: 11 }}>
+                {visibleMembers.map(m => {
+                  const grp = groupOf(m)
+                  return (
+                  <div key={m.email} style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr 1.3fr 0.9fr 1.1fr 140px', alignItems: 'center', padding: '10px 14px', borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: 11 }}>
                     <div>
                       <div style={{ fontWeight: 700 }}>{m.name || m.email.split('@')[0]}</div>
                       <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{m.email}</div>
                     </div>
                     <span>{m.planName || '—'}</span>
+                    <span>
+                      {grp
+                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ fontSize: 8, fontWeight: 800, background: 'rgba(8,145,178,0.2)', color: '#67e8f9', borderRadius: 10, padding: '2px 7px' }}>GROUP</span><span style={{ color: 'rgba(255,255,255,0.7)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={grp.orgName}>{grp.orgName}</span></span>
+                        : <span style={{ fontSize: 8, fontWeight: 800, background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)', borderRadius: 10, padding: '2px 7px' }}>INDIVIDUAL</span>}
+                    </span>
                     <span style={{ color: m.active ? '#34d399' : '#f87171', fontWeight: 700 }}>{m.active ? 'Active' : (m.status !== 'active' ? 'Disabled' : 'Expired')}</span>
                     <span style={{ color: 'rgba(255,255,255,0.55)' }}>{m.expiresAt ? new Date(m.expiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Lifetime'}</span>
                     <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end' }}>
@@ -371,7 +400,8 @@ export default function PlansManager() {
                       <button onClick={() => removeMember(m)} style={{ background: 'rgba(239,68,68,0.15)', border: 'none', borderRadius: 6, color: '#f87171', fontSize: 9, fontWeight: 700, padding: '5px 8px', cursor: 'pointer' }}>✕</button>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
