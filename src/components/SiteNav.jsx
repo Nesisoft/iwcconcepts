@@ -15,7 +15,9 @@ const GOLD = '#C9A84C'
  */
 export default function SiteNav({ solid = false }) {
   const navigate = useNavigate()
-  const { logoUrl } = useBranding()
+  const { logoUrl, logoHeight } = useBranding()
+  const logoH = Math.max(24, Math.min(96, Number(logoHeight) || 64))
+  const navH  = logoUrl ? Math.max(64, logoH + 16) : 64
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -47,7 +49,7 @@ export default function SiteNav({ solid = false }) {
       borderBottom: opaque ? '1px solid rgba(255,255,255,0.08)' : 'none',
       transition: 'all 0.3s',
       padding: '0 24px',
-      display: 'flex', alignItems: 'center', height: 64,
+      display: 'flex', alignItems: 'center', height: navH,
     }}>
       {/* Brand */}
       <button
@@ -55,7 +57,7 @@ export default function SiteNav({ solid = false }) {
         style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 12, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
       >
         {logoUrl ? (
-          <img src={logoUrl} alt="IWC Concepts" style={{ height: 40, maxWidth: 200, objectFit: 'contain', display: 'block' }} />
+          <img src={logoUrl} alt="IWC Concepts" style={{ height: logoH, maxWidth: 260, objectFit: 'contain', display: 'block' }} />
         ) : (
           <>
             <div style={{
@@ -93,7 +95,7 @@ export default function SiteNav({ solid = false }) {
       {/* Mobile dropdown */}
       {menuOpen && (
         <div className="site-nav-mobile" style={{
-          position: 'absolute', top: 64, left: 0, right: 0,
+          position: 'absolute', top: navH, left: 0, right: 0,
           background: 'rgba(15,10,26,0.98)', backdropFilter: 'blur(12px)',
           borderBottom: '1px solid rgba(255,255,255,0.1)',
           padding: '12px 16px', display: 'none', flexDirection: 'column', gap: 4,
